@@ -180,11 +180,11 @@ export default function OfferBridge() {
 
   // Reset tab when role changes (after login)
   useEffect(() => {
-    if (user && role) {
+    if (user?.id && role) {
       setActiveTab(getDefaultTab(role));
       fetchAll();
     }
-  }, [user, role, fetchAll]);
+  }, [user?.id, role, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
