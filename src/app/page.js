@@ -176,16 +176,35 @@ export default function OfferBridge() {
     }
   }, [signOut]);
 
+  // Health check for Supabase connection
+  const checkConnection = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('requests').select('count', { count: 'exact', head: true });
+      return !error;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setDbLoading(true);
     try {
+      console.log('[DB] Fetching data from Supabase...');
       const [reqRes, offRes, escRes, disRes] = await Promise.all([
         supabase.from('requests').select('*').order('created_at', { ascending: false }),
         supabase.from('offers').select('*').order('created_at', { ascending: false }),
         supabase.from('escrow').select('*').order('created_at', { ascending: false }),
         supabase.from('disputes').select('*').order('created_at', { ascending: false }),
       ]);
+      
       const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+      console.log('[DB] Connection status:', ok ? 'Connected' : 'Failed', {
+        requests: !reqRes.error,
+        offers: !offRes.error,
+        escrow: !escRes.error,
+        disputes: !disRes.error,
+      });
+      
       setDbConnected(ok);
       setDb({
         requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
@@ -193,7 +212,9 @@ export default function OfferBridge() {
         escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
         disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
       });
-    } catch {
+    } catch (error) {
+      console.error('[DB] Fetch error:', error);
+      setDbConnected(false);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
     } finally {
       setDbLoading(false);
@@ -207,6 +228,18 @@ export default function OfferBridge() {
       fetchAll();
     }
   }, [user?.id, role, fetchAll]);
+
+  // Retry connection on component mount or when user changes
+  useEffect(() => {
+    // If logged in but DB not connected, try to reconnect
+    if (user?.id && !dbConnected && !dbLoading) {
+      const timer = setTimeout(() => {
+        console.log('Retrying database connection...');
+        fetchAll();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, dbConnected, dbLoading, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
