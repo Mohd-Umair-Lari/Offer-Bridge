@@ -100,7 +100,19 @@ function renderContent(role, activeTab, db, onRefresh, user) {
 // ── User menu dropdown ────────────────────────────────────────────────
 function UserMenu({ displayName, role, onSignOut }) {
   const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const initial = displayName?.[0]?.toUpperCase() ?? 'U';
+
+  const handleClick = useCallback(async () => {
+    setSigningOut(true);
+    try {
+      await onSignOut();
+      setOpen(false);
+    } catch (error) {
+      console.error('Sign out failed:', error);
+      setSigningOut(false);
+    }
+  }, [onSignOut]);
 
   return (
     <div className="relative">
@@ -131,11 +143,12 @@ function UserMenu({ displayName, role, onSignOut }) {
             </div>
             <button
               id="user-menu-signout"
-              onClick={() => { setOpen(false); onSignOut(); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition"
+              onClick={handleClick}
+              disabled={signingOut}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <LogOut size={14} />
-              Sign Out
+              {signingOut ? 'Signing out...' : 'Sign Out'}
             </button>
           </div>
         </>
@@ -153,6 +166,15 @@ export default function OfferBridge() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Memoize handleSignOut so it maintains stable reference across renders
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  }, [signOut]);
 
   const fetchAll = useCallback(async () => {
     setDbLoading(true);
@@ -242,7 +264,7 @@ export default function OfferBridge() {
             <Database size={10} />
             {dbConnected ? 'Live DB' : 'Mock Data'}
           </div>
-          <UserMenu displayName={displayName} role={role} onSignOut={signOut} />
+          <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} />
         </div>
       </nav>
 
@@ -302,7 +324,7 @@ export default function OfferBridge() {
               </div>
               <button
                 id="sidebar-signout"
-                onClick={signOut}
+                onClick={handleSignOut}
                 title="Sign out"
                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
               >

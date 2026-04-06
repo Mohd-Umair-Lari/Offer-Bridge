@@ -30,11 +30,28 @@ export function AuthProvider({ children }) {
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         const u = session?.user ?? null;
         setUser(u);
-        if (u) await fetchProfile(u.id);
-        else { setUser(null); setProfile(null); }
+        
+        if (u) {
+          await fetchProfile(u.id);
+        } else {
+          // Explicitly handle logout events
+          setUser(null);
+          setProfile(null);
+          // Clear any remaining auth data
+          try {
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+              if (key.includes('sb-') && key.includes('auth')) {
+                localStorage.removeItem(key);
+              }
+            });
+          } catch (e) {
+            console.warn('Could not clear localStorage:', e);
+          }
+        }
       }
     );
 
@@ -59,9 +76,33 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    try {
+      // Sign out from Supabase - this clears the session and tokens
+      await supabase.auth.signOut();
+      
+      // Clear local state
+      setUser(null);
+      setProfile(null);
+      
+      // Additional cleanup: Clear any lingering auth data from localStorage
+      // Supabase stores session in `sb-{project-ref}-auth-token`
+      // We need to ensure it's completely cleared
+      try {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.includes('sb-') && key.includes('auth')) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (e) {
+        console.warn('Could not clear localStorage:', e);
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Even if there's an error, clear local state to prevent stuck state
+      setUser(null);
+      setProfile(null);
+    }
   };
 
   // ── Derived values ─────────────────────────────────────────────────
