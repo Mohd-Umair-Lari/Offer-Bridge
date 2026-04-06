@@ -180,6 +180,8 @@ export default function OfferBridge() {
     setDbLoading(true);
     try {
       console.log('[DB] Fetching data from Supabase...');
+      console.log('[DB] Supabase client:', typeof supabase.from);
+      
       const [reqRes, offRes, escRes, disRes] = await Promise.all([
         supabase.from('requests').select('*').order('created_at', { ascending: false }),
         supabase.from('offers').select('*').order('created_at', { ascending: false }),
@@ -193,6 +195,12 @@ export default function OfferBridge() {
         offers: !offRes.error,
         escrow: !escRes.error,
         disputes: !disRes.error,
+        errors: {
+          requests: reqRes.error?.message,
+          offers: offRes.error?.message,
+          escrow: escRes.error?.message,
+          disputes: disRes.error?.message,
+        }
       });
       
       setDbConnected(ok);
