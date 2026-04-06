@@ -176,16 +176,6 @@ export default function OfferBridge() {
     }
   }, [signOut]);
 
-  // Health check for Supabase connection
-  const checkConnection = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.from('requests').select('count', { count: 'exact', head: true });
-      return !error;
-    } catch {
-      return false;
-    }
-  }, []);
-
   const fetchAll = useCallback(async () => {
     setDbLoading(true);
     try {
@@ -228,18 +218,6 @@ export default function OfferBridge() {
       fetchAll();
     }
   }, [user?.id, role, fetchAll]);
-
-  // Retry connection on component mount or when user changes
-  useEffect(() => {
-    // If logged in but DB not connected, try to reconnect
-    if (user?.id && !dbConnected && !dbLoading) {
-      const timer = setTimeout(() => {
-        console.log('Retrying database connection...');
-        fetchAll();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [user?.id, dbConnected, dbLoading, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
