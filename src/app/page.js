@@ -184,48 +184,59 @@ export default function OfferBridge() {
     console.log('[DB] 🔄 Fetching data...');
 
     try {
-      // Fetch each table individually to see which one is hanging
-      console.log('[DB] Fetching requests...');
-      const reqRes = await supabase.from('requests').select('*').limit(50);
-      console.log('[DB] ✓ Requests done:', reqRes.error ? 'ERROR' : 'OK');
+      // Try with a simple test query first to check if Supabase is responding
+      console.log('[DB] Testing Supabase connection with simple query...');
+      const testRes = await supabase.from('profiles').select('id').limit(1);
+      console.log('[DB] Test result:', testRes.error ? 'ERROR' : 'OK');
+      
+      if (testRes.error) {
+        console.error('[DB] ⚠️ Even basic query failed:', testRes.error.message);
+      }
+
+      // Now try requests with minimal columns first
+      console.log('[DB] Fetching requests (id only)...');
+      const reqRes = await supabase
+        .from('requests')
+        .select('id, user_id, title, status', { count: 'exact' })
+        .limit(50);
+      console.log('[DB] ✓ Requests:', reqRes.error ? `ERROR: ${reqRes.error.message}` : `Got ${reqRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching offers...');
-      const offRes = await supabase.from('offers').select('*').limit(50);
-      console.log('[DB] ✓ Offers done:', offRes.error ? 'ERROR' : 'OK');
+      const offRes = await supabase
+        .from('offers')
+        .select('id, user_id, card_name, bank, max_amount', { count: 'exact' })
+        .limit(50);
+      console.log('[DB] ✓ Offers:', offRes.error ? `ERROR: ${offRes.error.message}` : `Got ${offRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching escrow...');
-      const escRes = await supabase.from('escrow').select('*').limit(50);
-      console.log('[DB] ✓ Escrow done:', escRes.error ? 'ERROR' : 'OK');
+      const escRes = await supabase
+        .from('escrow')
+        .select('id, status, amount', { count: 'exact' })
+        .limit(50);
+      console.log('[DB] ✓ Escrow:', escRes.error ? `ERROR: ${escRes.error.message}` : `Got ${escRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching disputes...');
-      const disRes = await supabase.from('disputes').select('*').limit(50);
-      console.log('[DB] ✓ Disputes done:', disRes.error ? 'ERROR' : 'OK');
+      const disRes = await supabase
+        .from('disputes')
+        .select('id, status, priority', { count: 'exact' })
+        .limit(50);
+      console.log('[DB] ✓ Disputes:', disRes.error ? `ERROR: ${disRes.error.message}` : `Got ${disRes.data?.length || 0} rows`);
 
-      // Check if ALL queries succeeded
-      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      
+      // Build data from what we got (handle partial failures)
       const newData = {
-        requests: reqRes.data ? reqRes.data : [],
-        offers: offRes.data ? offRes.data : [],
-        escrow: escRes.data ? escRes.data : [],
-        disputes: disRes.data ? disRes.data : [],
+        requests: reqRes.data || [],
+        offers: offRes.data || [],
+        escrow: escRes.data || [],
+        disputes: disRes.data || [],
       };
 
-      console.log('[DB] Data summary:', {
-        requests: newData.requests.length,
-        offers: newData.offers.length,
-        escrow: newData.escrow.length,
-        disputes: newData.disputes.length,
-      });
-
       setDb(newData);
+      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
       setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Data loaded. Connected:', allSucceeded);
+      console.log('[DB] ✅ Fetch complete. Status:', allSucceeded ? '🟢 Live DB' : '🟡 Partial');
     } catch (error) {
-      console.error('[DB] ❌ Fetch error:', error?.message);
-      if (error?.message?.includes('timeout')) {
-        console.error('[DB] 💡 Hint: Supabase is taking too long to respond. Check if project is active.');
-      }
+      console.error('[DB] ❌ Fatal fetch error:', error?.message);
+      console.error('[DB] Stack:', error?.stack);
       setDbConnected(false);
       setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
