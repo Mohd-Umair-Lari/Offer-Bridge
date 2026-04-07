@@ -184,31 +184,47 @@ export default function OfferBridge() {
     console.log('[DB] 🔄 Fetching data...');
 
     try {
-      // Simple direct fetch from Supabase - no cache complexity
+      // Fetch with timeout to prevent infinite hangs
+      const fetchWithTimeout = (promise, timeoutMs = 10000) => {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Fetch timeout')), timeoutMs)
+          ),
+        ]);
+      };
+
+      // Simple direct fetch from Supabase
       const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        supabase.from('requests').select('*').limit(50),
-        supabase.from('offers').select('*').limit(50),
-        supabase.from('escrow').select('*').limit(50),
-        supabase.from('disputes').select('*').limit(50),
+        fetchWithTimeout(supabase.from('requests').select('*').limit(50)),
+        fetchWithTimeout(supabase.from('offers').select('*').limit(50)),
+        fetchWithTimeout(supabase.from('escrow').select('*').limit(50)),
+        fetchWithTimeout(supabase.from('disputes').select('*').limit(50)),
       ]);
+
+      // Log individual results for debugging
+      console.log('[DB] Requests:', !!reqRes.data, reqRes.error?.message || '✓');
+      console.log('[DB] Offers:', !!offRes.data, offRes.error?.message || '✓');
+      console.log('[DB] Escrow:', !!escRes.data, escRes.error?.message || '✓');
+      console.log('[DB] Disputes:', !!disRes.data, disRes.error?.message || '✓');
 
       // Check if ALL queries succeeded
       const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
       
       const newData = {
-        requests: reqRes.data || [],
-        offers: offRes.data || [],
-        escrow: escRes.data || [],
-        disputes: disRes.data || [],
+        requests: reqRes.data ? reqRes.data : [],
+        offers: offRes.data ? offRes.data : [],
+        escrow: escRes.data ? escRes.data : [],
+        disputes: disRes.data ? disRes.data : [],
       };
 
       setDb(newData);
       setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Data loaded:', allSucceeded ? 'Live' : 'With errors');
+      console.log('[DB] ✅ Data loaded. Connected:', allSucceeded);
     } catch (error) {
       console.error('[DB] ❌ Fetch error:', error?.message);
       setDbConnected(false);
-      // On error, still keep the current data to avoid blank screens
+      setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
       setDbLoading(false);
       setIsFetching(false);
