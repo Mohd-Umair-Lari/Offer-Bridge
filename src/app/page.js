@@ -1,8 +1,7 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
-import { CacheService, withRetry } from '@/lib/cacheService';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
 import {
@@ -168,8 +167,7 @@ export default function OfferBridge() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isFetching, setIsFetching] = useState(false); // UI state for spinner
-  const isFetchingRef = useRef(false); // Ref for dedup guard (never stale)
+  const [isFetching, setIsFetching] = useState(false);
 
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
@@ -181,91 +179,39 @@ export default function OfferBridge() {
   }, [signOut]);
 
   const fetchAll = useCallback(async (forceRefresh = false) => {
-    // Use ref (not state) to avoid stale closure — ref is always current
-    if (isFetchingRef.current && !forceRefresh) {
-      console.log('[DB] ⏭️ Already fetching, skip');
-      return;
-    }
-
-    isFetchingRef.current = true;
-    setIsFetching(true);
     setDbLoading(true);
-    console.log('[DB] Starting fetch...');
-
-    // Defined inside fetchAll so it always has a fresh closure over setters
-    const fetchFreshData = async () => {
-      try {
-        console.log('[DB] 🔄 Fetching from Supabase...');
-
-        const [reqRes, offRes, escRes, disRes] = await Promise.all([
-          supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
-        ]);
-
-        const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-
-        setDbConnected(ok);
-        const newData = {
-          requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
-          offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
-          escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
-          disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
-        };
-
-        setDb(newData);
-        console.log('[DB] ✅ Connected:', ok);
-
-        if (ok) {
-          CacheService.set('offerbridge_requests', newData.requests);
-          CacheService.set('offerbridge_offers', newData.offers);
-          CacheService.set('offerbridge_escrow', newData.escrow);
-          CacheService.set('offerbridge_disputes', newData.disputes);
-          console.log('[DB] 💾 Cache updated');
-        }
-      } catch (error) {
-        console.error('[DB] 🔴 Fetch failed:', error?.message);
-        setDbConnected(false);
-        throw error; // Re-throw to trigger main error handler
-      }
-    };
+    setIsFetching(true);
+    console.log('[DB] 🔄 Fetching data...');
 
     try {
-      // Try cache first (unless forcing refresh)
-      if (!forceRefresh) {
-        const cached = {
-          requests: CacheService.get('offerbridge_requests'),
-          offers: CacheService.get('offerbridge_offers'),
-          escrow: CacheService.get('offerbridge_escrow'),
-          disputes: CacheService.get('offerbridge_disputes'),
-        };
+      // Simple direct fetch from Supabase - no cache complexity
+      const [reqRes, offRes, escRes, disRes] = await Promise.all([
+        supabase.from('requests').select('*').limit(50),
+        supabase.from('offers').select('*').limit(50),
+        supabase.from('escrow').select('*').limit(50),
+        supabase.from('disputes').select('*').limit(50),
+      ]);
 
-        if (cached.requests && cached.offers && cached.escrow && cached.disputes) {
-          console.log('[DB] ⚡ Cache hit - showing cached data');
-          setDb(cached);
-          setDbConnected(true);
-          setDbLoading(false);
-          isFetchingRef.current = false;
-          setIsFetching(false);
-          // Fetch fresh in background - AWAIT this to prevent race conditions
-          await fetchFreshData().catch((error) => {
-            console.warn('[DB] Background fetch failed (non-blocking):', error?.message);
-            // Don't propagate - cache is already shown
-          });
-          return;
-        }
-      }
+      // Check if ALL queries succeeded
+      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+      
+      const newData = {
+        requests: reqRes.data || [],
+        offers: offRes.data || [],
+        escrow: escRes.data || [],
+        disputes: disRes.data || [],
+      };
 
-      // No cache — fetch directly from Supabase
-      await fetchFreshData();
+      setDb(newData);
+      setDbConnected(allSucceeded);
+      console.log('[DB] ✅ Data loaded:', allSucceeded ? 'Live' : 'With errors');
     } catch (error) {
-      console.error('[DB] ❌ Error:', error);
-      setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
+      console.error('[DB] ❌ Fetch error:', error?.message);
+      setDbConnected(false);
+      // On error, still keep the current data to avoid blank screens
     } finally {
-      isFetchingRef.current = false;
-      setIsFetching(false);
       setDbLoading(false);
+      setIsFetching(false);
     }
   }, []); // Stable reference — uses ref for guard, setters for state
 
