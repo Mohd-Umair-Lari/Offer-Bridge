@@ -92,7 +92,7 @@ function renderContent(role, activeTab, db, onRefresh, user) {
   if (activeTab === 'new-request') return <NewRequest onCreated={onRefresh} />;
   // Provider tabs
   if (activeTab === 'browse') return <BrowseRequests requests={marketRequests} offers={myOffers} />;
-  if (activeTab === 'my-cards') return <MyCards offers={myOffers} onRefresh={onRefresh} />;
+  if (activeTab === 'my-cards') return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
   // Admin tabs
   if (activeTab === 'escrow') return <Escrow escrow={db.escrow} onRefresh={onRefresh} />;
   if (activeTab === 'disputes') return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;

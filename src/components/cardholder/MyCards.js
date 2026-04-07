@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { MOCK_CARDS } from '@/lib/mockData';
 import { Plus, CreditCard, CheckCircle2, Tag, Trash2 } from 'lucide-react';
 
-export default function MyCards({ offers, onRefresh }) {
+export default function MyCards({ offers, userId, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newCard, setNewCard] = useState({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
@@ -48,6 +48,7 @@ export default function MyCards({ offers, onRefresh }) {
     }
 
     const { error } = await supabase.from('offers').insert({
+      user_id: userId,
       bank: newCard.bank,
       card_name: newCard.name,
       card_type: 'Visa',
@@ -55,7 +56,8 @@ export default function MyCards({ offers, onRefresh }) {
       expiry: expiryDate,
       max_amount: Number(newCard.limit),
       is_public: newCard.isPublic,
-      status: 'available'
+      status: 'available',
+      holder_name: newCard.bank
     });
 
     setIsSubmitting(false);
