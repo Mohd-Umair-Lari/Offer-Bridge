@@ -7,35 +7,32 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   // undefined = still loading, null = not logged in, object = logged in
-  const [user, setUser]               = useState(undefined);
-  const [profile, setProfile]         = useState(null);
-  // true while the profile row is being fetched for the current user
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [user, setUser]       = useState(undefined);
+  const [profile, setProfile] = useState(null);
 
   const fetchProfile = useCallback(async (uid) => {
-    setProfileLoading(true);
-    try {
-      // maybeSingle() returns null (not a 406) when no row exists
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', uid)
-        .maybeSingle();
-      if (error) console.warn('[Auth] Profile fetch warning:', error.message);
-      setProfile(data ?? null);
-      return data;
-    } finally {
-      setProfileLoading(false);
-    }
+    // maybeSingle() returns null (not a 406) when no row exists
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .maybeSingle();
+    if (error) console.warn('[Auth] Profile fetch warning:', error.message);
+    setProfile(data ?? null);
+    return data;
   }, []);
 
   useEffect(() => {
-    // ── Single source of truth ────────────────────────────────────────
-    // onAuthStateChange always fires INITIAL_SESSION with the persisted
-    // session on mount (just like getSession would), so we do NOT call
-    // getSession() separately. Doing both caused fetchProfile() to run
-    // twice simultaneously, racing each other and saturating the
-    // connection pool on every normal page refresh.
+    // Seed initial user state immediately (before onAuthStateChange fires).
+    // onAuthStateChange(INITIAL_SESSION) will also fire shortly after,
+    // but getSession() guarantees the loading state resolves right away.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) fetchProfile(u.id);
+    });
+
+    // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const u = session?.user ?? null;
@@ -50,7 +47,6 @@ export function AuthProvider({ children }) {
           // written, and clearing auth keys at that moment kills the live session.
           setUser(null);
           setProfile(null);
-          setProfileLoading(false);
           CacheService.clear();
           try {
             const keys = Object.keys(localStorage);
@@ -62,12 +58,9 @@ export function AuthProvider({ children }) {
           } catch (e) {
             console.warn('Could not clear localStorage:', e);
           }
-        } else if (event === 'INITIAL_SESSION') {
-          // No session on initial load — resolve loading state immediately.
-          setUser(null);
         }
-        // For any other event with a null session (e.g. TOKEN_REFRESHED
-        // mid-flight) do nothing — the existing user state is still valid.
+        // For any other event with a null session (e.g. TOKEN_REFRESHED mid-flight),
+        // do nothing — getSession() below already seeds the initial user state.
       }
     );
 
@@ -101,7 +94,6 @@ export function AuthProvider({ children }) {
       // Fallback cleanup if signOut itself fails and the event never fires
       setUser(null);
       setProfile(null);
-      setProfileLoading(false);
       CacheService.clear();
     }
   };
@@ -109,13 +101,7 @@ export function AuthProvider({ children }) {
   // ── Derived values ─────────────────────────────────────────────────
   // Role priority: profile table > JWT metadata > default 'customer'
   const role = profile?.role ?? user?.user_metadata?.role ?? 'customer';
-
-  // loading is true until:
-  //   • we know whether a session exists (user !== undefined), AND
-  //   • if a user exists, their profile row has finished loading
-  // This prevents page.js from calling fetchAll() before we have the
-  // correct role, which was the second half of the refresh bug.
-  const loading = user === undefined || (user !== null && profileLoading);
+  const loading = user === undefined;
 
   const displayName =
     profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? 'User';

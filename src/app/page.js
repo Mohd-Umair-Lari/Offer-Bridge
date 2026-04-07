@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
@@ -169,10 +169,6 @@ export default function OfferBridge() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  // Guard: prevents fetchAll from running concurrently with itself.
-  // A plain ref is used (not state) so toggling it never triggers re-renders.
-  const fetchingRef = useRef(false);
-
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
     try {
@@ -183,148 +179,92 @@ export default function OfferBridge() {
   }, [signOut]);
 
   const fetchAll = useCallback(async (forceRefresh = false) => {
-    // Prevent concurrent executions. Without this guard a normal page
-    // refresh can trigger fetchAll multiple times (auth state flickers,
-    // role changes) and each run opens new DB connections that stall.
-    if (fetchingRef.current) {
-      console.log('[DB] ⏩ Fetch already in progress, skipping duplicate call');
-      return;
-    }
-    fetchingRef.current = true;
     setDbLoading(true);
     setIsFetching(true);
     console.log('[DB] 🔄 Fetching data...');
 
-<<<<<<< HEAD
-    // Wraps a Supabase promise in a 10-second hard timeout so a stalled
-    // HTTP connection never leaves the app hanging indefinitely.
-    const withTimeout = (promise, label) => {
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Query timed out: ${label}`)), 10_000)
-      );
-      return Promise.race([promise, timeout]);
-    };
-
     try {
-      console.log('[DB] Fetching requests...');
-      const reqRes = await withTimeout(
-        supabase
-          .from('requests')
-          .select('id, user_id, title, status', { count: 'exact' })
-          .limit(50),
-        'requests'
-      );
+      // Try with a simple test query first to check if Supabase is responding
+      console.log('[DB] Testing Supabase connection with simple query...');
+      const testRes = await supabase.from('profiles').select('id').limit(1);
+      console.log('[DB] Test result:', testRes.error ? 'ERROR' : 'OK');
+      
+      if (testRes.error) {
+        console.error('[DB] ⚠️ Even basic query failed:', testRes.error.message);
+      }
+
+      // Now try requests with minimal columns first
+      console.log('[DB] Fetching requests (id only)...');
+      const reqRes = await supabase
+        .from('requests')
+        .select('id, user_id, title, status', { count: 'exact' })
+        .limit(50);
       console.log('[DB] ✓ Requests:', reqRes.error ? `ERROR: ${reqRes.error.message}` : `Got ${reqRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching offers...');
-      const offRes = await withTimeout(
-        supabase
-          .from('offers')
-          .select('id, user_id, card_name, bank, max_amount', { count: 'exact' })
-          .limit(50),
-        'offers'
-      );
+      const offRes = await supabase
+        .from('offers')
+        .select('id, user_id, card_name, bank, max_amount', { count: 'exact' })
+        .limit(50);
       console.log('[DB] ✓ Offers:', offRes.error ? `ERROR: ${offRes.error.message}` : `Got ${offRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching escrow...');
-      const escRes = await withTimeout(
-        supabase
-          .from('escrow')
-          .select('id, status, amount', { count: 'exact' })
-          .limit(50),
-        'escrow'
-      );
+      const escRes = await supabase
+        .from('escrow')
+        .select('id, status, amount', { count: 'exact' })
+        .limit(50);
       console.log('[DB] ✓ Escrow:', escRes.error ? `ERROR: ${escRes.error.message}` : `Got ${escRes.data?.length || 0} rows`);
 
       console.log('[DB] Fetching disputes...');
-      const disRes = await withTimeout(
-        supabase
-          .from('disputes')
-          .select('id, status, priority', { count: 'exact' })
-          .limit(50),
-        'disputes'
-      );
+      const disRes = await supabase
+        .from('disputes')
+        .select('id, status, priority', { count: 'exact' })
+        .limit(50);
       console.log('[DB] ✓ Disputes:', disRes.error ? `ERROR: ${disRes.error.message}` : `Got ${disRes.data?.length || 0} rows`);
 
-      // Build data from what we got (handle partial failures gracefully)
-=======
-    try {
-      // Fetch each table individually to see which one is hanging
-      console.log('[DB] Fetching requests...');
-      const reqRes = await supabase.from('requests').select('*').limit(50);
-      console.log('[DB] ✓ Requests done:', reqRes.error ? 'ERROR' : 'OK');
-
-      console.log('[DB] Fetching offers...');
-      const offRes = await supabase.from('offers').select('*').limit(50);
-      console.log('[DB] ✓ Offers done:', offRes.error ? 'ERROR' : 'OK');
-
-      console.log('[DB] Fetching escrow...');
-      const escRes = await supabase.from('escrow').select('*').limit(50);
-      console.log('[DB] ✓ Escrow done:', escRes.error ? 'ERROR' : 'OK');
-
-      console.log('[DB] Fetching disputes...');
-      const disRes = await supabase.from('disputes').select('*').limit(50);
-      console.log('[DB] ✓ Disputes done:', disRes.error ? 'ERROR' : 'OK');
-
-      // Check if ALL queries succeeded
-      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      
->>>>>>> parent of 4003524 (Debug: Select specific columns only, test connection first, better error logging)
+      // Build data from what we got (handle partial failures)
       const newData = {
-        requests: reqRes.data ? reqRes.data : [],
-        offers: offRes.data ? offRes.data : [],
-        escrow: escRes.data ? escRes.data : [],
-        disputes: disRes.data ? disRes.data : [],
+        requests: reqRes.data || [],
+        offers: offRes.data || [],
+        escrow: escRes.data || [],
+        disputes: disRes.data || [],
       };
 
-      console.log('[DB] Data summary:', {
-        requests: newData.requests.length,
-        offers: newData.offers.length,
-        escrow: newData.escrow.length,
-        disputes: newData.disputes.length,
-      });
-
       setDb(newData);
+      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
       setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Data loaded. Connected:', allSucceeded);
+      console.log('[DB] ✅ Fetch complete. Status:', allSucceeded ? '🟢 Live DB' : '🟡 Partial');
     } catch (error) {
-<<<<<<< HEAD
       console.error('[DB] ❌ Fatal fetch error:', error?.message);
-=======
-      console.error('[DB] ❌ Fetch error:', error?.message);
-      if (error?.message?.includes('timeout')) {
-        console.error('[DB] 💡 Hint: Supabase is taking too long to respond. Check if project is active.');
-      }
->>>>>>> parent of 4003524 (Debug: Select specific columns only, test connection first, better error logging)
+      console.error('[DB] Stack:', error?.stack);
       setDbConnected(false);
       setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
-      fetchingRef.current = false;
       setDbLoading(false);
       setIsFetching(false);
     }
-  }, []); // Stable reference — fetchingRef is a plain ref, setters are stable
+  }, []); // Stable reference — uses ref for guard, setters for state
 
-  // Trigger the initial data fetch once auth is fully resolved.
-  // authLoading is now true until BOTH the user session AND profile row are
-  // ready, so role is correct (from the DB) before fetchAll ever runs.
+  // Reset tab when role changes (after login) - WAIT FOR AUTH FIRST
   useEffect(() => {
+    // Wait for auth to be ready (not still loading)
     if (authLoading) {
-      console.log('[DB] ⏳ Auth still loading (waiting for session + profile)...');
+      console.log('[DB] ⏳ Auth still loading...');
       return;
     }
 
+    // Only fetch if user is logged in
     if (!user?.id) {
       console.log('[DB] 🔐 No user, skipping fetch');
       return;
     }
 
-    console.log('[DB] 📍 Auth ready with role:', role, '— triggering initial fetch');
-    setActiveTab(getDefaultTab(role));
-    fetchAll(false);
-    // Only re-run when the resolved user identity changes (not on every
-    // authLoading flip), keeping the dep array minimal and stable.
-  }, [user?.id, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (role) {
+      console.log('[DB] 📍 Auth ready - initial fetch on role change');
+      setActiveTab(getDefaultTab(role));
+      fetchAll(false);
+    }
+  }, [user?.id, role, authLoading]); // Include authLoading in deps
 
   const handleTab = (id) => {
     setActiveTab(id);
