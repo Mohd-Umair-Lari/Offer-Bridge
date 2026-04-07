@@ -195,6 +195,7 @@ export default function OfferBridge() {
     setIsFetching(true);
     console.log('[DB] 🔄 Fetching data...');
 
+<<<<<<< HEAD
     // Wraps a Supabase promise in a 10-second hard timeout so a stalled
     // HTTP connection never leaves the app hanging indefinitely.
     const withTimeout = (promise, label) => {
@@ -246,19 +247,55 @@ export default function OfferBridge() {
       console.log('[DB] ✓ Disputes:', disRes.error ? `ERROR: ${disRes.error.message}` : `Got ${disRes.data?.length || 0} rows`);
 
       // Build data from what we got (handle partial failures gracefully)
+=======
+    try {
+      // Fetch each table individually to see which one is hanging
+      console.log('[DB] Fetching requests...');
+      const reqRes = await supabase.from('requests').select('*').limit(50);
+      console.log('[DB] ✓ Requests done:', reqRes.error ? 'ERROR' : 'OK');
+
+      console.log('[DB] Fetching offers...');
+      const offRes = await supabase.from('offers').select('*').limit(50);
+      console.log('[DB] ✓ Offers done:', offRes.error ? 'ERROR' : 'OK');
+
+      console.log('[DB] Fetching escrow...');
+      const escRes = await supabase.from('escrow').select('*').limit(50);
+      console.log('[DB] ✓ Escrow done:', escRes.error ? 'ERROR' : 'OK');
+
+      console.log('[DB] Fetching disputes...');
+      const disRes = await supabase.from('disputes').select('*').limit(50);
+      console.log('[DB] ✓ Disputes done:', disRes.error ? 'ERROR' : 'OK');
+
+      // Check if ALL queries succeeded
+      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+      
+>>>>>>> parent of 4003524 (Debug: Select specific columns only, test connection first, better error logging)
       const newData = {
-        requests: reqRes.data || [],
-        offers: offRes.data || [],
-        escrow: escRes.data || [],
-        disputes: disRes.data || [],
+        requests: reqRes.data ? reqRes.data : [],
+        offers: offRes.data ? offRes.data : [],
+        escrow: escRes.data ? escRes.data : [],
+        disputes: disRes.data ? disRes.data : [],
       };
 
+      console.log('[DB] Data summary:', {
+        requests: newData.requests.length,
+        offers: newData.offers.length,
+        escrow: newData.escrow.length,
+        disputes: newData.disputes.length,
+      });
+
       setDb(newData);
-      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
       setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Fetch complete. Status:', allSucceeded ? '🟢 Live DB' : '🟡 Partial');
+      console.log('[DB] ✅ Data loaded. Connected:', allSucceeded);
     } catch (error) {
+<<<<<<< HEAD
       console.error('[DB] ❌ Fatal fetch error:', error?.message);
+=======
+      console.error('[DB] ❌ Fetch error:', error?.message);
+      if (error?.message?.includes('timeout')) {
+        console.error('[DB] 💡 Hint: Supabase is taking too long to respond. Check if project is active.');
+      }
+>>>>>>> parent of 4003524 (Debug: Select specific columns only, test connection first, better error logging)
       setDbConnected(false);
       setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
