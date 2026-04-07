@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import { CacheService } from './cacheService';
 
 const AuthContext = createContext(null);
 
@@ -40,6 +41,10 @@ export function AuthProvider({ children }) {
           // Explicitly handle logout events
           setUser(null);
           setProfile(null);
+          
+          // Clear all cached data when user logs out
+          CacheService.clear();
+          
           // Clear any remaining auth data
           try {
             const keys = Object.keys(localStorage);
@@ -84,6 +89,9 @@ export function AuthProvider({ children }) {
       setUser(null);
       setProfile(null);
       
+      // Clear all cached data when logging out
+      CacheService.clear();
+      
       // Additional cleanup: Clear any lingering auth data from localStorage
       // Supabase stores session in `sb-{project-ref}-auth-token`
       // We need to ensure it's completely cleared
@@ -102,6 +110,7 @@ export function AuthProvider({ children }) {
       // Even if there's an error, clear local state to prevent stuck state
       setUser(null);
       setProfile(null);
+      CacheService.clear();
     }
   };
 

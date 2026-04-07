@@ -267,14 +267,26 @@ export default function OfferBridge() {
     }
   };
 
-  // Reset tab when role changes (after login) - FETCH ONCE
+  // Reset tab when role changes (after login) - WAIT FOR AUTH FIRST
   useEffect(() => {
-    if (user?.id && role) {
-      setActiveTab(getDefaultTab(role));
-      console.log('[DB] 📍 Initial fetch on login/role change');
-      fetchAll(false); // Cache first, then fetch fresh
+    // Wait for auth to be ready (not still loading)
+    if (authLoading) {
+      console.log('[DB] ⏳ Auth still loading...');
+      return;
     }
-  }, [user?.id, role]); // Removed fetchAll from deps to prevent re-triggers
+
+    // Only fetch if user is logged in
+    if (!user?.id) {
+      console.log('[DB] 🔐 No user, skipping fetch');
+      return;
+    }
+
+    if (role) {
+      console.log('[DB] 📍 Auth ready - initial fetch on role change');
+      setActiveTab(getDefaultTab(role));
+      fetchAll(false);
+    }
+  }, [user?.id, role, authLoading]); // Include authLoading in deps
 
   const handleTab = (id) => {
     setActiveTab(id);

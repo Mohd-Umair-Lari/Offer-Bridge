@@ -19,6 +19,8 @@ export const CacheService = {
       if (cached && timestamp && Date.now() - parseInt(timestamp) < CACHE_DURATION) {
         return JSON.parse(cached);
       }
+      // Cache expired or invalid
+      CacheService.clear();
       return null;
     } catch {
       return null;
@@ -31,18 +33,20 @@ export const CacheService = {
     try {
       localStorage.setItem(key, JSON.stringify(data));
       localStorage.setItem(CACHE_KEYS.TIMESTAMP, Date.now().toString());
+      console.log('[Cache] Set:', key);
     } catch {
       console.warn('[Cache] Failed to set:', key);
     }
   },
 
-  // Clear all cache
+  // Clear all cache (call on logout or session change)
   clear: () => {
     if (typeof window === 'undefined') return;
     try {
       Object.values(CACHE_KEYS).forEach(key => {
         localStorage.removeItem(key);
       });
+      console.log('[Cache] Cleared');
     } catch {
       console.warn('[Cache] Failed to clear');
     }
