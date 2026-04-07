@@ -182,11 +182,12 @@ export default function OfferBridge() {
       console.log('[DB] Fetching data from Supabase...');
       console.log('[DB] Supabase client:', typeof supabase.from);
       
+      // Fetch with limits to improve performance
       const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        supabase.from('requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('offers').select('*').order('created_at', { ascending: false }),
-        supabase.from('escrow').select('*').order('created_at', { ascending: false }),
-        supabase.from('disputes').select('*').order('created_at', { ascending: false }),
+        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
       ]);
       
       const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
