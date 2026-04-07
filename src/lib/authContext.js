@@ -11,41 +11,43 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
 
   const fetchProfile = useCallback(async (uid) => {
-    const { data } = await supabase
+    // maybeSingle() returns null (not a 406) when no row exists
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', uid)
-      .single();
+      .maybeSingle();
+    if (error) console.warn('[Auth] Profile fetch warning:', error.message);
     setProfile(data ?? null);
     return data;
   }, []);
 
   useEffect(() => {
-    // Load current session on mount
+    // Seed initial user state immediately (before onAuthStateChange fires).
+    // onAuthStateChange(INITIAL_SESSION) will also fire shortly after,
+    // but getSession() guarantees the loading state resolves right away.
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u) fetchProfile(u.id);
-      else setUser(null); // triggers loading = false
     });
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const u = session?.user ?? null;
-        setUser(u);
-        
+
         if (u) {
+          setUser(u);
           await fetchProfile(u.id);
-        } else {
-          // Explicitly handle logout events
+        } else if (event === 'SIGNED_OUT') {
+          // Only clean up on an explicit sign-out.
+          // DO NOT clear here for TOKEN_REFRESHED or other transitional events —
+          // those can briefly emit a null session while the new token is being
+          // written, and clearing auth keys at that moment kills the live session.
           setUser(null);
           setProfile(null);
-          
-          // Clear all cached data when user logs out
           CacheService.clear();
-          
-          // Clear any remaining auth data
           try {
             const keys = Object.keys(localStorage);
             keys.forEach(key => {
@@ -57,6 +59,8 @@ export function AuthProvider({ children }) {
             console.warn('Could not clear localStorage:', e);
           }
         }
+        // For any other event with a null session (e.g. TOKEN_REFRESHED mid-flight),
+        // do nothing — getSession() below already seeds the initial user state.
       }
     );
 
@@ -82,32 +86,12 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase - this clears the session and tokens
+      // supabase.auth.signOut() triggers onAuthStateChange(SIGNED_OUT),
+      // which handles all cleanup (state, cache, localStorage).
       await supabase.auth.signOut();
-      
-      // Clear local state
-      setUser(null);
-      setProfile(null);
-      
-      // Clear all cached data when logging out
-      CacheService.clear();
-      
-      // Additional cleanup: Clear any lingering auth data from localStorage
-      // Supabase stores session in `sb-{project-ref}-auth-token`
-      // We need to ensure it's completely cleared
-      try {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-          if (key.includes('sb-') && key.includes('auth')) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (e) {
-        console.warn('Could not clear localStorage:', e);
-      }
     } catch (error) {
       console.error('Sign out error:', error);
-      // Even if there's an error, clear local state to prevent stuck state
+      // Fallback cleanup if signOut itself fails and the event never fires
       setUser(null);
       setProfile(null);
       CacheService.clear();

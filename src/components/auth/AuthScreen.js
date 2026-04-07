@@ -56,9 +56,10 @@ const ROLES = [
 ];
 
 // ── Helpers ─────────────────────────────────────────────────────────
-function InputField({ id, label, type = 'text', value, onChange, placeholder, error, suffix }) {
+function InputField({ id, label, type = 'text', value, onChange, placeholder, error, suffix, autoComplete }) {
   const [showPw, setShowPw] = useState(false);
   const inputType = type === 'password' ? (showPw ? 'text' : 'password') : type;
+  const resolvedAutoComplete = autoComplete ?? (type === 'password' ? 'current-password' : 'on');
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
@@ -69,7 +70,7 @@ function InputField({ id, label, type = 'text', value, onChange, placeholder, er
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          autoComplete={type === 'password' ? 'current-password' : 'on'}
+          autoComplete={resolvedAutoComplete}
           className={`w-full px-4 py-3 text-sm bg-white border rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#185FA5]/25 focus:border-[#185FA5] ${error ? 'border-red-300 bg-red-50/30' : 'border-gray-200'} ${suffix ? 'pr-10' : ''}`}
         />
         {type === 'password' && (
@@ -298,6 +299,7 @@ export default function AuthScreen() {
                 onChange={set('password')}
                 placeholder="••••••••"
                 error={errors.password}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
 
               {mode === 'signup' && (
@@ -309,6 +311,7 @@ export default function AuthScreen() {
                   onChange={set('confirmPw')}
                   placeholder="••••••••"
                   error={errors.confirmPw}
+                  autoComplete="new-password"
                 />
               )}
 

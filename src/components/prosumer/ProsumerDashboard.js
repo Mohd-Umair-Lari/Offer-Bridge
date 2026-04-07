@@ -1,6 +1,5 @@
 "use client";
 import { TrendingDown, TrendingUp, CheckCircle2, Clock, Tag, ArrowUpRight, DollarSign, Star } from 'lucide-react';
-import { MOCK_OFFERS } from '@/lib/mockData';
 
 const STATUS_STYLES = {
   pending: 'bg-amber-50 text-amber-700 border border-amber-200',
@@ -165,7 +164,7 @@ export default function ProsumerDashboard({ requests = [], offers = [] }) {
               {myOffers.map((offer) => (
                 <div key={`offer-${offer.id}`} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
                   <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-white text-xs font-bold">{offer.bank[0]}</span>
+                    <span className="text-white text-xs font-bold">{offer.bank?.[0] ?? '?'}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[#1a1a2e]">{offer.card_name}</p>

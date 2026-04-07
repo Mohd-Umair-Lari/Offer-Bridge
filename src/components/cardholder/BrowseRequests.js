@@ -1,7 +1,6 @@
 "use client";
 import { useState } from 'react';
 import { Search, Filter, Tag, Calendar, Zap, CheckCircle2, Globe, ShieldCheck } from 'lucide-react';
-import { MOCK_OFFERS } from '@/lib/mockData';
 
 const CATEGORY_STYLES = {
   Electronics: 'bg-violet-50 text-violet-700',

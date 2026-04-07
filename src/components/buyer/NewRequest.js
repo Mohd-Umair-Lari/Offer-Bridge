@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/authContext';
 import { Send, CheckCircle2, Calendar, Tag, DollarSign, AlignLeft, Globe, CreditCard } from 'lucide-react';
 
 const CATEGORIES = [
@@ -26,6 +27,7 @@ const BANKS = ['Any', 'HDFC Bank', 'SBI Card', 'ICICI Bank', 'Axis Bank', 'Kotak
 const INITIAL = { title: '', amount: '', category: '', deadline: '', description: '', productLink: '', requiredCard: 'Any', isPublic: true };
 
 export default function NewRequest({ onCreated }) {
+  const { user } = useAuth();
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function NewRequest({ onCreated }) {
     if (!form.category) errs.category = 'Select a category';
     if (!form.deadline) errs.deadline = 'Set a deadline';
     if (!form.description.trim()) errs.description = 'Add a brief description';
-    if (form.productLink && !form.productLink.startsWith('http')) errs.productLink = 'Must be a valid URL (http/https)';
+    if (form.productLink && !/^https?:\/\/.+/.test(form.productLink)) errs.productLink = 'Must be a valid URL (http/https)';
     return errs;
   };
 
@@ -59,6 +61,7 @@ export default function NewRequest({ onCreated }) {
 
     try {
       const newRow = {
+        user_id: user?.id,
         title: form.title.trim(),
         amount: Number(form.amount),
         category: form.category,

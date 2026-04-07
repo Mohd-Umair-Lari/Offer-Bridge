@@ -168,7 +168,8 @@ export default function OfferBridge() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isFetching, setIsFetching] = useState(false); // Prevent duplicate requests
+  const [isFetching, setIsFetching] = useState(false); // UI state for spinner
+  const isFetchingRef = useRef(false); // Ref for dedup guard (never stale)
 
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
@@ -180,15 +181,54 @@ export default function OfferBridge() {
   }, [signOut]);
 
   const fetchAll = useCallback(async (forceRefresh = false) => {
-    // Prevent duplicate requests
-    if (isFetching && !forceRefresh) {
+    // Use ref (not state) to avoid stale closure — ref is always current
+    if (isFetchingRef.current && !forceRefresh) {
       console.log('[DB] ⏭️ Already fetching, skip');
       return;
     }
 
+    isFetchingRef.current = true;
     setIsFetching(true);
     setDbLoading(true);
     console.log('[DB] Starting fetch...');
+
+    // Defined inside fetchAll so it always has a fresh closure over setters
+    const fetchFreshData = async () => {
+      try {
+        console.log('[DB] 🔄 Fetching from Supabase...');
+
+        const [reqRes, offRes, escRes, disRes] = await Promise.all([
+          supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
+        ]);
+
+        const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+
+        setDbConnected(ok);
+        const newData = {
+          requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
+          offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
+          escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
+          disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
+        };
+
+        setDb(newData);
+        console.log('[DB] ✅ Connected:', ok);
+
+        if (ok) {
+          CacheService.set('offerbridge_requests', newData.requests);
+          CacheService.set('offerbridge_offers', newData.offers);
+          CacheService.set('offerbridge_escrow', newData.escrow);
+          CacheService.set('offerbridge_disputes', newData.disputes);
+          console.log('[DB] 💾 Cache updated');
+        }
+      } catch (error) {
+        console.error('[DB] 🔴 Fetch failed:', error?.message);
+        setDbConnected(false);
+      }
+    };
 
     try {
       // Try cache first (unless forcing refresh)
@@ -205,67 +245,25 @@ export default function OfferBridge() {
           setDb(cached);
           setDbConnected(true);
           setDbLoading(false);
+          isFetchingRef.current = false;
           setIsFetching(false);
-          // Fetch fresh but don't block UI
+          // Fetch fresh in background without blocking UI
           fetchFreshData();
           return;
         }
       }
 
-      // No cache, fetch directly from Supabase
+      // No cache — fetch directly from Supabase
       await fetchFreshData();
-      setIsFetching(false);
     } catch (error) {
       console.error('[DB] ❌ Error:', error);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
-      setIsFetching(false);
     } finally {
+      isFetchingRef.current = false;
+      setIsFetching(false);
       setDbLoading(false);
     }
-  }, []); // Empty dependency array - only stable reference
-
-  const fetchFreshData = async () => {
-    // Prevent overlapping calls
-    if (isFetching) {
-      console.log('[DB] Already fetching, skip fresh');
-      return;
-    }
-
-    try {
-      console.log('[DB] 🔄 Fetching from Supabase...');
-      
-      const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
-      ]);
-      
-      const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      
-      setDbConnected(ok);
-      const newData = {
-        requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
-        offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
-        escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
-        disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
-      };
-      
-      setDb(newData);
-      console.log('[DB] ✅ Connected:', ok);
-      
-      if (ok) {
-        CacheService.set('offerbridge_requests', newData.requests);
-        CacheService.set('offerbridge_offers', newData.offers);
-        CacheService.set('offerbridge_escrow', newData.escrow);
-        CacheService.set('offerbridge_disputes', newData.disputes);
-        console.log('[DB] 💾 Cache updated');
-      }
-    } catch (error) {
-      console.error('[DB] 🔴 Fetch failed:', error?.message);
-      setDbConnected(false);
-    }
-  };
+  }, []); // Stable reference — uses ref for guard, setters for state
 
   // Reset tab when role changes (after login) - WAIT FOR AUTH FIRST
   useEffect(() => {

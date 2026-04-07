@@ -1,8 +1,16 @@
 "use client";
 import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { MOCK_CARDS } from '@/lib/mockData';
 import { Plus, CreditCard, CheckCircle2, Tag, Trash2, Globe, Lock } from 'lucide-react';
+
+// Convert ISO date (YYYY-MM-DD) to MM/YY for card display
+function isoToMonthYear(isoDate) {
+  if (!isoDate) return '';
+  const parts = isoDate.split('-');
+  if (parts.length < 2) return isoDate;
+  const [year, month] = parts;
+  return `${month}/${year.slice(2)}`;
+}
 
 export default function MyCards({ offers, userId, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -18,7 +26,7 @@ export default function MyCards({ offers, userId, onRefresh }) {
       name: o.card_name,
       type: o.card_type || 'Visa',
       last4: o.last4 || '0000',
-      expiry: o.expiry || '12/28',
+      expiry: isoToMonthYear(o.expiry) || '12/28',
       bank: o.bank || 'Other',
       gradient: 'from-[#1a1a2e] to-[#185FA5]',
       offers: o.categories?.length ? o.categories : ['Shopping', 'Electronics'],
