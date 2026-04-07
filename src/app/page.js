@@ -227,6 +227,7 @@ export default function OfferBridge() {
       } catch (error) {
         console.error('[DB] 🔴 Fetch failed:', error?.message);
         setDbConnected(false);
+        throw error; // Re-throw to trigger main error handler
       }
     };
 
@@ -247,8 +248,11 @@ export default function OfferBridge() {
           setDbLoading(false);
           isFetchingRef.current = false;
           setIsFetching(false);
-          // Fetch fresh in background without blocking UI
-          fetchFreshData();
+          // Fetch fresh in background - AWAIT this to prevent race conditions
+          await fetchFreshData().catch((error) => {
+            console.warn('[DB] Background fetch failed (non-blocking):', error?.message);
+            // Don't propagate - cache is already shown
+          });
           return;
         }
       }
