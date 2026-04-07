@@ -184,29 +184,22 @@ export default function OfferBridge() {
     console.log('[DB] 🔄 Fetching data...');
 
     try {
-      // Fetch with timeout to prevent infinite hangs
-      const fetchWithTimeout = (promise, timeoutMs = 10000) => {
-        return Promise.race([
-          promise,
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Fetch timeout')), timeoutMs)
-          ),
-        ]);
-      };
+      // Fetch each table individually to see which one is hanging
+      console.log('[DB] Fetching requests...');
+      const reqRes = await supabase.from('requests').select('*').limit(50);
+      console.log('[DB] ✓ Requests done:', reqRes.error ? 'ERROR' : 'OK');
 
-      // Simple direct fetch from Supabase
-      const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        fetchWithTimeout(supabase.from('requests').select('*').limit(50)),
-        fetchWithTimeout(supabase.from('offers').select('*').limit(50)),
-        fetchWithTimeout(supabase.from('escrow').select('*').limit(50)),
-        fetchWithTimeout(supabase.from('disputes').select('*').limit(50)),
-      ]);
+      console.log('[DB] Fetching offers...');
+      const offRes = await supabase.from('offers').select('*').limit(50);
+      console.log('[DB] ✓ Offers done:', offRes.error ? 'ERROR' : 'OK');
 
-      // Log individual results for debugging
-      console.log('[DB] Requests:', !!reqRes.data, reqRes.error?.message || '✓');
-      console.log('[DB] Offers:', !!offRes.data, offRes.error?.message || '✓');
-      console.log('[DB] Escrow:', !!escRes.data, escRes.error?.message || '✓');
-      console.log('[DB] Disputes:', !!disRes.data, disRes.error?.message || '✓');
+      console.log('[DB] Fetching escrow...');
+      const escRes = await supabase.from('escrow').select('*').limit(50);
+      console.log('[DB] ✓ Escrow done:', escRes.error ? 'ERROR' : 'OK');
+
+      console.log('[DB] Fetching disputes...');
+      const disRes = await supabase.from('disputes').select('*').limit(50);
+      console.log('[DB] ✓ Disputes done:', disRes.error ? 'ERROR' : 'OK');
 
       // Check if ALL queries succeeded
       const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
@@ -218,11 +211,21 @@ export default function OfferBridge() {
         disputes: disRes.data ? disRes.data : [],
       };
 
+      console.log('[DB] Data summary:', {
+        requests: newData.requests.length,
+        offers: newData.offers.length,
+        escrow: newData.escrow.length,
+        disputes: newData.disputes.length,
+      });
+
       setDb(newData);
       setDbConnected(allSucceeded);
       console.log('[DB] ✅ Data loaded. Connected:', allSucceeded);
     } catch (error) {
       console.error('[DB] ❌ Fetch error:', error?.message);
+      if (error?.message?.includes('timeout')) {
+        console.error('[DB] 💡 Hint: Supabase is taking too long to respond. Check if project is active.');
+      }
       setDbConnected(false);
       setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
