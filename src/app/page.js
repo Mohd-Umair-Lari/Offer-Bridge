@@ -182,12 +182,13 @@ export default function OfferBridge() {
   const fetchAll = useCallback(async (forceRefresh = false) => {
     // Prevent duplicate requests
     if (isFetching && !forceRefresh) {
-      console.log('[DB] Fetch already in progress, skipping...');
+      console.log('[DB] ⏭️ Already fetching, skip');
       return;
     }
 
     setIsFetching(true);
     setDbLoading(true);
+    console.log('[DB] Starting fetch...');
 
     try {
       // Try cache first (unless forcing refresh)
@@ -200,34 +201,30 @@ export default function OfferBridge() {
         };
 
         if (cached.requests && cached.offers && cached.escrow && cached.disputes) {
-          console.log('[DB] ⚡ Loading from cache...');
+          console.log('[DB] ⚡ Cache hit - showing cached data');
           setDb(cached);
           setDbConnected(true);
           setDbLoading(false);
-          setIsFetching(false);
-          
-          // Fetch fresh data in background (don't block)
-          setTimeout(() => fetchFromSupabase(), 100);
+          // Fetch fresh but don't wait or block
+          fetchFreshData();
           return;
         }
       }
 
-      // No cache, fetch from Supabase
-      await fetchFromSupabase();
-      setIsFetching(false);
+      // No cache, fetch directly from Supabase
+      await fetchFreshData();
     } catch (error) {
-      console.error('[DB] Fetch error:', error);
-      setDbConnected(false);
+      console.error('[DB] ❌ Error:', error);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
-      setIsFetching(false);
     } finally {
       setDbLoading(false);
+      setIsFetching(false);
     }
   }, [isFetching]);
 
-  const fetchFromSupabase = async () => {
+  const fetchFreshData = async () => {
     try {
-      console.log('[DB] 🔄 Fetching fresh data...');
+      console.log('[DB] 🔄 Fetching from Supabase...');
       
       const [reqRes, offRes, escRes, disRes] = await Promise.all([
         supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
@@ -237,7 +234,6 @@ export default function OfferBridge() {
       ]);
       
       const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      console.log('[DB] ✅ Connection:', ok ? 'Connected' : 'Failed');
       
       setDbConnected(ok);
       const newData = {
@@ -248,19 +244,18 @@ export default function OfferBridge() {
       };
       
       setDb(newData);
+      console.log('[DB] ✅ Connected:', ok);
       
-      // Cache only successful results
       if (ok) {
         CacheService.set('offerbridge_requests', newData.requests);
         CacheService.set('offerbridge_offers', newData.offers);
         CacheService.set('offerbridge_escrow', newData.escrow);
         CacheService.set('offerbridge_disputes', newData.disputes);
-        console.log('[DB] 💾 Cached successfully');
+        console.log('[DB] 💾 Cache updated');
       }
     } catch (error) {
-      console.error('[DB] Supabase fetch failed:', error);
+      console.error('[DB] 🔴 Fetch failed:', error?.message);
       setDbConnected(false);
-      setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
     }
   };
 
@@ -268,18 +263,24 @@ export default function OfferBridge() {
   useEffect(() => {
     if (user?.id && role) {
       setActiveTab(getDefaultTab(role));
-      fetchAll(false); // Use cache first
+      fetchAll(false); // Use cache first, no blocking
     }
   }, [user?.id, role, fetchAll]);
 
-  // Smart auto-refresh - every 30 seconds (cache-first so no blocking)
+  // Auto-refresh only after cache loads - prevent loop by only on interval
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !dbConnected) return;
+    
     const interval = setInterval(() => {
-      fetchAll(false); // Use cache first, refresh in background
-    }, 30 * 1000);
+      // Only refresh if NOT currently fetching (prevent loop)
+      if (!isFetching) {
+        console.log('[DB] ↻ Auto-refresh interval trigger');
+        fetchAll(true); // Force refresh, get fresh data
+      }
+    }, 120 * 1000); // 2 minutes - much less aggressive
+    
     return () => clearInterval(interval);
-  }, [user?.id, fetchAll]);
+  }, [user?.id, dbConnected, isFetching, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
