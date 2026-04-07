@@ -2,16 +2,18 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MOCK_CARDS } from '@/lib/mockData';
-import { Plus, CreditCard, CheckCircle2, Tag, Trash2 } from 'lucide-react';
+import { Plus, CreditCard, CheckCircle2, Tag, Trash2, Globe, Lock } from 'lucide-react';
 
 export default function MyCards({ offers, userId, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filterType, setFilterType] = useState('all'); // 'all', 'marketplace', 'private'
   const [newCard, setNewCard] = useState({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
 
   const cards = useMemo(() => {
-    if (!offers) return [];
-    return offers.map(o => ({
+    if (!offers) return { all: [], marketplace: [], private: [] };
+    
+    const allCards = offers.map(o => ({
       id: o.id,
       name: o.card_name,
       type: o.card_type || 'Visa',
@@ -27,7 +29,18 @@ export default function MyCards({ offers, userId, onRefresh }) {
       is_public: o.is_public !== false,
       isReal: true
     }));
+
+    const marketplace = allCards.filter(c => c.is_public);
+    const onlyPrivate = allCards.filter(c => !c.is_public);
+    
+    return { all: allCards, marketplace, private: onlyPrivate };
   }, [offers]);
+
+  // Get filtered cards based on selection
+  const displayedCards = 
+    filterType === 'marketplace' ? cards.marketplace : 
+    filterType === 'private' ? cards.private : 
+    cards.all;
 
   const handleRemove = async (id, isReal) => {
     if (!isReal) return; // Cannot delete mock cards from DB
@@ -85,6 +98,28 @@ export default function MyCards({ offers, userId, onRefresh }) {
         >
           <Plus size={15} /> Add Card
         </button>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl w-fit">
+        {[
+          { id: 'all', label: 'All Cards', icon: CreditCard, count: cards.all.length },
+          { id: 'marketplace', label: 'Marketplace', icon: Globe, count: cards.marketplace.length },
+          { id: 'private', label: 'Private', icon: Lock, count: cards.private.length },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterType(tab.id)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition ${
+              filterType === tab.id
+                ? 'bg-white text-[#185FA5] shadow-sm'
+                : 'text-gray-600 hover:text-[#1a1a2e]'
+            }`}
+          >
+            <tab.icon size={14} />
+            {tab.label} ({tab.count})
+          </button>
+        ))}
       </div>
 
       {showAdd && (
@@ -168,7 +203,7 @@ export default function MyCards({ offers, userId, onRefresh }) {
       )}
 
       <div className="grid md:grid-cols-2 gap-5">
-        {cards.map((card) => (
+        {displayedCards.map((card) => (
           <div key={card.id} className="space-y-3">
             {/* Visual Card */}
             <div className={`bg-gradient-to-br ${card.gradient} rounded-2xl p-5 text-white relative overflow-hidden shadow-lg aspect-[1.586/1]`}>
@@ -241,11 +276,21 @@ export default function MyCards({ offers, userId, onRefresh }) {
         ))}
       </div>
 
-      {cards.length === 0 && (
+      {cards.all.length === 0 && (
         <div className="bg-white rounded-2xl border border-dashed border-gray-200 py-16 text-center">
           <CreditCard size={32} className="text-gray-200 mx-auto mb-3" />
           <p className="text-sm text-gray-400">No cards added yet</p>
           <button onClick={() => setShowAdd(true)} className="mt-3 text-xs text-[#185FA5] hover:underline">Add your first card →</button>
+        </div>
+      )}
+
+      {cards.all.length > 0 && displayedCards.length === 0 && (
+        <div className="bg-white rounded-2xl border border-dashed border-gray-200 py-16 text-center">
+          <CreditCard size={32} className="text-gray-200 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">
+            {filterType === 'marketplace' && 'No marketplace cards. Add cards and enable marketplace sharing.'}
+            {filterType === 'private' && 'No private cards. Add cards with marketplace disabled.'}
+          </p>
         </div>
       )}
     </div>
