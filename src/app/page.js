@@ -205,7 +205,8 @@ export default function OfferBridge() {
           setDb(cached);
           setDbConnected(true);
           setDbLoading(false);
-          // Fetch fresh but don't wait or block
+          setIsFetching(false);
+          // Fetch fresh but don't block UI
           fetchFreshData();
           return;
         }
@@ -213,16 +214,23 @@ export default function OfferBridge() {
 
       // No cache, fetch directly from Supabase
       await fetchFreshData();
+      setIsFetching(false);
     } catch (error) {
       console.error('[DB] ❌ Error:', error);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
+      setIsFetching(false);
     } finally {
       setDbLoading(false);
-      setIsFetching(false);
     }
-  }, [isFetching]);
+  }, []); // Empty dependency array - only stable reference
 
   const fetchFreshData = async () => {
+    // Prevent overlapping calls
+    if (isFetching) {
+      console.log('[DB] Already fetching, skip fresh');
+      return;
+    }
+
     try {
       console.log('[DB] 🔄 Fetching from Supabase...');
       
@@ -259,28 +267,14 @@ export default function OfferBridge() {
     }
   };
 
-  // Reset tab when role changes (after login)
+  // Reset tab when role changes (after login) - FETCH ONCE
   useEffect(() => {
     if (user?.id && role) {
       setActiveTab(getDefaultTab(role));
-      fetchAll(false); // Use cache first, no blocking
+      console.log('[DB] 📍 Initial fetch on login/role change');
+      fetchAll(false); // Cache first, then fetch fresh
     }
-  }, [user?.id, role, fetchAll]);
-
-  // Auto-refresh only after cache loads - prevent loop by only on interval
-  useEffect(() => {
-    if (!user?.id || !dbConnected) return;
-    
-    const interval = setInterval(() => {
-      // Only refresh if NOT currently fetching (prevent loop)
-      if (!isFetching) {
-        console.log('[DB] ↻ Auto-refresh interval trigger');
-        fetchAll(true); // Force refresh, get fresh data
-      }
-    }, 120 * 1000); // 2 minutes - much less aggressive
-    
-    return () => clearInterval(interval);
-  }, [user?.id, dbConnected, isFetching, fetchAll]);
+  }, [user?.id, role]); // Removed fetchAll from deps to prevent re-triggers
 
   const handleTab = (id) => {
     setActiveTab(id);
