@@ -170,9 +170,6 @@ export default function OfferBridge() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false); // Prevent duplicate requests
 
-  // Track active fetch request
-  const fetchAbortController = useRef(null);
-
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
     try {
@@ -207,67 +204,64 @@ export default function OfferBridge() {
           setDb(cached);
           setDbConnected(true);
           setDbLoading(false);
-          
-          // Fetch fresh data in background (don't wait)
-          fetchFresh();
           setIsFetching(false);
+          
+          // Fetch fresh data in background (don't block)
+          setTimeout(() => fetchFromSupabase(), 100);
           return;
         }
       }
 
-      await fetchFresh();
+      // No cache, fetch from Supabase
+      await fetchFromSupabase();
+      setIsFetching(false);
     } catch (error) {
       console.error('[DB] Fetch error:', error);
       setDbConnected(false);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
+      setIsFetching(false);
     } finally {
       setDbLoading(false);
-      setIsFetching(false);
     }
   }, [isFetching]);
 
-  const fetchFresh = async () => {
-    await withRetry(async () => {
+  const fetchFromSupabase = async () => {
+    try {
       console.log('[DB] 🔄 Fetching fresh data...');
       
-      // Fetch all tables in parallel with timeout
-      const controller = new AbortController();
-      fetchAbortController.current = controller;
+      const [reqRes, offRes, escRes, disRes] = await Promise.all([
+        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
+        supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
+      ]);
       
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      try {
-        const [reqRes, offRes, escRes, disRes] = await Promise.all([
-          supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
-          supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
-        ]);
-        
-        const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-        console.log('[DB] ✅ Connection:', ok ? 'Connected' : 'Failed');
-        
-        setDbConnected(ok);
-        const newData = {
-          requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
-          offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
-          escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
-          disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
-        };
-        
-        setDb(newData);
-        
-        // Cache only successful results
-        if (ok) {
-          CacheService.set('offerbridge_requests', newData.requests);
-          CacheService.set('offerbridge_offers', newData.offers);
-          CacheService.set('offerbridge_escrow', newData.escrow);
-          CacheService.set('offerbridge_disputes', newData.disputes);
-        }
-      } finally {
-        clearTimeout(timeoutId);
+      const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+      console.log('[DB] ✅ Connection:', ok ? 'Connected' : 'Failed');
+      
+      setDbConnected(ok);
+      const newData = {
+        requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
+        offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
+        escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
+        disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
+      };
+      
+      setDb(newData);
+      
+      // Cache only successful results
+      if (ok) {
+        CacheService.set('offerbridge_requests', newData.requests);
+        CacheService.set('offerbridge_offers', newData.offers);
+        CacheService.set('offerbridge_escrow', newData.escrow);
+        CacheService.set('offerbridge_disputes', newData.disputes);
+        console.log('[DB] 💾 Cached successfully');
       }
-    }, 2);
+    } catch (error) {
+      console.error('[DB] Supabase fetch failed:', error);
+      setDbConnected(false);
+      setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
+    }
   };
 
   // Reset tab when role changes (after login)
@@ -278,17 +272,14 @@ export default function OfferBridge() {
     }
   }, [user?.id, role, fetchAll]);
 
-  // Smart auto-refresh - only if connected and not already fetching
+  // Smart auto-refresh - every 30 seconds (cache-first so no blocking)
   useEffect(() => {
-    if (!user?.id || !dbConnected || isFetching) return;
-    
+    if (!user?.id) return;
     const interval = setInterval(() => {
-      console.log('[DB] 🔄 Auto-refresh triggered...');
       fetchAll(false); // Use cache first, refresh in background
-    }, 60 * 1000); // 60 seconds
-    
+    }, 30 * 1000);
     return () => clearInterval(interval);
-  }, [user?.id, dbConnected, isFetching, fetchAll]);
+  }, [user?.id, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
