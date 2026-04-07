@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
+import { CacheService, withRetry } from '@/lib/cacheService';
+import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
@@ -166,6 +168,10 @@ export default function OfferBridge() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isFetching, setIsFetching] = useState(false); // Prevent duplicate requests
+
+  // Track active fetch request
+  const fetchAbortController = useRef(null);
 
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
@@ -176,57 +182,113 @@ export default function OfferBridge() {
     }
   }, [signOut]);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (forceRefresh = false) => {
+    // Prevent duplicate requests
+    if (isFetching && !forceRefresh) {
+      console.log('[DB] Fetch already in progress, skipping...');
+      return;
+    }
+
+    setIsFetching(true);
     setDbLoading(true);
+
     try {
-      console.log('[DB] Fetching data from Supabase...');
-      console.log('[DB] Supabase client:', typeof supabase.from);
-      
-      // Fetch with limits to improve performance
-      const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
-      ]);
-      
-      const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      console.log('[DB] Connection status:', ok ? 'Connected' : 'Failed', {
-        requests: !reqRes.error,
-        offers: !offRes.error,
-        escrow: !escRes.error,
-        disputes: !disRes.error,
-        errors: {
-          requests: reqRes.error?.message,
-          offers: offRes.error?.message,
-          escrow: escRes.error?.message,
-          disputes: disRes.error?.message,
+      // Try cache first (unless forcing refresh)
+      if (!forceRefresh) {
+        const cached = {
+          requests: CacheService.get('offerbridge_requests'),
+          offers: CacheService.get('offerbridge_offers'),
+          escrow: CacheService.get('offerbridge_escrow'),
+          disputes: CacheService.get('offerbridge_disputes'),
+        };
+
+        if (cached.requests && cached.offers && cached.escrow && cached.disputes) {
+          console.log('[DB] ⚡ Loading from cache...');
+          setDb(cached);
+          setDbConnected(true);
+          setDbLoading(false);
+          
+          // Fetch fresh data in background (don't wait)
+          fetchFresh();
+          setIsFetching(false);
+          return;
         }
-      });
-      
-      setDbConnected(ok);
-      setDb({
-        requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
-        offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
-        escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
-        disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
-      });
+      }
+
+      await fetchFresh();
     } catch (error) {
       console.error('[DB] Fetch error:', error);
       setDbConnected(false);
       setDb({ requests: MOCK_REQUESTS, offers: MOCK_OFFERS, escrow: MOCK_ESCROW, disputes: MOCK_DISPUTES });
     } finally {
       setDbLoading(false);
+      setIsFetching(false);
     }
-  }, []);
+  }, [isFetching]);
+
+  const fetchFresh = async () => {
+    await withRetry(async () => {
+      console.log('[DB] 🔄 Fetching fresh data...');
+      
+      // Fetch all tables in parallel with timeout
+      const controller = new AbortController();
+      fetchAbortController.current = controller;
+      
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      try {
+        const [reqRes, offRes, escRes, disRes] = await Promise.all([
+          supabase.from('requests').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('offers').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('escrow').select('*').order('created_at', { ascending: false }).limit(50),
+          supabase.from('disputes').select('*').order('created_at', { ascending: false }).limit(50),
+        ]);
+        
+        const ok = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
+        console.log('[DB] ✅ Connection:', ok ? 'Connected' : 'Failed');
+        
+        setDbConnected(ok);
+        const newData = {
+          requests: !reqRes.error ? (reqRes.data ?? []) : MOCK_REQUESTS,
+          offers: !offRes.error ? (offRes.data ?? []) : MOCK_OFFERS,
+          escrow: !escRes.error ? (escRes.data ?? []) : MOCK_ESCROW,
+          disputes: !disRes.error ? (disRes.data ?? []) : MOCK_DISPUTES,
+        };
+        
+        setDb(newData);
+        
+        // Cache only successful results
+        if (ok) {
+          CacheService.set('offerbridge_requests', newData.requests);
+          CacheService.set('offerbridge_offers', newData.offers);
+          CacheService.set('offerbridge_escrow', newData.escrow);
+          CacheService.set('offerbridge_disputes', newData.disputes);
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }, 2);
+  };
 
   // Reset tab when role changes (after login)
   useEffect(() => {
     if (user?.id && role) {
       setActiveTab(getDefaultTab(role));
-      fetchAll();
+      fetchAll(false); // Use cache first
     }
   }, [user?.id, role, fetchAll]);
+
+  // Smart auto-refresh - only if connected and not already fetching
+  useEffect(() => {
+    if (!user?.id || !dbConnected || isFetching) return;
+    
+    const interval = setInterval(() => {
+      console.log('[DB] 🔄 Auto-refresh triggered...');
+      fetchAll(false); // Use cache first, refresh in background
+    }, 60 * 1000); // 60 seconds
+    
+    return () => clearInterval(interval);
+  }, [user?.id, dbConnected, isFetching, fetchAll]);
 
   const handleTab = (id) => {
     setActiveTab(id);
@@ -279,6 +341,17 @@ export default function OfferBridge() {
 
         {/* Right: DB status + user menu */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchAll(true)}
+            disabled={isFetching}
+            className="hidden sm:flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-full font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Refresh data"
+          >
+            <svg className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {isFetching ? 'Refreshing...' : 'Refresh'}
+          </button>
           <div className={`hidden sm:flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full font-medium ${dbConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
             }`}>
             <Database size={10} />
@@ -356,13 +429,8 @@ export default function OfferBridge() {
 
         {/* ── Main Content ─────────────────────────────── */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto min-h-[calc(100vh-56px)]">
-          {dbLoading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-[3px] border-[#185FA5] border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-gray-400">Loading data…</p>
-              </div>
-            </div>
+          {dbLoading && !db.requests.length ? (
+            <SkeletonDashboard />
           ) : (
             <div className="animate-fade-in">
               {renderContent(role, activeTab, db, fetchAll, user)}
