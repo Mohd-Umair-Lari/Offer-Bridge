@@ -11,15 +11,24 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
 
   const fetchProfile = useCallback(async (uid) => {
-    // maybeSingle() returns null (not a 406) when no row exists
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .maybeSingle();
-    if (error) console.warn('[Auth] Profile fetch warning:', error.message);
-    setProfile(data ?? null);
-    return data;
+    try {
+      // Fetch profile from MongoDB via API route
+      const res = await fetch(`/api/profile/${uid}`);
+      const json = await res.json();
+      
+      if (!res.ok) {
+        console.warn('[Auth] Profile fetch warning:', json.error);
+        setProfile(null);
+        return null;
+      }
+      
+      setProfile(json.data ?? null);
+      return json.data;
+    } catch (error) {
+      console.warn('[Auth] Profile fetch error:', error.message);
+      setProfile(null);
+      return null;
+    }
   }, []);
 
   useEffect(() => {

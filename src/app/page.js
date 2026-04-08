@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
@@ -181,59 +180,28 @@ export default function OfferBridge() {
   const fetchAll = useCallback(async (forceRefresh = false) => {
     setDbLoading(true);
     setIsFetching(true);
-    console.log('[DB] 🔄 Fetching data...');
+    console.log('[DB] 🔄 Fetching data from MongoDB...');
 
     try {
-      // Try with a simple test query first to check if Supabase is responding
-      console.log('[DB] Testing Supabase connection with simple query...');
-      const testRes = await supabase.from('profiles').select('id').limit(1);
-      console.log('[DB] Test result:', testRes.error ? 'ERROR' : 'OK');
+      // Fetch all data from MongoDB via API route
+      const res = await fetch('/api/data');
+      const data = await res.json();
       
-      if (testRes.error) {
-        console.error('[DB] ⚠️ Even basic query failed:', testRes.error.message);
+      if (!res.ok) {
+        console.error('[DB] ❌ API fetch failed:', data.error);
+        setDbConnected(false);
+        setDb({ requests: [], offers: [], escrow: [], disputes: [] });
+      } else {
+        console.log('[DB] ✓ Data fetched successfully');
+        console.log('[DB] Requests:', data.requests?.length || 0);
+        console.log('[DB] Offers:', data.offers?.length || 0);
+        console.log('[DB] Escrow:', data.escrow?.length || 0);
+        console.log('[DB] Disputes:', data.disputes?.length || 0);
+        
+        setDb(data || { requests: [], offers: [], escrow: [], disputes: [] });
+        setDbConnected(true);
+        console.log('[DB] ✅ Fetch complete. Status: 🟢 MongoDB Connected');
       }
-
-      // Now try requests with minimal columns first
-      console.log('[DB] Fetching requests (id only)...');
-      const reqRes = await supabase
-        .from('requests')
-        .select('id, user_id, title, status', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Requests:', reqRes.error ? `ERROR: ${reqRes.error.message}` : `Got ${reqRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching offers...');
-      const offRes = await supabase
-        .from('offers')
-        .select('id, user_id, card_name, bank, max_amount', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Offers:', offRes.error ? `ERROR: ${offRes.error.message}` : `Got ${offRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching escrow...');
-      const escRes = await supabase
-        .from('escrow')
-        .select('id, status, amount', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Escrow:', escRes.error ? `ERROR: ${escRes.error.message}` : `Got ${escRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching disputes...');
-      const disRes = await supabase
-        .from('disputes')
-        .select('id, status, priority', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Disputes:', disRes.error ? `ERROR: ${disRes.error.message}` : `Got ${disRes.data?.length || 0} rows`);
-
-      // Build data from what we got (handle partial failures)
-      const newData = {
-        requests: reqRes.data || [],
-        offers: offRes.data || [],
-        escrow: escRes.data || [],
-        disputes: disRes.data || [],
-      };
-
-      setDb(newData);
-      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Fetch complete. Status:', allSucceeded ? '🟢 Live DB' : '🟡 Partial');
     } catch (error) {
       console.error('[DB] ❌ Fatal fetch error:', error?.message);
       console.error('[DB] Stack:', error?.stack);
@@ -243,7 +211,7 @@ export default function OfferBridge() {
       setDbLoading(false);
       setIsFetching(false);
     }
-  }, []); // Stable reference — uses ref for guard, setters for state
+  }, []); // Stable reference
 
   // Reset tab when role changes (after login) - WAIT FOR AUTH FIRST
   useEffect(() => {

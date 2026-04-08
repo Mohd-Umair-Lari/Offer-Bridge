@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { ShieldCheck, Clock, CheckCircle2, DollarSign, ChevronDown } from 'lucide-react';
 import { MOCK_ESCROW } from '@/lib/mockData';
 
@@ -24,8 +23,16 @@ export default function Escrow({ escrow: escrowProp, onRefresh }) {
   const updateStatus = async (id, newStatus) => {
     setActing((prev) => ({ ...prev, [id]: true }));
     try {
-      const { error } = await supabase.from('escrow').update({ status: newStatus }).eq('id', id);
-      if (error) console.error('Escrow update error:', error);
+      const res = await fetch(`/api/escrow/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        console.error('API update error:', json.error);
+      }
       if (onRefresh) await onRefresh();
     } catch (err) {
       console.error(err);

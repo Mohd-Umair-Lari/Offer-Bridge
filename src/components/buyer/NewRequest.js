@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/authContext';
 import { Send, CheckCircle2, Calendar, Tag, DollarSign, AlignLeft, Globe, CreditCard } from 'lucide-react';
 
@@ -73,11 +72,17 @@ export default function NewRequest({ onCreated }) {
         status: 'pending',
       };
 
-      const { error } = await supabase.from('requests').insert([newRow]);
+      const res = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRow),
+      });
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        setDbError(`Database error: ${error.message}`);
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error('API insert error:', json.error);
+        setDbError(`Database error: ${json.error}`);
         setLoading(false);
         return;
       }

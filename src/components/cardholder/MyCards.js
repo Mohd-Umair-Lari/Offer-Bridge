@@ -1,6 +1,5 @@
 "use client";
 import { useState, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Plus, CreditCard, CheckCircle2, Tag, Trash2, Globe, Lock } from 'lucide-react';
 
 // Convert ISO date (YYYY-MM-DD) to MM/YY for card display
@@ -52,8 +51,12 @@ export default function MyCards({ offers, userId, onRefresh }) {
 
   const handleRemove = async (id, isReal) => {
     if (!isReal) return; // Cannot delete mock cards from DB
-    await supabase.from('offers').delete().eq('id', id);
-    if (onRefresh) onRefresh();
+    try {
+      const res = await fetch(`/api/offers?id=${id}`, { method: 'DELETE' });
+      if (res.ok && onRefresh) onRefresh();
+    } catch (error) {
+      console.error('Delete error:', error);
+    }
   };
 
   const handleAdd = async (e) => {
@@ -61,14 +64,14 @@ export default function MyCards({ offers, userId, onRefresh }) {
     if (!newCard.name || !newCard.last4 || !newCard.expiry || !newCard.limit) return;
     setIsSubmitting(true);
 
-    // Convert MM/YY to standard YYYY-MM-DD for Supabase
+    // Convert MM/YY to standard YYYY-MM-DD for MongoDB
     let expiryDate = null;
     if (newCard.expiry.includes('/')) {
       const [mm, yy] = newCard.expiry.split('/');
       if (mm && yy) expiryDate = `20${yy}-${mm}-01`;
     }
 
-    const { error } = await supabase.from('offers').insert({
+    const offerData = {
       user_id: userId,
       bank: newCard.bank,
       card_name: newCard.name,
@@ -79,16 +82,30 @@ export default function MyCards({ offers, userId, onRefresh }) {
       is_public: newCard.isPublic,
       status: 'available',
       holder_name: newCard.bank
-    });
+    };
 
-    setIsSubmitting(false);
-    if (!error) {
-      setNewCard({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
-      setShowAdd(false);
-      if (onRefresh) onRefresh();
-    } else {
-      console.error('Supabase raw error:', error);
-      alert('Error saving card to database:\n' + (error.message || JSON.stringify(error)));
+    try {
+      const res = await fetch('/api/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offerData),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error('API insert error:', json.error);
+        alert('Error saving card to database:\n' + (json.error || 'Unknown error'));
+      } else {
+        setNewCard({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
+        setShowAdd(false);
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('Request error:', error);
+      alert('Error saving card to database:\n' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

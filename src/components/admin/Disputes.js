@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { AlertTriangle, CheckCircle2, Clock, ChevronRight, X } from 'lucide-react';
 import { MOCK_DISPUTES } from '@/lib/mockData';
 
@@ -30,8 +29,16 @@ export default function Disputes({ disputes: disputesProp, onRefresh }) {
   const updateStatus = async (id, newStatus) => {
     setActing((prev) => ({ ...prev, [id]: true }));
     try {
-      const { error } = await supabase.from('disputes').update({ status: newStatus }).eq('id', id);
-      if (error) console.error('Dispute update error:', error);
+      const res = await fetch(`/api/disputes/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        console.error('API update error:', json.error);
+      }
       if (onRefresh) await onRefresh();
       if (newStatus === 'resolved') setSelected(null);
     } catch (err) {
