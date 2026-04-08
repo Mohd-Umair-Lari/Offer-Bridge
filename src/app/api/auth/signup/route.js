@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { mongoService } from '@/lib/mongoService';
 import { getDatabase } from '@/lib/mongodb';
 
@@ -23,11 +24,13 @@ export async function POST(request) {
       );
     }
 
+    // Hash password with bcrypt (10 salt rounds)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Create new user
-    // In production, use bcrypt to hash password
     const newUser = {
       email,
-      password, // NOT SECURE - USE BCRYPT IN PRODUCTION
+      password: hashedPassword,
       full_name: fullName,
       role: role || 'customer',
       created_at: new Date(),

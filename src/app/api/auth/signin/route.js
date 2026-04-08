@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { mongoService } from '@/lib/mongoService';
 
 export async function POST(request) {
@@ -22,9 +23,9 @@ export async function POST(request) {
       );
     }
 
-    // In production, use bcrypt to verify passwords
-    // For now, simple comparison (NOT SECURE - USE BCRYPT IN PRODUCTION)
-    if (user.password !== password) {
+    // Verify password with bcrypt
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
       return Response.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -41,7 +42,10 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error('[API] signin error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[API] signin error:', error?.message || error);
+    return Response.json(
+      { error: error?.message || 'Sign in failed' },
+      { status: 500 }
+    );
   }
 }
