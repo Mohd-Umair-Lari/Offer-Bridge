@@ -20,10 +20,7 @@ export async function connectToDatabase() {
   try {
     const mongoUrl = getMongoUrl();
     console.log('[MongoDB] Connecting to MongoDB Atlas...');
-    const client = new MongoClient(mongoUrl, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const client = new MongoClient(mongoUrl);
 
     await client.connect();
     const db = client.db('offerbridge');

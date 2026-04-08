@@ -57,7 +57,10 @@ export async function POST(request) {
       },
     }, { status: 201 });
   } catch (error) {
-    console.error('[API] signup error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[API] signup error:', error?.message || error);
+    return Response.json(
+      { error: error?.message || 'Failed to create user' },
+      { status: 500 }
+    );
   }
 }

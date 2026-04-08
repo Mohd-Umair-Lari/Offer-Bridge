@@ -2,8 +2,8 @@ import { getDatabase } from './mongodb';
 
 /**
  * MongoDB Service Layer
- * Replaces all Supabase queries with MongoDB equivalents
- * Maintains the same API structure for easy migration
+ * Handles all database operations with MongoDB
+ * Maintains consistent API for data access across the app
  */
 
 export const mongoService = {
