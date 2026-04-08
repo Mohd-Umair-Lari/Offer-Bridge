@@ -54,7 +54,7 @@ function getNavSections(role) {
       { label: 'Buyer', items: BUYER_NAV },
       {
         label: 'Provider', items: [
-          { id: 'browse', label: 'Browse Requests', icon: <ShoppingBag size={16} /> },
+          { id: 'browse', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
           { id: 'my-cards', label: 'My Cards', icon: <CreditCard size={16} /> },
         ]
       },
