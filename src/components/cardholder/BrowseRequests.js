@@ -13,25 +13,37 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [offered, setOffered] = useState({});
+  const [tab, setTab] = useState('public'); // 'public' or 'direct'
 
-  // Provider's cards
+  // Provider's cards - separate by visibility
   const myOffers = offersProp || [];
+  const publicCards = myOffers.filter((o) => o.is_public !== false);
+  const privateCards = myOffers.filter((o) => o.is_public === false);
   const myBanks = [...new Set(myOffers.map((o) => o.bank))];
 
   const allRequests = reqsProp || [];
 
-  // Simple matching: Show requests from other users where provider has matching card
-  const matchedRequests = allRequests.filter((req) => {
-    if (req.status !== 'pending') return false;
-    
-    // Check if provider has at least one card that matches the request
-    return myOffers.some((card) => {
-      const bankMatches = req.required_card === 'Any' || card.bank === req.required_card;
-      const hasEnoughLimit = Number(card.max_amount || 0) >= Number(req.amount);
-      return bankMatches && hasEnoughLimit;
+  // Mapping logic for both public and direct matches
+  const getMatches = (requests, cardsToMatch) => {
+    return requests.filter((req) => {
+      if (req.status !== 'pending') return false;
+      return cardsToMatch.some((card) => {
+        const bankMatches = req.required_card === 'Any' || card.bank === req.required_card;
+        const hasEnoughLimit = Number(card.max_amount || 0) >= Number(req.amount);
+        return bankMatches && hasEnoughLimit;
+      });
     });
-  });
+  };
 
+  // Public Marketplace: Public requests matched with public cards
+  const publicRequests = allRequests.filter((r) => r.is_public !== false);
+  const publicMatches = getMatches(publicRequests, publicCards);
+
+  // Direct Matches: Private requests matched with private cards
+  const privateRequests = allRequests.filter((r) => r.is_public === false);
+  const directMatches = getMatches(privateRequests, privateCards);
+
+  const matchedRequests = tab === 'public' ? publicMatches : directMatches;
   const categories = ['All', ...new Set(matchedRequests.map((r) => r.category))];
 
   const filtered = matchedRequests.filter((r) => {
@@ -42,7 +54,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
     return matchCat && matchText;
   });
 
-  console.log(`[BrowseRequests] Provider has ${myOffers.length} cards (${myBanks.join(', ')}). Showing ${filtered.length} matched requests out of ${allRequests.length} total.`);
+  console.log(`[BrowseRequests] Public cards: ${publicCards.length}, Private cards: ${privateCards.length}. Public matches: ${publicMatches.length}, Direct matches: ${directMatches.length}.`);
 
   const handleOffer = (id) => setOffered((prev) => ({ ...prev, [id]: true }));
 
@@ -50,7 +62,44 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-xl font-bold text-[#1a1a2e]">Browse Requests</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Requests from buyers that match your cards ({myBanks.length ? myBanks.join(', ') : 'no cards yet'})</p>
+        <p className="text-sm text-gray-400 mt-0.5">
+          {tab === 'public' 
+            ? `Public marketplace requests matching your cards (${publicCards.length} public cards)`
+            : `Private direct match requests (${privateCards.length} private cards)`
+          }
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => {
+            setTab('public');
+            setCategory('All');
+            setSearch('');
+          }}
+          className={`px-4 py-3 text-sm font-semibold transition border-b-2 ${
+            tab === 'public'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Public Marketplace ({publicMatches.length})
+        </button>
+        <button
+          onClick={() => {
+            setTab('direct');
+            setCategory('All');
+            setSearch('');
+          }}
+          className={`px-4 py-3 text-sm font-semibold transition border-b-2 ${
+            tab === 'direct'
+              ? 'border-amber-500 text-amber-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Direct Matches ({directMatches.length})
+        </button>
       </div>
 
       {/* Search + filter */}
