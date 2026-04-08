@@ -1,13 +1,15 @@
 import { MongoClient } from 'mongodb';
 
-const mongoUrl = process.env.NEXT_PUBLIC_MONGODB_URI || process.env.MONGODB_URI;
-
-if (!mongoUrl) {
-  throw new Error('MONGODB_URI environment variable is not set');
-}
-
 let cachedClient = null;
 let cachedDb = null;
+
+function getMongoUrl() {
+  const url = process.env.NEXT_PUBLIC_MONGODB_URI || process.env.MONGODB_URI;
+  if (!url) {
+    throw new Error('MONGODB_URI environment variable is not set. Make sure to configure it in Vercel settings or .env.local');
+  }
+  return url;
+}
 
 export async function connectToDatabase() {
   if (cachedClient && cachedDb) {
@@ -16,6 +18,7 @@ export async function connectToDatabase() {
   }
 
   try {
+    const mongoUrl = getMongoUrl();
     console.log('[MongoDB] Connecting to MongoDB Atlas...');
     const client = new MongoClient(mongoUrl, {
       useNewUrlParser: true,
