@@ -14,7 +14,6 @@ import AuthScreen from '@/components/auth/AuthScreen';
 
 // Buyer Views
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
-import Marketplace from '@/components/buyer/Marketplace';
 import NewRequest from '@/components/buyer/NewRequest';
 
 // Cardholder/Provider Views
@@ -33,12 +32,11 @@ import ProsumerDashboard from '@/components/prosumer/ProsumerDashboard';
 // ── Nav config ────────────────────────────────────────────────────────
 const BUYER_NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutGrid size={16} /> },
-  { id: 'marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
   { id: 'new-request', label: 'New Request', icon: <PlusCircle size={16} /> },
 ];
 const PROVIDER_NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutGrid size={16} /> },
-  { id: 'browse', label: 'Browse Requests', icon: <ShoppingBag size={16} /> },
+  { id: 'browse', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
   { id: 'my-cards', label: 'My Cards', icon: <CreditCard size={16} /> },
 ];
 const ADMIN_NAV = [
@@ -74,20 +72,7 @@ function renderContent(role, activeTab, db, onRefresh, user) {
   // Partition data structurally to prevent leakage
   const myRequests = db.requests.filter(r => r.user_id === user?.id);
   const myOffers = db.offers.filter(o => o.user_id === user?.id);
-
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
-  // Marketplace = ALL public cards from ALL users (including own if browsing as buyer)
-  const marketOffers = db.offers.filter(o => o.is_public !== false);
-
-  // Debug logging for marketplace
-  if (activeTab === 'marketplace') {
-    console.log('[Marketplace] All public offers available:');
-    console.log('  - Total in DB:', db.offers.length);
-    console.log('  - Public cards:', marketOffers.length);
-    marketOffers.forEach(o => {
-      console.log(`    • ${o.card_name} (${o.bank}) - ₹${o.max_amount} - User: ${o.user_id}`);
-    });
-  }
 
   // 'dashboard' is context-sensitive per role
   if (activeTab === 'dashboard') {
@@ -97,9 +82,8 @@ function renderContent(role, activeTab, db, onRefresh, user) {
     return <BuyerDashboard requests={myRequests} />;
   }
   // Buyer tabs
-  if (activeTab === 'marketplace') return <Marketplace offers={marketOffers} />;
   if (activeTab === 'new-request') return <NewRequest onCreated={onRefresh} />;
-  // Provider tabs
+  // Provider tabs (formerly 'Browse Requests', now 'Marketplace')
   if (activeTab === 'browse') return <BrowseRequests requests={marketRequests} offers={myOffers} />;
   if (activeTab === 'my-cards') return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
   // Admin tabs

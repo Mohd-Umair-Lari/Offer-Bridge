@@ -61,7 +61,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-xl font-bold text-[#1a1a2e]">Browse Requests</h1>
+        <h1 className="text-xl font-bold text-[#1a1a2e]">Marketplace</h1>
         <p className="text-sm text-gray-400 mt-0.5">
           {tab === 'public' 
             ? `Public marketplace requests matching your cards (${publicCards.length} public cards)`
