@@ -129,7 +129,7 @@ export default function AdminOverview({ requests, offers, escrow, disputes }) {
         </div>
         <div className="divide-y divide-gray-50">
           {reqs.slice(0, 5).map((r) => (
-            <div key={r.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition text-sm">
+            <div key={r._id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition text-sm">
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-[#1a1a2e] truncate">{r.title}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{r.category}</p>

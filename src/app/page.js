@@ -76,7 +76,18 @@ function renderContent(role, activeTab, db, onRefresh, user) {
   const myOffers = db.offers.filter(o => o.user_id === user?.id);
 
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
-  const marketOffers = db.offers.filter(o => o.user_id !== user?.id && o.is_public !== false);
+  // Marketplace = ALL public cards from ALL users (including own if browsing as buyer)
+  const marketOffers = db.offers.filter(o => o.is_public !== false);
+
+  // Debug logging for marketplace
+  if (activeTab === 'marketplace') {
+    console.log('[Marketplace] All public offers available:');
+    console.log('  - Total in DB:', db.offers.length);
+    console.log('  - Public cards:', marketOffers.length);
+    marketOffers.forEach(o => {
+      console.log(`    • ${o.card_name} (${o.bank}) - ₹${o.max_amount} - User: ${o.user_id}`);
+    });
+  }
 
   // 'dashboard' is context-sensitive per role
   if (activeTab === 'dashboard') {

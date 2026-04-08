@@ -75,7 +75,7 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
         </div>
         <div className="divide-y divide-gray-50">
           {myOffers.map((offer) => (
-            <div key={offer.id} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
+            <div key={offer._id} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
               <div className="w-10 h-10 bg-gradient-to-br from-[#185FA5] to-blue-700 rounded-xl flex items-center justify-center shrink-0">
                 <span className="text-white text-xs font-bold">{offer.bank?.[0] ?? '?'}</span>
               </div>
@@ -107,7 +107,7 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
             </div>
           ) : (
             allReqs.slice(0, 4).map((req) => (
-              <div key={req.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition">
+              <div key={req._id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/50 transition">
                 <CheckCircle2 size={16} className={req.status === 'completed' ? 'text-emerald-400' : 'text-gray-300'} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-[#1a1a2e] font-medium truncate">{req.title}</p>

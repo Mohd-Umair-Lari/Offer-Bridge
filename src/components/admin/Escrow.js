@@ -98,11 +98,11 @@ export default function Escrow({ escrow: escrowProp, onRefresh }) {
             <tbody className="divide-y divide-gray-50">
               {filtered.map((entry) => {
                 const sc = STATUS_CONFIG[entry.status] || STATUS_CONFIG.held;
-                const isActing = !!acting[entry.id];
+                const isActing = !!acting[entry._id];
                 return (
-                  <tr key={entry.id} className="hover:bg-gray-50/50 transition">
+                  <tr key={entry._id} className="hover:bg-gray-50/50 transition">
                     <td className="px-5 py-4 font-mono text-[11px] text-gray-400 whitespace-nowrap">
-                      {entry.deal_id || entry.id?.slice(0, 8)}
+                      {entry.deal_id || entry._id?.slice(0, 8)}
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-medium text-[#1a1a2e] text-sm">{entry.item}</p>

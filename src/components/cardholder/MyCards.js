@@ -15,13 +15,15 @@ export default function MyCards({ offers, userId, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterType, setFilterType] = useState('all'); // 'all', 'marketplace', 'private'
+  const [publishing, setPublishing] = useState(null); // Track which card is being published
   const [newCard, setNewCard] = useState({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
 
   const cards = useMemo(() => {
     if (!offers) return { all: [], marketplace: [], private: [] };
     
     const allCards = offers.map(o => ({
-      id: o.id,
+      _id: o._id,
+      id: o._id,
       name: o.card_name,
       type: o.card_type || 'Visa',
       last4: o.last4 || '0000',
@@ -56,6 +58,40 @@ export default function MyCards({ offers, userId, onRefresh }) {
       if (res.ok && onRefresh) onRefresh();
     } catch (error) {
       console.error('Delete error:', error);
+    }
+  };
+
+  const handlePublish = async (cardId, currentIsPublic, cardData) => {
+    setPublishing(cardId);
+    try {
+      // Toggle the public status: if currently public, make private; if private, make public
+      const newPublicStatus = !currentIsPublic;
+      const action = newPublicStatus ? 'published to marketplace' : 'removed from marketplace';
+      
+      const res = await fetch('/api/offers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          offerId: cardId,
+          is_public: newPublicStatus,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error('Publish error:', json.error);
+        alert('Error updating card:\n' + (json.error || 'Unknown error'));
+      } else {
+        console.log(`[MyCards] Card ${action} successfully`);
+        // Refresh the cards to show updated status
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('Publish error:', error);
+      alert('Error updating card: ' + error.message);
+    } finally {
+      setPublishing(null);
     }
   };
 
@@ -229,7 +265,7 @@ export default function MyCards({ offers, userId, onRefresh }) {
 
       <div className="grid md:grid-cols-2 gap-5">
         {displayedCards.map((card) => (
-          <div key={card.id} className="space-y-3">
+          <div key={card._id} className="space-y-3">
             {/* Visual Card */}
             <div className={`bg-gradient-to-br ${card.gradient} rounded-2xl p-5 text-white relative overflow-hidden shadow-lg aspect-[1.586/1]`}>
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -271,8 +307,8 @@ export default function MyCards({ offers, userId, onRefresh }) {
                   </span>
                   {card.isReal && (
                     <button
-                      id={`remove-card-${card.id}`}
-                      onClick={() => handleRemove(card.id, card.isReal)}
+                      id={`remove-card-${card._id}`}
+                      onClick={() => handleRemove(card._id, card.isReal)}
                       className="p-1.5 text-gray-300 hover:text-red-400 transition rounded-lg hover:bg-red-50"
                     >
                       <Trash2 size={13} />
@@ -282,8 +318,8 @@ export default function MyCards({ offers, userId, onRefresh }) {
               </div>
 
               <div className="space-y-1.5">
-                {card.offers.map((offer, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                {card.offers?.filter(Boolean).map((offer, i) => (
+                  <div key={`offer-${card._id}-${i}`} className="flex items-start gap-2 text-xs text-gray-600">
                     <CheckCircle2 size={13} className="text-emerald-400 mt-0.5 shrink-0" />
                     {offer}
                   </div>
@@ -291,10 +327,32 @@ export default function MyCards({ offers, userId, onRefresh }) {
               </div>
 
               <button
-                id={`list-card-${card.id}`}
-                className="w-full py-2 border border-[#185FA5] text-[#185FA5] text-xs font-semibold rounded-xl hover:bg-[#E6F1FB] transition flex items-center justify-center gap-1.5"
+                onClick={() => handlePublish(card._id, card.is_public !== false, card)}
+                disabled={publishing === card._id}
+                className={`w-full py-2 border text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition ${
+                  card.is_public !== false
+                    ? 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100'
+                    : 'border-[#185FA5] text-[#185FA5] hover:bg-[#E6F1FB]'
+                } ${publishing === card._id ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
-                <Tag size={12} /> {card.is_public !== false ? 'Listed on Marketplace' : 'Post to Marketplace'}
+                {publishing === card._id ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    {card.is_public !== false ? (
+                      <>
+                        <Globe size={12} /> Remove from Marketplace
+                      </>
+                    ) : (
+                      <>
+                        <Globe size={12} /> Post to Marketplace
+                      </>
+                    )}
+                  </>
+                )}
               </button>
             </div>
           </div>

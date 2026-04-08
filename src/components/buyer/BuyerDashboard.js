@@ -121,7 +121,7 @@ export default function BuyerDashboard({ requests = [] }) {
           ) : (
             requests.slice(0, 6).map((req) => (
               <div
-                key={req.id}
+                key={req._id}
                 className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/60 transition group"
               >
                 <span

@@ -16,6 +16,31 @@ export async function POST(request) {
   }
 }
 
+export async function PUT(request) {
+  try {
+    const body = await request.json();
+    const { offerId, is_public } = body;
+
+    if (!offerId || is_public === undefined) {
+      return Response.json(
+        { error: 'Offer ID and is_public status required' },
+        { status: 400 }
+      );
+    }
+
+    const result = await mongoService.updateOfferStatus(offerId, is_public);
+
+    if (result.error) {
+      return Response.json({ error: result.error }, { status: 500 });
+    }
+
+    return Response.json({ success: true, data: result.data });
+  } catch (error) {
+    console.error('[API] updateOfferStatus error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);

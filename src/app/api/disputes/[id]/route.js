@@ -2,7 +2,7 @@ import { mongoService } from '@/lib/mongoService';
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { status } = body;
     
@@ -13,12 +13,13 @@ export async function PUT(request, { params }) {
     const result = await mongoService.updateDisputeStatus(id, status);
     
     if (result.error) {
-      return Response.json({ error: result.error }, { status: 400 });
+      console.error('[API] Dispute update error:', result.error);
+      return Response.json({ error: result.error }, { status: 500 });
     }
     
     return Response.json({ data: result.data });
   } catch (error) {
-    console.error('[API] updateDisputeStatus error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[API] updateDisputeStatus error:', error?.message);
+    return Response.json({ error: error?.message || 'Failed to update dispute' }, { status: 500 });
   }
 }

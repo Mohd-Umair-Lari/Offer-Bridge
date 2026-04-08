@@ -13,20 +13,25 @@ export default function Marketplace({ offers: offersProp }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [requested, setRequested] = useState({});
+  
+  // Use real offers or fallback to mock
   const offers = offersProp?.length ? offersProp : MOCK_OFFERS;
 
+  console.log('[Marketplace] Total public cards available:', offers.length);
+  
+  // Filter by search and category only
   const filtered = offers.filter((o) => {
     const cats = Array.isArray(o.categories) ? o.categories : [];
     const matchCat = category === 'All' || cats.includes(category);
     const matchText = search === '' || o.card_name?.toLowerCase().includes(search.toLowerCase()) || o.bank?.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchText && o.status === 'available';
+    return matchCat && matchText;
   });
 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-xl font-bold text-[#1a1a2e]">Offer Marketplace</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{offers.length} offers loaded from database</p>
+        <p className="text-sm text-gray-400 mt-0.5">Browse all public cards available. Click "Request Match" to request a product with any card.</p>
       </div>
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -44,15 +49,16 @@ export default function Marketplace({ offers: offersProp }) {
           ))}
         </div>
       </div>
-      <p className="text-xs text-gray-400">{filtered.length} offers available</p>
+      <p className="text-xs text-gray-400">{filtered.length} cards available</p>
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 py-16 text-center"><p className="text-gray-400 text-sm">No offers match your filters.</p></div>
+        <div className="bg-white rounded-2xl border border-gray-100 py-16 text-center"><p className="text-gray-400 text-sm">No cards match your filters.</p></div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((offer) => {
+          {filtered.map((offer, index) => {
             const cats = Array.isArray(offer.categories) ? offer.categories : [];
+            const cardKey = offer._id || `offer-${index}`;
             return (
-              <div key={offer.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm card-hover overflow-hidden flex flex-col">
+              <div key={cardKey} className="bg-white rounded-2xl border border-gray-100 shadow-sm card-hover overflow-hidden flex flex-col">
                 <div className={`bg-gradient-to-br ${BANK_COLORS[offer.bank] || 'from-gray-700 to-gray-900'} p-5 text-white relative overflow-hidden`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                   <div className="relative">
@@ -70,7 +76,7 @@ export default function Marketplace({ offers: offersProp }) {
                   </div>
                 </div>
                 <div className="p-4 flex-1 flex flex-col gap-3">
-                  <div className="flex flex-wrap gap-1">{cats.map((c) => <span key={c} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{c}</span>)}</div>
+                  <div className="flex flex-wrap gap-1">{cats.map((c, i) => <span key={`${c}-${i}`} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{c}</span>)}</div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500">
                     <span>Max amount</span><span className="text-gray-800 font-medium text-right">₹{Number(offer.max_amount).toLocaleString('en-IN')}</span>
                     <span>Holder</span><span className="text-gray-800 font-medium text-right">{offer.holder_name}</span>
@@ -80,9 +86,9 @@ export default function Marketplace({ offers: offersProp }) {
                     <span className="font-semibold text-gray-800">{Number(offer.rating).toFixed(1)}</span>
                     <span>· {offer.deals_done} deals</span>
                   </div>
-                  <button id={`request-offer-${offer.id}`} onClick={() => setRequested((p) => ({ ...p, [offer.id]: true }))} disabled={!!requested[offer.id]}
-                    className={`mt-auto w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${requested[offer.id] ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default' : 'bg-[#185FA5] text-white hover:bg-[#145085] active:scale-95'}`}>
-                    {requested[offer.id] ? <><CheckCircle2 size={14} /> Request Sent</> : <><Zap size={14} /> Request Match</>}
+                  <button id={`request-offer-${offer._id}`} onClick={() => setRequested((p) => ({ ...p, [offer._id]: true }))} disabled={!!requested[offer._id]}
+                    className={`mt-auto w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${requested[offer._id] ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default' : 'bg-[#185FA5] text-white hover:bg-[#145085] active:scale-95'}`}>
+                    {requested[offer._id] ? <><CheckCircle2 size={14} /> Request Sent</> : <><Zap size={14} /> Request Match</>}
                   </button>
                 </div>
               </div>

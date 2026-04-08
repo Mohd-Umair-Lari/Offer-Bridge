@@ -119,7 +119,7 @@ export default function ProsumerDashboard({ requests = [], offers = [] }) {
 
             <div className="divide-y divide-gray-50">
               {requests.slice(0, 4).map((req) => (
-                <div key={`buyer-${req.id}`} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/60 transition group">
+                <div key={`buyer-${req._id}`} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/60 transition group">
                   <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ${STATUS_STYLES[req.status]}`}>
                     {req.status}
                   </span>
@@ -162,7 +162,7 @@ export default function ProsumerDashboard({ requests = [], offers = [] }) {
 
             <div className="divide-y divide-gray-50">
               {myOffers.map((offer) => (
-                <div key={`offer-${offer.id}`} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
+                <div key={`offer-${offer._id}`} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
                   <div className="w-8 h-8 bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-lg flex items-center justify-center shrink-0">
                     <span className="text-white text-xs font-bold">{offer.bank?.[0] ?? '?'}</span>
                   </div>

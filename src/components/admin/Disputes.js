@@ -96,15 +96,15 @@ export default function Disputes({ disputes: disputesProp, onRefresh }) {
             const pc = PRIORITY_CONFIG[d.priority] || PRIORITY_CONFIG.medium;
             return (
               <div
-                key={d.id}
-                onClick={() => setSelected(selected === d.id ? null : d.id)}
-                className={`bg-white rounded-2xl border p-4 shadow-sm cursor-pointer transition card-hover ${selected === d.id ? 'border-[#185FA5]/40 ring-2 ring-[#185FA5]/10' : 'border-gray-100'
+                key={d._id}
+                onClick={() => setSelected(selected === d._id ? null : d._id)}
+                className={`bg-white rounded-2xl border p-4 shadow-sm cursor-pointer transition card-hover ${selected === d._id ? 'border-[#185FA5]/40 ring-2 ring-[#185FA5]/10' : 'border-gray-100'
                   }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[10px] font-mono text-gray-400">{d.dispute_id || d.id?.slice(0, 8)}</span>
+                      <span className="text-[10px] font-mono text-gray-400">{d.dispute_id || d._id?.slice(0, 8)}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium border capitalize ${pc.color}`}>
                         <span className={`inline-block w-1.5 h-1.5 rounded-full ${pc.dot} mr-1`} />
                         {d.priority}

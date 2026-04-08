@@ -1,4 +1,5 @@
 import { getDatabase } from './mongodb';
+import { serializeArray, serializeDocument } from './serializeData';
 
 /**
  * MongoDB Service Layer
@@ -22,18 +23,19 @@ export const mongoService = {
       console.log('[MongoDB] Fetched all:', { requests: requests.length, offers: offers.length, escrow: escrow.length, disputes: disputes.length });
 
       return {
-        requests: { data: requests, error: null },
-        offers: { data: offers, error: null },
-        escrow: { data: escrow, error: null },
-        disputes: { data: disputes, error: null },
+        data: {
+          requests: serializeArray(requests),
+          offers: serializeArray(offers),
+          escrow: serializeArray(escrow),
+          disputes: serializeArray(disputes),
+        },
+        error: null,
       };
     } catch (error) {
       console.error('[MongoDB] Fetch error:', error?.message);
       return {
-        requests: { data: [], error },
-        offers: { data: [], error },
-        escrow: { data: [], error },
-        disputes: { data: [], error },
+        data: null,
+        error: error?.message || 'Failed to fetch data',
       };
     }
   },
@@ -43,9 +45,9 @@ export const mongoService = {
     try {
       const db = await getDatabase();
       const data = await db.collection('requests').find({}).limit(limit).toArray();
-      return { data, error: null };
+      return { data: serializeArray(data), error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to fetch requests' };
     }
   },
 
@@ -60,10 +62,10 @@ export const mongoService = {
       };
       const result = await db.collection('requests').insertOne(doc);
       console.log('[MongoDB] Request inserted:', result.insertedId);
-      return { data: { ...doc, _id: result.insertedId }, error: null };
+      return { data: serializeDocument({ ...doc, _id: result.insertedId }), error: null };
     } catch (error) {
       console.error('[MongoDB] Insert request error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to insert request' };
     }
   },
 
@@ -72,9 +74,9 @@ export const mongoService = {
     try {
       const db = await getDatabase();
       const data = await db.collection('offers').find({}).limit(limit).toArray();
-      return { data, error: null };
+      return { data: serializeArray(data), error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to fetch offers' };
     }
   },
 
@@ -89,10 +91,10 @@ export const mongoService = {
       };
       const result = await db.collection('offers').insertOne(doc);
       console.log('[MongoDB] Offer inserted:', result.insertedId);
-      return { data: { ...doc, _id: result.insertedId }, error: null };
+      return { data: serializeDocument({ ...doc, _id: result.insertedId }), error: null };
     } catch (error) {
       console.error('[MongoDB] Insert offer error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to insert offer' };
     }
   },
 
@@ -105,7 +107,23 @@ export const mongoService = {
       return { data: result, error: null };
     } catch (error) {
       console.error('[MongoDB] Delete offer error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to delete offer' };
+    }
+  },
+
+  async updateOfferStatus(offerId, isPublic) {
+    try {
+      const db = await getDatabase();
+      const { ObjectId } = await import('mongodb');
+      const result = await db.collection('offers').updateOne(
+        { _id: new ObjectId(offerId) },
+        { $set: { is_public: isPublic, updated_at: new Date() } }
+      );
+      console.log('[MongoDB] Offer visibility updated:', isPublic ? 'public' : 'private');
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('[MongoDB] Update offer error:', error?.message);
+      return { data: null, error: error?.message || 'Failed to update offer' };
     }
   },
 
@@ -114,9 +132,9 @@ export const mongoService = {
     try {
       const db = await getDatabase();
       const data = await db.collection('escrow').find({}).limit(limit).toArray();
-      return { data, error: null };
+      return { data: serializeArray(data), error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to fetch escrow' };
     }
   },
 
@@ -132,7 +150,7 @@ export const mongoService = {
       return { data: result, error: null };
     } catch (error) {
       console.error('[MongoDB] Update escrow error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to update escrow' };
     }
   },
 
@@ -141,9 +159,9 @@ export const mongoService = {
     try {
       const db = await getDatabase();
       const data = await db.collection('disputes').find({}).limit(limit).toArray();
-      return { data, error: null };
+      return { data: serializeArray(data), error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to fetch disputes' };
     }
   },
 
@@ -159,7 +177,7 @@ export const mongoService = {
       return { data: result, error: null };
     } catch (error) {
       console.error('[MongoDB] Update dispute error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to update dispute' };
     }
   },
 
@@ -168,9 +186,9 @@ export const mongoService = {
     try {
       const db = await getDatabase();
       const data = await db.collection('profiles').findOne({ user_id: userId });
-      return { data, error: null };
+      return { data: serializeDocument(data), error: null };
     } catch (error) {
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to fetch profile' };
     }
   },
 
@@ -184,10 +202,10 @@ export const mongoService = {
       };
       const result = await db.collection('profiles').insertOne(doc);
       console.log('[MongoDB] Profile created:', result.insertedId);
-      return { data: { ...doc, _id: result.insertedId }, error: null };
+      return { data: serializeDocument({ ...doc, _id: result.insertedId }), error: null };
     } catch (error) {
       console.error('[MongoDB] Create profile error:', error?.message);
-      return { data: null, error };
+      return { data: null, error: error?.message || 'Failed to create profile' };
     }
   },
 };
