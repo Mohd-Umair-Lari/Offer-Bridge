@@ -12,6 +12,7 @@ import {
 
 // Auth screen
 import AuthScreen from '@/components/auth/AuthScreen';
+import LandingPage from '@/components/LandingPage';
 
 // Buyer Views
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
@@ -173,7 +174,7 @@ function UserMenu({ displayName, role, onSignOut }) {
 }
 
 // ── Main App ──────────────────────────────────────────────────────────
-export default function OfferBridge() {
+export default function GoZivoDashboard() {
   const { user, role, displayName, loading: authLoading, signOut } = useAuth();
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -182,6 +183,7 @@ export default function OfferBridge() {
   const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
 
   // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
@@ -266,17 +268,22 @@ export default function OfferBridge() {
     );
   }
 
-  // ── Not authenticated → show auth screen ──────────────────────────
-  if (!user) return <AuthScreen />;
+  // ── Not authenticated → show landing page or auth screen ─────────
+  if (!user) {
+    if (!showAuthScreen) {
+      return <LandingPage onGetStarted={() => setShowAuthScreen(true)} />;
+    }
+    return <AuthScreen />;
+  }
 
   // ── Authenticated → show role-based app ──────────────────────────
   const navSections = getNavSections(role);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] flex flex-col text-[#1a1a2e]">
+    <div className="min-h-screen bg-[#f8f9fc] dark:bg-slate-950 flex flex-col text-[#1a1a2e] dark:text-gray-100 transition-colors">
 
       {/* ── Topbar ─────────────────────────────────────── */}
-      <nav className="h-14 bg-white border-b border-gray-100 shadow-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
+      <nav className="h-14 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 shadow-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-50 transition-colors">
 
         {/* Left: hamburger + logo */}
         <div className="flex items-center gap-3">
@@ -293,7 +300,7 @@ export default function OfferBridge() {
               <Wallet size={14} className="text-white" />
             </div>
             <span className="font-bold text-[#185FA5] text-lg leading-none">
-              Offer<span className="text-gray-400 font-normal">Bridge</span>
+              Go<span className="text-gray-400 font-normal">Zivo</span>
             </span>
           </div>
         </div>
@@ -331,7 +338,7 @@ export default function OfferBridge() {
         {/* ── Sidebar ──────────────────────────────────── */}
         <aside className={`
           fixed md:static top-14 left-0 bottom-0 z-40
-          w-56 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col
+          w-56 bg-white dark:bg-slate-900 border-r border-gray-100 dark:border-slate-800 flex-shrink-0 flex flex-col
           transform transition-transform duration-200 ease-out
           md:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -340,7 +347,7 @@ export default function OfferBridge() {
           <div className="p-4 flex-1 overflow-y-auto space-y-5">
             {navSections.map(({ label, items }) => (
               <div key={label}>
-                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-2 px-2 font-semibold">{label}</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 px-2 font-semibold">{label}</p>
                 <nav className="space-y-0.5">
                   {items.map((item) => (
                     <button
@@ -348,8 +355,8 @@ export default function OfferBridge() {
                       id={`nav-${item.id}`}
                       onClick={() => handleTab(item.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${activeTab === item.id
-                        ? 'bg-[#E6F1FB] text-[#185FA5] font-semibold'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                        ? 'bg-[#E6F1FB] dark:bg-blue-900/30 text-[#185FA5] dark:text-blue-400 font-semibold'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-800 dark:hover:text-gray-300'
                         }`}
                     >
                       <span className={activeTab === item.id ? 'text-[#185FA5]' : 'text-gray-400'}>
@@ -364,7 +371,7 @@ export default function OfferBridge() {
           </div>
 
           {/* Sidebar footer — user info */}
-          <div className="p-4 border-t border-gray-50">
+          <div className="p-4 border-t border-gray-50 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 bg-[#E6F1FB] rounded-full flex items-center justify-center shrink-0">
                 <User size={14} className="text-[#185FA5]" />

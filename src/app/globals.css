@@ -5,6 +5,7 @@
   --foreground: #1a1a2e;
   --brand: #185FA5;
   --brand-light: #E6F1FB;
+  color-scheme: light;
 }
 
 /* ─── Dark Mode ───────────────────────────────────── */
@@ -23,17 +24,21 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ─── Custom Scrollbar ────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -41,12 +46,13 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #dde1e7;
+  background: #d1d5db;
   border-radius: 99px;
+  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c5cad2;
+  background: #9ca3af;
 }
 
 /* ─── Dark Mode Scrollbar ─────────────────────────── */

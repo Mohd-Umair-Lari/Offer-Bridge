@@ -17,6 +17,8 @@ export function ThemeProvider({ children }) {
     document.documentElement.setAttribute('data-theme', savedTheme);
     if (savedTheme === 'dark') {
       document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
@@ -25,12 +27,7 @@ export function ThemeProvider({ children }) {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-    
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark');
   };
 
   // Don't render until mounted to avoid hydration mismatch
@@ -48,5 +45,7 @@ export function useTheme() {
   if (!context) {
     throw new Error('useTheme must be used within ThemeProvider');
   }
+  return context;
+}
   return context;
 }

@@ -1,16 +1,17 @@
 "use client";
 import { useState } from 'react';
 import { useAuth } from '@/lib/authContext';
-import { Wallet, Eye, EyeOff, ShoppingBag, CreditCard, LayoutGrid, ShieldCheck, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { useTheme } from '@/lib/themeContext';
+import { Wallet, Eye, EyeOff, ShoppingBag, CreditCard, LayoutGrid, ShieldCheck, ArrowRight, Check, Loader2, Moon, Sun } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 
 // ── Role definitions ────────────────────────────────────────────────
 const ROLES = [
   {
     id:    'customer',
-    title: 'Customer',
-    sub:   'Buyer only',
-    desc:  'Browse and purchase using exclusive card discounts from verified providers.',
+    title: 'Discount Seeker',
+    sub:   'Looking for offers',
+    desc:  'Find and use exclusive credit card discounts from verified cardholders. Save on every purchase.',
     icon:  <ShoppingBag size={22} />,
     color: 'blue',
     gradient: 'from-blue-500 to-blue-700',
@@ -20,9 +21,9 @@ const ROLES = [
   },
   {
     id:    'provider',
-    title: 'Provider',
-    sub:   'Card provider only',
-    desc:  'Share your unused card offers and earn commissions on every successful deal.',
+    title: 'Cardholder',
+    sub:   'Monetize offers',
+    desc:  'Earn money by sharing your unused credit card discounts and benefits with our community.',
     icon:  <CreditCard size={22} />,
     color: 'emerald',
     gradient: 'from-emerald-500 to-emerald-700',
@@ -32,9 +33,9 @@ const ROLES = [
   },
   {
     id:    'customer_provider',
-    title: 'Customer + Provider',
-    sub:   'Both roles',
-    desc:  'Buy using others\' offers AND share your own card benefits to earn rewards.',
+    title: 'Both Roles',
+    sub:   'Everything',
+    desc:  'Get access to both features — save on purchases AND earn from your unused card benefits.',
     icon:  <LayoutGrid size={22} />,
     color: 'purple',
     gradient: 'from-purple-500 to-violet-600',
@@ -46,7 +47,7 @@ const ROLES = [
     id:    'admin',
     title: 'Admin',
     sub:   'Platform admin',
-    desc:  'Manage the OfferBridge platform, escrow, disputes, and user activity.',
+    desc:  'Manage the CardHub platform, escrow, disputes, and user activity.',
     icon:  <ShieldCheck size={22} />,
     color: 'slate',
     gradient: 'from-slate-600 to-slate-800',
@@ -63,7 +64,7 @@ function InputField({ id, label, type = 'text', value, onChange, placeholder, er
   const resolvedAutoComplete = autoComplete ?? (type === 'password' ? 'current-password' : 'on');
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
       <div className="relative">
         <input
           id={id}
@@ -72,27 +73,26 @@ function InputField({ id, label, type = 'text', value, onChange, placeholder, er
           onChange={onChange}
           placeholder={placeholder}
           autoComplete={resolvedAutoComplete}
-          className={`w-full px-4 py-3 text-sm bg-white border rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#185FA5]/25 focus:border-[#185FA5] ${error ? 'border-red-300 bg-red-50/30' : 'border-gray-200'} ${suffix ? 'pr-10' : ''}`}
+          className={`w-full px-4 py-3 text-sm bg-white dark:bg-slate-800 border rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#185FA5]/25 focus:border-[#185FA5] dark:text-white ${error ? 'border-red-300 dark:border-red-600 bg-red-50/30 dark:bg-red-950/30' : 'border-gray-200 dark:border-slate-700'} ${suffix ? 'pr-10' : ''}`}
         />
         {type === 'password' && (
           <button
             type="button"
             onClick={() => setShowPw((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400 transition"
           >
             {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400 mt-1">{error}</p>}
     </div>
   );
 }
 
 // ── Main AuthScreen ──────────────────────────────────────────────────
 export default function AuthScreen() {
-  const { signIn, signUp } = useAuth();
-
+  const { signIn, signUp } = useAuth();  const { theme, toggleTheme } = useTheme();
   const [mode, setMode]     = useState('login'); // 'login' | 'signup'
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
@@ -174,7 +174,7 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-white dark:bg-slate-950 transition-colors">
 
       {/* ── Left Branding Panel ─────────────────────────────── */}
       <div className="hidden lg:flex w-[45%] bg-gradient-to-br from-[#0a1628] via-[#0f2847] to-[#1a3d70] flex-col justify-between p-12 relative overflow-hidden">
@@ -189,7 +189,7 @@ export default function AuthScreen() {
             <Wallet size={20} className="text-white" />
           </div>
           <span className="text-white font-bold text-2xl">
-            Offer<span className="text-blue-300 font-light">Bridge</span>
+            Go<span className="text-blue-300 font-light">Zivo</span>
           </span>
         </div>
 
@@ -197,21 +197,21 @@ export default function AuthScreen() {
         <div className="relative space-y-6">
           <div>
             <h1 className="text-4xl font-bold text-white leading-tight">
-              The marketplace for<br />
-              <span className="text-blue-300">exclusive card benefits</span>
+              Connect cardholders with<br />
+              <span className="text-blue-300">discount seekers</span>
             </h1>
             <p className="text-blue-200/70 mt-4 text-base leading-relaxed">
-              Connect buyers with cardholders. Unlock discounts. Earn from your unused offers.
+              Cardholders monetize unused offers. Discount seekers get exclusive deals. Everyone wins.
             </p>
           </div>
 
           {/* Feature list */}
           <div className="space-y-3">
             {[
-              'Verified cardholders with real offers',
-              'Secure escrow — funds protected until delivery',
-              'Earn commissions on every successful deal',
-              '4 roles: Customer, Provider, Both, Admin',
+              'Verified cardholders with exclusive discount offers',
+              'Secure escrow — your funds protected until deal completion',
+              'Earn real commissions on every successful transaction',
+              'Join thousands of cardholders and discount seekers',
             ].map((f) => (
               <div key={f} className="flex items-center gap-3">
                 <div className="w-5 h-5 bg-emerald-500/20 rounded-full flex items-center justify-center shrink-0">
@@ -226,9 +226,9 @@ export default function AuthScreen() {
         {/* Bottom stats */}
         <div className="relative grid grid-cols-3 gap-4">
           {[
-            { val: '500+', label: 'Active Offers' },
-            { val: '$2M+', label: 'Volume Brokered' },
-            { val: '99%', label: 'Deal Success' },
+            { val: 'Verified', label: 'Cardholders' },
+            { val: 'Trusted', label: 'Platform' },
+            { val: 'Live', label: 'Now' },
           ].map((s) => (
             <div key={s.label} className="text-center">
               <p className="text-2xl font-bold text-white">{s.val}</p>
@@ -239,8 +239,21 @@ export default function AuthScreen() {
       </div>
 
       {/* ── Right Form Panel ────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-[#f8f9fc]">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-6 bg-[#f8f9fc] dark:bg-slate-950 transition-colors">
+        <div className="w-full max-w-md relative">
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="absolute -top-12 right-0 p-2.5 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            {theme === 'light' ? (
+              <Moon size={18} className="text-gray-600" />
+            ) : (
+              <Sun size={18} className="text-yellow-400" />
+            )}
+          </button>
 
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
@@ -248,24 +261,24 @@ export default function AuthScreen() {
               <Wallet size={16} className="text-white" />
             </div>
             <span className="font-bold text-[#185FA5] text-xl">
-              Offer<span className="text-gray-400 font-normal">Bridge</span>
+              Go<span className="text-gray-400 font-normal">Zivo</span>
             </span>
           </div>
 
           {/* Card */}
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-gray-100 dark:border-slate-800 p-8 transition-colors">
 
             {/* Mode tabs */}
-            <div className="flex bg-gray-100 rounded-2xl p-1 mb-7">
+            <div className="flex gap-2 rounded-full bg-gradient-to-r from-gray-50 dark:from-slate-800 to-gray-100 dark:to-slate-700 p-1.5 mb-8">
               {[['login', 'Sign In'], ['signup', 'Create Account']].map(([m, label]) => (
                 <button
                   key={m}
                   id={`auth-tab-${m}`}
                   onClick={() => switchMode(m)}
-                  className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                  className={`flex-1 py-2.5 px-4 text-sm font-semibold rounded-full transition-all duration-300 ${
                     mode === m
-                      ? 'bg-white shadow-sm text-[#185FA5]'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'bg-white dark:bg-slate-900 shadow-lg shadow-blue-100 dark:shadow-blue-900/30 text-[#185FA5]'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   {label}
@@ -275,12 +288,12 @@ export default function AuthScreen() {
 
             {/* Server messages */}
             {serverError && (
-              <div className="mb-5 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+              <div className="mb-5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-xl px-4 py-3">
                 {serverError}
               </div>
             )}
             {successMsg && (
-              <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl px-4 py-3">
+              <div className="mb-5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-sm rounded-xl px-4 py-3">
                 {successMsg}
               </div>
             )}
@@ -336,7 +349,7 @@ export default function AuthScreen() {
               {/* Role selection — signup only */}
               {mode === 'signup' && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-3">I am a…</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">I am a…</p>
                   <div className="grid grid-cols-2 gap-2.5">
                     {ROLES.map((r) => {
                       const isSelected = selectedRole === r.id;
@@ -348,8 +361,8 @@ export default function AuthScreen() {
                           onClick={() => setSelectedRole(r.id)}
                           className={`relative p-3.5 rounded-2xl border-2 text-left transition-all duration-200 ${
                             isSelected
-                              ? `${r.border} ${r.bg} shadow-sm`
-                              : 'border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white'
+                              ? `${r.border} ${r.bg} shadow-sm dark:shadow-lg`
+                              : 'border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 hover:border-gray-200 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-700'
                           }`}
                         >
                           {/* Selected check */}
@@ -361,16 +374,16 @@ export default function AuthScreen() {
                           <div className={`mb-2 ${isSelected ? r.text : 'text-gray-400'}`}>
                             {r.icon}
                           </div>
-                          <p className={`text-xs font-bold leading-tight ${isSelected ? r.text : 'text-gray-700'}`}>
+                          <p className={`text-xs font-bold leading-tight ${isSelected ? r.text : 'text-gray-700 dark:text-gray-300'}`}>
                             {r.title}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{r.sub}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{r.sub}</p>
                         </button>
                       );
                     })}
                   </div>
                   {/* Role description */}
-                  <div className="mt-3 bg-gray-50 rounded-xl p-3 text-xs text-gray-500 min-h-[36px] transition-all">
+                  <div className="mt-3 bg-gray-50 dark:bg-slate-800 rounded-xl p-3 text-xs text-gray-500 dark:text-gray-400 min-h-[36px] transition-all">
                     {ROLES.find((r) => r.id === selectedRole)?.desc}
                   </div>
                 </div>
@@ -381,7 +394,7 @@ export default function AuthScreen() {
                 id="auth-submit"
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 bg-[#185FA5] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-[#145085] active:scale-[0.99] transition disabled:opacity-60"
+                className="w-full mt-2 py-3 bg-[#185FA5] hover:bg-[#145085] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-60"
               >
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -397,10 +410,10 @@ export default function AuthScreen() {
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
+                <div className="w-full border-t border-gray-200 dark:border-slate-700" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-white dark:bg-slate-900 text-gray-500 dark:text-gray-400">Or continue with</span>
               </div>
             </div>
 
@@ -410,7 +423,7 @@ export default function AuthScreen() {
                 type="button"
                 onClick={() => handleOAuthSignIn('google')}
                 disabled={oauthLoading !== null}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                className="px-4 py-2.5 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 transition flex items-center justify-center gap-2"
               >
                 {oauthLoading === 'google' ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -427,7 +440,7 @@ export default function AuthScreen() {
                 type="button"
                 onClick={() => handleOAuthSignIn('facebook')}
                 disabled={oauthLoading !== null}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                className="px-4 py-2.5 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 transition flex items-center justify-center gap-2"
               >
                 {oauthLoading === 'facebook' ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -441,7 +454,7 @@ export default function AuthScreen() {
                 type="button"
                 onClick={() => handleOAuthSignIn('azure-ad')}
                 disabled={oauthLoading !== null}
-                className="px-4 py-2.5 border border-gray-200 rounded-xl hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                className="px-4 py-2.5 border border-gray-200 dark:border-slate-700 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 transition flex items-center justify-center gap-2"
               >
                 {oauthLoading === 'azure-ad' ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -454,7 +467,7 @@ export default function AuthScreen() {
             </div>
 
             {/* Toggle link */}
-            <p className="text-center text-xs text-gray-400 mt-5">
+            <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-5">
               {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
               <button
                 onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
@@ -465,7 +478,7 @@ export default function AuthScreen() {
             </p>
           </div>
 
-          <p className="text-center text-[10px] text-gray-400 mt-4">
+          <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 mt-4">
             By signing up you agree to our Terms of Service and Privacy Policy.
           </p>
         </div>

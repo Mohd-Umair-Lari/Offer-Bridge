@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata = {
   title: "GoZivo — Buy & Sell Credit Card Offers",
   description:
-    "GoZivo connects buyers who want to use credit card discounts with cardholders who have unused offers. Secure, fast, and fee-protected.",
+    "GoZivo connects cardholders who want to monetize unused offers with discount seekers looking for exclusive deals. Secure, fast, and transparent.",
 };
 
 export default function RootLayout({ children }) {

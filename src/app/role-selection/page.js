@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 
 export const metadata = {
-  title: 'Choose Your Role - OfferBridge',
+  title: 'Choose Your Role - GoZivo',
   description: 'Select your role to get started',
 };
 
