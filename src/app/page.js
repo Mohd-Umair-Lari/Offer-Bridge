@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
+import { useTheme } from '@/lib/themeContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
   DollarSign, ShieldAlert, Menu, X, Wallet,
-  Database, LogOut, ChevronDown, User,
+  Database, LogOut, ChevronDown, User, Moon, Sun,
 } from 'lucide-react';
 
 // Auth screen
@@ -90,6 +91,25 @@ function renderContent(role, activeTab, db, onRefresh, user) {
   if (activeTab === 'escrow') return <Escrow escrow={db.escrow} onRefresh={onRefresh} />;
   if (activeTab === 'disputes') return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;
   return <div className="text-center py-20 text-gray-400 text-sm">Coming soon</div>;
+}
+
+// ── Theme Toggle ──────────────────────────────────────────────
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    >
+      {theme === 'light' ? (
+        <Moon size={18} className="text-gray-600" />
+      ) : (
+        <Sun size={18} className="text-yellow-500" />
+      )}
+    </button>
+  );
 }
 
 // ── User menu dropdown ────────────────────────────────────────────────
@@ -296,6 +316,7 @@ export default function OfferBridge() {
             <Database size={10} />
             {dbConnected ? 'Live DB' : 'Mock Data'}
           </div>
+          <ThemeToggle />
           <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} />
         </div>
       </nav>

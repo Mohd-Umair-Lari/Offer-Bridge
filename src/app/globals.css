@@ -7,6 +7,15 @@
   --brand-light: #E6F1FB;
 }
 
+/* ─── Dark Mode ───────────────────────────────────── */
+:root.dark {
+  --background: #0f172a;
+  --foreground: #f8f9fc;
+  --brand: #60a5fa;
+  --brand-light: #1e3a8a;
+  color-scheme: dark;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -18,6 +27,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* ─── Custom Scrollbar ────────────────────────────── */
@@ -37,6 +47,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #c5cad2;
+}
+
+/* ─── Dark Mode Scrollbar ─────────────────────────── */
+:root.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+:root.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* ─── Animations ──────────────────────────────────── */

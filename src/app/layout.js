@@ -6,9 +6,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata = {
-  title: "OfferBridge — Buy & Sell Credit Card Offers",
+  title: "GoZivo — Buy & Sell Credit Card Offers",
   description:
-    "OfferBridge connects buyers who want to use credit card discounts with cardholders who have unused offers. Secure, fast, and fee-protected.",
+    "GoZivo connects buyers who want to use credit card discounts with cardholders who have unused offers. Secure, fast, and fee-protected.",
 };
 
 export default function RootLayout({ children }) {
