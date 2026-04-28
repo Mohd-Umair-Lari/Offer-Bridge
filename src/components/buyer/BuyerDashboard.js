@@ -1,164 +1,112 @@
 "use client";
-import { TrendingDown, CheckCircle2, Clock, Tag, ArrowUpRight } from 'lucide-react';
-
-const STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
-  matched: 'bg-blue-50 text-blue-700 border border-blue-200',
-  completed: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-};
-
-const CATEGORY_STYLES = {
-  Electronics: 'bg-violet-50 text-violet-700',
-  'Fashion & Clothing': 'bg-pink-50 text-pink-700',
-  'Beauty & Skincare': 'bg-rose-50 text-rose-700',
-  'Home & Kitchen': 'bg-orange-50 text-orange-700',
-  'Books & Stationery': 'bg-yellow-50 text-yellow-700',
-  'Sports & Fitness': 'bg-green-50 text-green-700',
-  'Toys & Games': 'bg-purple-50 text-purple-700',
-  Groceries: 'bg-lime-50 text-lime-700',
-  'Health & Wellness': 'bg-teal-50 text-teal-700',
-  Footwear: 'bg-amber-50 text-amber-700',
-  Accessories: 'bg-sky-50 text-sky-700',
-  Gaming: 'bg-indigo-50 text-indigo-700',
-  'Mobile & Tablets': 'bg-blue-50 text-blue-700',
-  Appliances: 'bg-cyan-50 text-cyan-700',
-};
-
+import { motion } from 'framer-motion';
+import { TrendingDown, CheckCircle2, Clock, Tag, ArrowUpRight, Plus } from 'lucide-react';
 import { useState } from 'react';
 import RequestDetailsModal from '@/components/shared/RequestDetailsModal';
+import StatCard from '@/components/shared/StatCard';
+
+const STATUS_STYLES = {
+  pending:   'badge badge-warning',
+  matched:   'badge badge-info',
+  completed: 'badge badge-success',
+};
+
+const CATEGORY_COLORS = {
+  Electronics: '#8b5cf6', 'Fashion & Clothing': '#ec4899', 'Beauty & Skincare': '#f43f5e',
+  'Home & Kitchen': '#f97316', 'Books & Stationery': '#eab308', 'Sports & Fitness': '#22c55e',
+  Groceries: '#84cc16', 'Health & Wellness': '#14b8a6', Footwear: '#f59e0b',
+  Accessories: '#06b6d4', Gaming: '#6366f1', 'Mobile & Tablets': '#3b82f6', Appliances: '#0ea5e9',
+};
+
+const container = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 
 export default function BuyerDashboard({ requests = [] }) {
   const [selectedReq, setSelectedReq] = useState(null);
 
-  const pending = requests.filter((r) => r.status === 'pending').length;
-  const matched = requests.filter((r) => r.status === 'matched').length;
-  const completed = requests.filter((r) => r.status === 'completed').length;
-  const saved = requests
-    .filter((r) => r.status === 'completed')
-    .reduce((sum, r) => sum + r.amount * 0.12, 0);
+  const pending   = requests.filter(r => r.status === 'pending').length;
+  const matched   = requests.filter(r => r.status === 'matched').length;
+  const completed = requests.filter(r => r.status === 'completed').length;
+  const saved     = requests.filter(r => r.status === 'completed').reduce((sum, r) => sum + r.amount * 0.12, 0);
 
   const stats = [
-    {
-      label: 'Pending',
-      value: pending,
-      sub: 'awaiting match',
-      icon: <Clock size={18} className="text-amber-500" />,
-      bg: 'bg-amber-50',
-      border: 'border-amber-100',
-    },
-    {
-      label: 'Matched',
-      value: matched,
-      sub: 'in progress',
-      icon: <ArrowUpRight size={18} className="text-blue-500" />,
-      bg: 'bg-blue-50',
-      border: 'border-blue-100',
-    },
-    {
-      label: 'Completed',
-      value: completed,
-      sub: 'successful deals',
-      icon: <CheckCircle2 size={18} className="text-emerald-500" />,
-      bg: 'bg-emerald-50',
-      border: 'border-emerald-100',
-    },
-    {
-      label: 'Total Saved',
-      value: `₹${saved.toLocaleString('en-IN')}`,
-      sub: 'est. discount value',
-      icon: <TrendingDown size={18} className="text-[#185FA5]" />,
-      bg: 'bg-[#E6F1FB]',
-      border: 'border-blue-100',
-    },
+    { label: 'Pending',    value: pending,                                 sub: 'awaiting match',    icon: Clock,        iconClass: 'stat-warning', delay: 0 },
+    { label: 'Matched',    value: matched,                                 sub: 'in progress',        icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.08 },
+    { label: 'Completed',  value: completed,                               sub: 'successful deals',   icon: CheckCircle2, iconClass: 'stat-success', delay: 0.16 },
+    { label: 'Total Saved',value: `₹${saved.toLocaleString('en-IN')}`,   sub: 'est. discount value',icon: TrendingDown, iconClass: 'stat-purple',  delay: 0.24 },
   ];
 
   return (
-    <div className="space-y-6 max-w-5xl relative">
-      {selectedReq && (
-        <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} />
-      )}
-      
+    <div className="space-y-6 max-w-5xl">
+      {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} />}
+
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-[#1a1a2e]">Buyer Dashboard</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Track your purchase requests and savings</p>
-      </div>
+      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Buyer Dashboard</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Track your purchase requests and savings</p>
+      </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className={`bg-white rounded-2xl p-4 border ${s.border} shadow-sm card-hover`}
-          >
-            <div className={`w-9 h-9 ${s.bg} rounded-xl flex items-center justify-center mb-3`}>
-              {s.icon}
-            </div>
-            <p className="text-2xl font-bold text-[#1a1a2e] tabular-nums">{s.value}</p>
-            <p className="text-xs font-semibold text-gray-600 mt-0.5">{s.label}</p>
-            <p className="text-[10px] text-gray-400">{s.sub}</p>
-          </div>
-        ))}
-      </div>
+      <motion.div variants={container} initial="hidden" animate="visible" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map(s => <StatCard key={s.label} {...s} />)}
+      </motion.div>
 
       {/* Recent Requests */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        className="card overflow-hidden">
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
           <div>
-            <h2 className="font-semibold text-[#1a1a2e]">Recent Requests</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{requests.length} total</p>
+            <h2 className="font-semibold" style={{ color: 'var(--text)' }}>Recent Requests</h2>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{requests.length} total</p>
           </div>
-          <button className="text-xs text-[#185FA5] hover:underline transition">View all →</button>
+          <span className="badge badge-neutral">{pending} pending</span>
         </div>
 
-        <div className="divide-y divide-gray-50">
+        <div>
           {requests.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <Tag size={32} className="text-gray-200 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">No requests yet.</p>
-              <p className="text-xs text-gray-300 mt-1">Create your first request to get started.</p>
+            <div className="px-5 py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 stat-purple">
+                <Tag size={24} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>No requests yet</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Create your first request to get started</p>
             </div>
           ) : (
-            requests.slice(0, 6).map((req) => (
-              <div
-                key={req.id}
-                className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/60 transition group"
-              >
-                <span
-                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0 ${CATEGORY_STYLES[req.category] || 'bg-gray-100 text-gray-600'
-                    }`}
-                >
-                  {req.category}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#1a1a2e] truncate group-hover:text-[#185FA5] transition">
-                    {req.title}
-                  </p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Due {new Date(req.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <p className="text-sm font-bold text-[#1a1a2e] tabular-nums shrink-0">
-                  ₹{req.amount.toLocaleString('en-IN')}
-                </p>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_STYLES[req.status]}`}
-                  >
-                    {req.status}
+            <motion.div variants={container} initial="hidden" animate="visible">
+              {requests.slice(0, 6).map((req, i) => (
+                <motion.div key={req.id}
+                  initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                  className="px-5 py-3.5 flex items-center gap-4 group transition"
+                  style={{ borderBottom: '1px solid var(--border2)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: CATEGORY_COLORS[req.category] || 'var(--border)', boxShadow: `0 0 8px ${CATEGORY_COLORS[req.category] || 'transparent'}60` }} />
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0"
+                    style={{ background: `${CATEGORY_COLORS[req.category] || '#6b7280'}15`, color: CATEGORY_COLORS[req.category] || 'var(--text-muted)', border: `1px solid ${CATEGORY_COLORS[req.category] || '#6b7280'}25` }}>
+                    {req.category}
                   </span>
-                  <button 
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate transition" style={{ color: 'var(--text)' }}>{req.title}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                      Due {new Date(req.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold tabular-nums shrink-0" style={{ color: 'var(--text)' }}>
+                    ₹{req.amount.toLocaleString('en-IN')}
+                  </p>
+                  <span className={STATUS_STYLES[req.status] || 'badge badge-neutral'}>{req.status}</span>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                     onClick={() => setSelectedReq(req)}
-                    className="text-xs font-semibold text-[#185FA5] bg-[#E6F1FB] hover:bg-[#185FA5] hover:text-white transition px-3 py-1.5 rounded-lg border border-[#185FA5]/10"
-                  >
-                    See Details
-                  </button>
-                </div>
-              </div>
-            ))
+                    className="btn-ghost text-xs px-3 py-1.5 shrink-0">
+                    Details
+                  </motion.button>
+                </motion.div>
+              ))}
+            </motion.div>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

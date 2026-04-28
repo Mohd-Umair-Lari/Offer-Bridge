@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
@@ -7,98 +8,119 @@ import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mo
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
   DollarSign, ShieldAlert, Menu, X, Wallet,
-  Database, LogOut, ChevronDown, User,
+  LogOut, ChevronDown, User, Sun, Moon,
+  Bell, Settings, Zap, RefreshCw, BarChart2,
 } from 'lucide-react';
 
-// Auth screen
 import AuthScreen from '@/components/auth/AuthScreen';
-
-// Buyer Views
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
 import Marketplace from '@/components/buyer/Marketplace';
 import NewRequest from '@/components/buyer/NewRequest';
-
-// Cardholder/Provider Views
 import CardholderDashboard from '@/components/cardholder/CardholderDashboard';
 import BrowseRequests from '@/components/cardholder/BrowseRequests';
 import MyCards from '@/components/cardholder/MyCards';
-
-// Admin Views
 import AdminOverview from '@/components/admin/AdminOverview';
 import Escrow from '@/components/admin/Escrow';
 import Disputes from '@/components/admin/Disputes';
-
-// Dual-Role Views
 import ProsumerDashboard from '@/components/prosumer/ProsumerDashboard';
 
-// ── Nav config ────────────────────────────────────────────────────────
+// ── Nav config ─────────────────────────────────────────────────
 const BUYER_NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutGrid size={16} /> },
-  { id: 'marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} /> },
-  { id: 'new-request', label: 'New Request', icon: <PlusCircle size={16} /> },
+  { id: 'dashboard',   label: 'Dashboard',   icon: LayoutGrid },
+  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { id: 'new-request', label: 'New Request', icon: PlusCircle },
 ];
 const PROVIDER_NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutGrid size={16} /> },
-  { id: 'browse', label: 'Browse Requests', icon: <ShoppingBag size={16} /> },
-  { id: 'my-cards', label: 'My Cards', icon: <CreditCard size={16} /> },
+  { id: 'dashboard', label: 'Dashboard',       icon: LayoutGrid },
+  { id: 'browse',    label: 'Browse Requests', icon: ShoppingBag },
+  { id: 'my-cards',  label: 'My Cards',        icon: CreditCard },
 ];
 const ADMIN_NAV = [
-  { id: 'dashboard', label: 'Overview', icon: <LayoutGrid size={16} /> },
-  { id: 'escrow', label: 'Escrow', icon: <DollarSign size={16} /> },
-  { id: 'disputes', label: 'Disputes', icon: <ShieldAlert size={16} /> },
+  { id: 'dashboard', label: 'Overview',  icon: LayoutGrid },
+  { id: 'escrow',    label: 'Escrow',    icon: DollarSign },
+  { id: 'disputes',  label: 'Disputes',  icon: ShieldAlert },
 ];
 
 function getNavSections(role) {
   switch (role) {
-    case 'admin': return [{ label: 'Admin', items: ADMIN_NAV }];
-    case 'customer': return [{ label: 'Buyer', items: BUYER_NAV }];
+    case 'admin':    return [{ label: 'Admin',    items: ADMIN_NAV }];
+    case 'customer': return [{ label: 'Buyer',    items: BUYER_NAV }];
     case 'provider': return [{ label: 'Provider', items: PROVIDER_NAV }];
     case 'customer_provider': return [
-      { label: 'Buyer', items: BUYER_NAV },
-      {
-        label: 'Provider', items: [
-          { id: 'browse', label: 'Browse Requests', icon: <ShoppingBag size={16} /> },
-          { id: 'my-cards', label: 'My Cards', icon: <CreditCard size={16} /> },
-        ]
-      },
+      { label: 'Buyer',    items: BUYER_NAV },
+      { label: 'Provider', items: [
+        { id: 'browse',   label: 'Browse Requests', icon: ShoppingBag },
+        { id: 'my-cards', label: 'My Cards',        icon: CreditCard },
+      ]},
     ];
     default: return [{ label: 'Buyer', items: BUYER_NAV }];
   }
 }
 
-function getDefaultTab(role) {
-  return 'dashboard';
-}
-
-// ── Content renderer ──────────────────────────────────────────────────
+// ── Content renderer ────────────────────────────────────────────
 function renderContent(role, activeTab, db, onRefresh, user) {
-  // Partition data structurally to prevent leakage
-  const myRequests = db.requests.filter(r => r.user_id === user?.id);
-  const myOffers = db.offers.filter(o => o.user_id === user?.id);
-
+  const myRequests    = db.requests.filter(r => r.user_id === user?.id);
+  const myOffers      = db.offers.filter(o => o.user_id === user?.id);
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
-  const marketOffers = db.offers.filter(o => o.user_id !== user?.id && o.is_public !== false);
+  const marketOffers  = db.offers.filter(o => o.user_id !== user?.id && o.is_public !== false);
 
-  // 'dashboard' is context-sensitive per role
   if (activeTab === 'dashboard') {
-    if (role === 'admin') return <AdminOverview requests={db.requests} offers={db.offers} escrow={db.escrow} disputes={db.disputes} />;
-    if (role === 'provider') return <CardholderDashboard offers={myOffers} requests={myRequests} />;
+    if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} escrow={db.escrow} disputes={db.disputes} />;
+    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} />;
     return <BuyerDashboard requests={myRequests} />;
   }
-  // Buyer tabs
-  if (activeTab === 'marketplace') return <Marketplace offers={marketOffers} />;
-  if (activeTab === 'new-request') return <NewRequest onCreated={onRefresh} />;
-  // Provider tabs
-  if (activeTab === 'browse') return <BrowseRequests requests={marketRequests} offers={myOffers} />;
-  if (activeTab === 'my-cards') return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
-  // Admin tabs
-  if (activeTab === 'escrow') return <Escrow escrow={db.escrow} onRefresh={onRefresh} />;
-  if (activeTab === 'disputes') return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;
-  return <div className="text-center py-20 text-gray-400 text-sm">Coming soon</div>;
+  if (activeTab === 'marketplace')  return <Marketplace offers={marketOffers} />;
+  if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
+  if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} />;
+  if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
+  if (activeTab === 'escrow')       return <Escrow escrow={db.escrow} onRefresh={onRefresh} />;
+  if (activeTab === 'disputes')     return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;
+  return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }
 
-// ── User menu dropdown ────────────────────────────────────────────────
+// ── Theme Toggle ────────────────────────────────────────────────
+function ThemeToggle() {
+  const [theme, setTheme] = useState('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ob-theme') || 'dark';
+    setTheme(saved);
+  }, []);
+
+  const toggle = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('ob-theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  };
+
+  return (
+    <motion.button
+      id="theme-toggle"
+      onClick={toggle}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.92 }}
+      className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors"
+      style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {theme === 'dark' ? (
+          <motion.span key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
+            <Sun size={16} />
+          </motion.span>
+        ) : (
+          <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
+            <Moon size={16} />
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  );
+}
+
+// ── User Menu ───────────────────────────────────────────────────
 function UserMenu({ displayName, role, onSignOut }) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -106,233 +128,266 @@ function UserMenu({ displayName, role, onSignOut }) {
 
   const handleClick = useCallback(async () => {
     setSigningOut(true);
-    try {
-      await onSignOut();
-      setOpen(false);
-    } catch (error) {
-      console.error('Sign out failed:', error);
-      setSigningOut(false);
-    }
+    try { await onSignOut(); setOpen(false); }
+    catch { setSigningOut(false); }
   }, [onSignOut]);
 
   return (
     <div className="relative">
-      <button
+      <motion.button
         id="user-menu-btn"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-100 transition"
+        onClick={() => setOpen(v => !v)}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+        className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl transition"
+        style={{ background: open ? 'var(--surface2)' : 'transparent' }}
       >
-        <div className="w-7 h-7 bg-[#E6F1FB] rounded-full flex items-center justify-center ring-2 ring-[#185FA5]/20 shrink-0">
-          <span className="text-xs font-bold text-[#185FA5]">{initial}</span>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm text-white"
+          style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 2px 8px var(--primary-glow)' }}>
+          {initial}
         </div>
         <div className="hidden sm:block text-left">
-          <p className="text-xs font-semibold text-gray-700 leading-none">{displayName?.split(' ')[0]}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{ROLE_LABELS[role] ?? role}</p>
+          <p className="text-xs font-semibold leading-none" style={{ color: 'var(--text)' }}>{displayName?.split(' ')[0]}</p>
+          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-dim)' }}>{ROLE_LABELS[role] ?? role}</p>
         </div>
-        <ChevronDown size={12} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--text-dim)' }} />
+      </motion.button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-52 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-fade-in">
-            <div className="px-3 py-2.5 border-b border-gray-50 mb-1">
-              <p className="text-sm font-semibold text-gray-800 truncate">{displayName}</p>
-              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium mt-1 ${ROLE_COLORS[role] ?? 'bg-gray-100 text-gray-600'}`}>
-                {ROLE_LABELS[role] ?? role}
-              </span>
-            </div>
-            <button
-              id="user-menu-signout"
-              onClick={handleClick}
-              disabled={signingOut}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 top-full mt-2 w-56 z-50 rounded-2xl p-2"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
             >
-              <LogOut size={14} />
-              {signingOut ? 'Signing out...' : 'Sign Out'}
-            </button>
-          </div>
-        </>
-      )}
+              <div className="px-3 py-2.5 mb-1" style={{ borderBottom: '1px solid var(--border2)' }}>
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{displayName}</p>
+                <span className="badge badge-purple mt-1 text-[10px]">{ROLE_LABELS[role] ?? role}</span>
+              </div>
+              <button
+                id="user-menu-signout"
+                onClick={handleClick}
+                disabled={signingOut}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition disabled:opacity-50"
+                style={{ color: '#ef4444' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <LogOut size={14} />
+                {signingOut ? 'Signing out…' : 'Sign Out'}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// ── Main App ──────────────────────────────────────────────────────────
+// ── Notification Bell (visual SaaS element) ─────────────────────
+function NotifBell() {
+  const [open, setOpen] = useState(false);
+  const notifs = [
+    { id: 1, text: 'New offer matched your request', time: '2m ago', read: false },
+    { id: 2, text: 'Escrow released for deal #4821', time: '1h ago', read: false },
+    { id: 3, text: 'New card offer available in your area', time: '3h ago', read: true },
+  ];
+  const unread = notifs.filter(n => !n.read).length;
+
+  return (
+    <div className="relative">
+      <motion.button
+        whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+        onClick={() => setOpen(v => !v)}
+        className="w-9 h-9 rounded-xl flex items-center justify-center relative"
+        style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+      >
+        <Bell size={16} />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+            style={{ background: 'var(--primary)' }}>
+            {unread}
+          </span>
+        )}
+      </motion.button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, y: -8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 top-full mt-2 w-72 z-50 rounded-2xl overflow-hidden"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+            >
+              <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border2)' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Notifications</p>
+                {unread > 0 && <span className="badge badge-purple">{unread} new</span>}
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {notifs.map(n => (
+                  <div key={n.id} className="px-4 py-3 flex gap-3 items-start transition"
+                    style={{ borderBottom: '1px solid var(--border2)', background: !n.read ? 'var(--primary-dim)' : 'transparent' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = !n.read ? 'var(--primary-dim)' : 'transparent'}
+                  >
+                    <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: !n.read ? 'var(--primary)' : 'var(--border)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs leading-snug" style={{ color: 'var(--text)' }}>{n.text}</p>
+                      <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>{n.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Sidebar Nav Item ────────────────────────────────────────────
+function NavItem({ item, isActive, onClick }) {
+  const Icon = item.icon;
+  return (
+    <motion.button
+      key={item.id}
+      id={`nav-${item.id}`}
+      onClick={onClick}
+      whileHover={{ x: 2 }}
+      className={`nav-item ${isActive ? 'active' : ''}`}
+    >
+      {isActive && (
+        <motion.div
+          layoutId="sidebar-pill"
+          className="absolute inset-0 rounded-xl"
+          style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}
+          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        />
+      )}
+      <span className="relative z-10 flex items-center gap-2.5 w-full">
+        <Icon size={16} style={{ color: isActive ? 'var(--primary)' : 'var(--text-dim)' }} />
+        {item.label}
+      </span>
+    </motion.button>
+  );
+}
+
+// ── Main App ─────────────────────────────────────────────────────
 export default function OfferBridge() {
   const { user, role, displayName, loading: authLoading, signOut } = useAuth();
-
   const [activeTab, setActiveTab] = useState('dashboard');
   const [db, setDb] = useState({ requests: [], offers: [], escrow: [], disputes: [] });
   const [dbLoading, setDbLoading] = useState(true);
-  const [dbConnected, setDbConnected] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  // Memoize handleSignOut so it maintains stable reference across renders
   const handleSignOut = useCallback(async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Sign out failed:', error);
-    }
+    try { await signOut(); } catch (e) { console.error(e); }
   }, [signOut]);
 
-  const fetchAll = useCallback(async (forceRefresh = false) => {
+  const fetchAll = useCallback(async () => {
     setDbLoading(true);
     setIsFetching(true);
-    console.log('[DB] 🔄 Fetching data...');
-
     try {
-      // Try with a simple test query first to check if Supabase is responding
-      console.log('[DB] Testing Supabase connection with simple query...');
-      const testRes = await supabase.from('profiles').select('id').limit(1);
-      console.log('[DB] Test result:', testRes.error ? 'ERROR' : 'OK');
-      
-      if (testRes.error) {
-        console.error('[DB] ⚠️ Even basic query failed:', testRes.error.message);
-      }
-
-      // Now try requests with minimal columns first
-      console.log('[DB] Fetching requests (id only)...');
-      const reqRes = await supabase
-        .from('requests')
-        .select('id, user_id, title, status', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Requests:', reqRes.error ? `ERROR: ${reqRes.error.message}` : `Got ${reqRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching offers...');
-      const offRes = await supabase
-        .from('offers')
-        .select('id, user_id, card_name, bank, max_amount', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Offers:', offRes.error ? `ERROR: ${offRes.error.message}` : `Got ${offRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching escrow...');
-      const escRes = await supabase
-        .from('escrow')
-        .select('id, status, amount', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Escrow:', escRes.error ? `ERROR: ${escRes.error.message}` : `Got ${escRes.data?.length || 0} rows`);
-
-      console.log('[DB] Fetching disputes...');
-      const disRes = await supabase
-        .from('disputes')
-        .select('id, status, priority', { count: 'exact' })
-        .limit(50);
-      console.log('[DB] ✓ Disputes:', disRes.error ? `ERROR: ${disRes.error.message}` : `Got ${disRes.data?.length || 0} rows`);
-
-      // Build data from what we got (handle partial failures)
-      const newData = {
+      const [reqRes, offRes, escRes, disRes] = await Promise.all([
+        supabase.from('requests').select('id, user_id, title, status, amount, category, deadline, description, required_card, is_public, product_link').limit(50),
+        supabase.from('offers').select('id, user_id, card_name, bank, max_amount, discount, cashback, categories, holder_name, rating, deals_done, status, verified, limit').limit(50),
+        supabase.from('escrow').select('id, status, amount, fee, deal_id, item, buyer, cardholder, created_at').limit(50),
+        supabase.from('disputes').select('id, status, priority, amount, item, buyer, cardholder, reason, dispute_id, created_at').limit(50),
+      ]);
+      setDb({
         requests: reqRes.data || [],
-        offers: offRes.data || [],
-        escrow: escRes.data || [],
+        offers:   offRes.data || [],
+        escrow:   escRes.data || [],
         disputes: disRes.data || [],
-      };
-
-      setDb(newData);
-      const allSucceeded = !reqRes.error && !offRes.error && !escRes.error && !disRes.error;
-      setDbConnected(allSucceeded);
-      console.log('[DB] ✅ Fetch complete. Status:', allSucceeded ? '🟢 Live DB' : '🟡 Partial');
-    } catch (error) {
-      console.error('[DB] ❌ Fatal fetch error:', error?.message);
-      console.error('[DB] Stack:', error?.stack);
-      setDbConnected(false);
+      });
+    } catch (err) {
+      console.error('[DB] Fetch error:', err);
       setDb({ requests: [], offers: [], escrow: [], disputes: [] });
     } finally {
       setDbLoading(false);
       setIsFetching(false);
     }
-  }, []); // Stable reference — uses ref for guard, setters for state
+  }, []);
 
-  // Reset tab when role changes (after login) - WAIT FOR AUTH FIRST
   useEffect(() => {
-    // Wait for auth to be ready (not still loading)
-    if (authLoading) {
-      console.log('[DB] ⏳ Auth still loading...');
-      return;
-    }
+    if (authLoading || !user?.id) return;
+    if (role) { setActiveTab('dashboard'); fetchAll(); }
+  }, [user?.id, role, authLoading, fetchAll]);
 
-    // Only fetch if user is logged in
-    if (!user?.id) {
-      console.log('[DB] 🔐 No user, skipping fetch');
-      return;
-    }
+  const handleTab = (id) => { setActiveTab(id); setMobileOpen(false); };
 
-    if (role) {
-      console.log('[DB] 📍 Auth ready - initial fetch on role change');
-      setActiveTab(getDefaultTab(role));
-      fetchAll(false);
-    }
-  }, [user?.id, role, authLoading]); // Include authLoading in deps
-
-  const handleTab = (id) => {
-    setActiveTab(id);
-    setMobileOpen(false);
-  };
-
-  // ── Auth loading ──────────────────────────────────────────────────
+  // ── Auth loading
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fc]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-[3px] border-[#185FA5] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-400">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 0 30px var(--primary-glow)' }}>
+              <Wallet size={24} className="text-white" />
+            </div>
+            <div className="absolute -inset-2 rounded-2xl border-2 animate-pulse-ring" style={{ borderColor: 'var(--primary)' }} />
+          </div>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading OfferBridge…</p>
         </div>
       </div>
     );
   }
 
-  // ── Not authenticated → show auth screen ──────────────────────────
   if (!user) return <AuthScreen />;
 
-  // ── Authenticated → show role-based app ──────────────────────────
   const navSections = getNavSections(role);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] flex flex-col text-[#1a1a2e]">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
 
-      {/* ── Topbar ─────────────────────────────────────── */}
-      <nav className="h-14 bg-white border-b border-gray-100 shadow-sm flex items-center justify-between px-4 md:px-6 sticky top-0 z-50">
+      {/* ── Topbar ───────────────────────────────────────────── */}
+      <nav className="h-14 glass flex items-center justify-between px-4 md:px-6 sticky top-0 z-50"
+        style={{ borderBottom: '1px solid var(--border)' }}>
 
-        {/* Left: hamburger + logo */}
         <div className="flex items-center gap-3">
-          <button
-            id="mobile-menu-btn"
-            className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X size={20} className="text-gray-600" /> : <Menu size={20} className="text-gray-600" />}
+          <button id="mobile-menu-btn"
+            className="md:hidden p-1.5 rounded-lg transition"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-[#185FA5] rounded-lg flex items-center justify-center shadow-sm">
-              <Wallet size={14} className="text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 2px 12px var(--primary-glow)' }}>
+              <Wallet size={15} className="text-white" />
             </div>
-            <span className="font-bold text-[#185FA5] text-lg leading-none">
-              Offer<span className="text-gray-400 font-normal">Bridge</span>
+            <span className="font-bold text-lg leading-none">
+              <span className="gradient-text">Offer</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>Bridge</span>
             </span>
           </div>
         </div>
 
-        {/* Right: DB status + user menu */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => fetchAll(true)}
+        <div className="flex items-center gap-2">
+          <motion.button
+            id="refresh-btn"
+            onClick={() => fetchAll()}
             disabled={isFetching}
-            className="hidden sm:flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-full font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refresh data"
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition"
+            style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
           >
-            <svg className={`w-3 h-3 ${isFetching ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {isFetching ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <div className={`hidden sm:flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full font-medium ${dbConnected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-            }`}>
-            <Database size={10} />
-            {dbConnected ? 'Live DB' : 'Mock Data'}
-          </div>
+            <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
+            {isFetching ? 'Refreshing…' : 'Refresh'}
+          </motion.button>
+          <NotifBell />
+          <ThemeToggle />
           <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} />
         </div>
       </nav>
@@ -340,78 +395,87 @@ export default function OfferBridge() {
       <div className="flex flex-1 relative overflow-hidden">
 
         {/* Mobile overlay */}
-        {mobileOpen && (
-          <div className="fixed inset-0 bg-black/20 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
-        )}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-30 md:hidden"
+              style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+              onClick={() => setMobileOpen(false)}
+            />
+          )}
+        </AnimatePresence>
 
-        {/* ── Sidebar ──────────────────────────────────── */}
+        {/* ── Sidebar ──────────────────────────────────────── */}
         <aside className={`
           fixed md:static top-14 left-0 bottom-0 z-40
-          w-56 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col
+          w-56 flex-shrink-0 flex flex-col
           transform transition-transform duration-200 ease-out
           md:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          {/* Nav sections */}
-          <div className="p-4 flex-1 overflow-y-auto space-y-5">
+        `} style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+
+          <div className="p-3 flex-1 overflow-y-auto space-y-5 pt-4">
             {navSections.map(({ label, items }) => (
               <div key={label}>
-                <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-2 px-2 font-semibold">{label}</p>
+                <p className="text-[10px] uppercase tracking-widest font-semibold px-3 mb-2"
+                  style={{ color: 'var(--text-dim)' }}>{label}</p>
                 <nav className="space-y-0.5">
-                  {items.map((item) => (
-                    <button
+                  {items.map(item => (
+                    <NavItem
                       key={item.id}
-                      id={`nav-${item.id}`}
+                      item={item}
+                      isActive={activeTab === item.id}
                       onClick={() => handleTab(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${activeTab === item.id
-                        ? 'bg-[#E6F1FB] text-[#185FA5] font-semibold'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
-                        }`}
-                    >
-                      <span className={activeTab === item.id ? 'text-[#185FA5]' : 'text-gray-400'}>
-                        {item.icon}
-                      </span>
-                      {item.label}
-                    </button>
+                    />
                   ))}
                 </nav>
               </div>
             ))}
           </div>
 
-          {/* Sidebar footer — user info */}
-          <div className="p-4 border-t border-gray-50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-[#E6F1FB] rounded-full flex items-center justify-center shrink-0">
-                <User size={14} className="text-[#185FA5]" />
+          {/* Sidebar footer */}
+          <div className="p-3" style={{ borderTop: '1px solid var(--border2)' }}>
+            <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl"
+              style={{ background: 'var(--surface2)' }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-bold"
+                style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)' }}>
+                {displayName?.[0]?.toUpperCase() ?? 'U'}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-gray-700 truncate">{displayName}</p>
-                <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLORS[role] ?? 'bg-gray-100 text-gray-600'}`}>
-                  {ROLE_LABELS[role] ?? role}
-                </span>
+                <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{displayName}</p>
+                <span className="badge badge-purple text-[9px]">{ROLE_LABELS[role] ?? role}</span>
               </div>
-              <button
-                id="sidebar-signout"
-                onClick={handleSignOut}
-                title="Sign out"
-                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-              >
+              <button id="sidebar-signout" onClick={handleSignOut} title="Sign out"
+                className="p-1.5 rounded-lg transition"
+                style={{ color: 'var(--text-dim)' }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}>
                 <LogOut size={13} />
               </button>
             </div>
           </div>
         </aside>
 
-        {/* ── Main Content ─────────────────────────────── */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto min-h-[calc(100vh-56px)]">
-          {dbLoading && !db.requests.length ? (
-            <SkeletonDashboard />
-          ) : (
-            <div className="animate-fade-in">
-              {renderContent(role, activeTab, db, fetchAll, user)}
-            </div>
-          )}
+        {/* ── Main Content ──────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto min-h-[calc(100vh-56px)]" style={{ background: 'var(--bg)' }}>
+          <div className="p-4 md:p-6 max-w-6xl">
+            {dbLoading && !db.requests.length ? (
+              <SkeletonDashboard />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  {renderContent(role, activeTab, db, fetchAll, user)}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
         </main>
       </div>
     </div>

@@ -1,135 +1,127 @@
 "use client";
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Tag, CreditCard, Link as LinkIcon, DollarSign, AlignLeft, ShieldCheck, Globe } from 'lucide-react';
 
-const STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-700 border-amber-200',
-  matched: 'bg-blue-50 text-blue-700 border-blue-200',
-  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+const STATUS_CLS = {
+  pending:   'badge-warning',
+  matched:   'badge-info',
+  completed: 'badge-success',
 };
+
+function InfoTile({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-xl p-3" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+      <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-dim)' }}>
+        <Icon size={13} /><p className="text-xs font-medium">{label}</p>
+      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{value}</p>
+    </div>
+  );
+}
 
 export default function RequestDetailsModal({ req, onClose }) {
   if (!req) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-[#1a1a2e]/40 backdrop-blur-sm cursor-pointer"
-        onClick={onClose}
-      />
-      
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in border border-gray-100 flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-50 flex items-start justify-between bg-gray-50/50">
-          <div>
-            <h2 className="text-xl font-bold text-[#1a1a2e]">{req.title}</h2>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${STATUS_STYLES[req.status] || 'bg-gray-50 text-gray-600'}`}>
-                {req.status}
-              </span>
-              <span className="text-xs text-gray-400 font-medium">{new Date(req.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric'})}</span>
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 0.75 }} exit={{ opacity: 0 }}
+          className="absolute inset-0 cursor-pointer"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+          onClick={onClose} />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.93, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.93, y: 20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="relative w-full max-w-lg flex flex-col max-h-[90vh] rounded-2xl overflow-hidden"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 30px 80px rgba(0,0,0,0.8)' }}>
+
+          {/* Header */}
+          <div className="px-6 py-5 flex items-start justify-between" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+            <div>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>{req.title}</h2>
+              <div className="flex items-center gap-2 mt-2">
+                <span className={`badge ${STATUS_CLS[req.status] || 'badge-neutral'} uppercase tracking-wider text-[10px]`}>{req.status}</span>
+                {req.created_at && (
+                  <span className="text-xs" style={{ color: 'var(--text-dim)' }}>
+                    {new Date(req.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </span>
+                )}
+              </div>
             </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-dim)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface3)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <X size={18} />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto w-full">
-          <div className="space-y-6">
-            
-            {/* Amount */}
-            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#185FA5] rounded-xl p-5 text-white flex items-center justify-between shadow-md">
+          {/* Body */}
+          <div className="p-6 overflow-y-auto space-y-5">
+            {/* Amount hero */}
+            <div className="rounded-2xl p-5 flex items-center justify-between text-white"
+              style={{ background: 'linear-gradient(135deg, #0d0d1e 0%, #1a0a2e 50%, #2d1060 100%)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 4px 24px rgba(139,92,246,0.2)' }}>
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-white/60 font-medium">Budget Amount</p>
-                <p className="text-3xl font-bold tabular-nums tracking-tight mt-0.5">₹{req.amount.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>Budget Amount</p>
+                <p className="text-3xl font-bold tabular-nums mt-0.5">₹{req.amount.toLocaleString('en-IN')}</p>
               </div>
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center border border-white/10">
-                <DollarSign size={24} className="text-white/80" />
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                <DollarSign size={22} style={{ color: '#a78bfa' }} />
               </div>
             </div>
 
-            {/* Grid Stats */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center gap-1.5 text-gray-500 mb-1">
-                  <Tag size={14} />
-                  <p className="text-xs font-medium">Category</p>
-                </div>
-                <p className="text-sm font-semibold text-[#1a1a2e]">{req.category}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center gap-1.5 text-gray-500 mb-1">
-                  <Calendar size={14} />
-                  <p className="text-xs font-medium">Deadline</p>
-                </div>
-                <p className="text-sm font-semibold text-[#1a1a2e]">
-                  {req.deadline ? new Date(req.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Flexible'}
-                </p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center gap-1.5 text-gray-500 mb-1">
-                  <CreditCard size={14} />
-                  <p className="text-xs font-medium">Required Card</p>
-                </div>
-                <p className="text-sm font-semibold text-[#1a1a2e]">{req.required_card}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center gap-1.5 text-gray-500 mb-1">
-                  {req.is_public ? <Globe size={14} className="text-[#185FA5]" /> : <ShieldCheck size={14} className="text-amber-500" />}
-                  <p className="text-xs font-medium">Visibility</p>
-                </div>
-                <p className="text-sm font-semibold text-[#1a1a2e]">{req.is_public ? 'Marketplace' : 'Private Direct'}</p>
-              </div>
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <InfoTile icon={Tag}        label="Category"      value={req.category} />
+              <InfoTile icon={Calendar}   label="Deadline"      value={req.deadline ? new Date(req.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Flexible'} />
+              <InfoTile icon={CreditCard} label="Required Card" value={req.required_card || 'Any'} />
+              <InfoTile icon={req.is_public ? Globe : ShieldCheck} label="Visibility" value={req.is_public ? 'Marketplace' : 'Private Direct'} />
             </div>
 
             {/* Description */}
             {req.description && (
               <div>
-                <div className="flex items-center gap-1.5 text-gray-800 font-semibold mb-2">
-                  <AlignLeft size={16} />
-                  <h3>Description</h3>
+                <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                  <AlignLeft size={15} style={{ color: 'var(--text-dim)' }} />Description
                 </div>
-                <p className="text-sm text-gray-600 bg-gray-50/50 p-4 rounded-xl border border-gray-100 leading-relaxed break-words whitespace-pre-wrap">
+                <p className="text-sm leading-relaxed break-words whitespace-pre-wrap rounded-xl p-4"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                   {req.description}
                 </p>
               </div>
             )}
 
-            {/* Link */}
+            {/* Product link */}
             {req.product_link && (
               <div>
-                <div className="flex items-center gap-1.5 text-gray-800 font-semibold mb-2">
-                  <LinkIcon size={16} />
-                  <h3>Product Link</h3>
+                <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                  <LinkIcon size={15} style={{ color: 'var(--text-dim)' }} />Product Link
                 </div>
-                <a 
-                  href={req.product_link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-[#185FA5] hover:underline bg-blue-50 p-3 rounded-xl border border-blue-100 block truncate"
-                >
+                <a href={req.product_link} target="_blank" rel="noopener noreferrer"
+                  className="text-sm block truncate rounded-xl p-3 transition"
+                  style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--primary)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.2)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--primary-dim)'}>
                   {req.product_link}
                 </a>
               </div>
             )}
-            
           </div>
-        </div>
-        
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-50 bg-gray-50 mt-auto">
-          <button 
-            onClick={onClose}
-            className="w-full py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition active:scale-[0.98]"
-          >
-            Close Details
-          </button>
-        </div>
-      </div>
-    </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+            <motion.button onClick={onClose} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold transition"
+              style={{ background: 'var(--surface3)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              Close Details
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
