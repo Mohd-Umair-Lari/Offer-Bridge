@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/authContext';
-import { Wallet, Eye, EyeOff, ShoppingBag, CreditCard, LayoutGrid, ShieldCheck, ArrowRight, Check } from 'lucide-react';
+import { Wallet, Eye, EyeOff, ShoppingBag, CreditCard, LayoutGrid, ShieldCheck, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 
 const ROLES = [
   { id: 'customer',          title: 'Customer',           sub: 'Buyer only',         icon: ShoppingBag,  color: 'var(--info)',    gradFrom: '#3b82f6', gradTo: '#2563eb' },
@@ -68,7 +68,7 @@ function InputField({ id, label, type = 'text', value, onChange, placeholder, er
 }
 
 // ── Main Auth Screen ──────────────────────────────────────────────
-export default function AuthScreen() {
+export default function AuthScreen({ onBack }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState('login');
   const [loading, setLoading] = useState(false);
@@ -143,8 +143,8 @@ export default function AuthScreen() {
             <Wallet size={20} className="text-white" />
           </div>
           <span className="font-bold text-2xl">
-            <span className="gradient-text">Offer</span>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 300 }}>Bridge</span>
+            <span className="gradient-text">Go</span>
+            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 300 }}>Zivo</span>
           </span>
         </motion.div>
 
@@ -208,8 +208,19 @@ export default function AuthScreen() {
               style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 0 20px var(--primary-glow)' }}>
               <Wallet size={17} className="text-white" />
             </div>
-            <span className="font-bold text-xl gradient-text">OfferBridge</span>
+            <span className="font-bold text-xl"><span className="gradient-text">Go</span><span style={{ color: 'var(--text)' }}>Zivo</span></span>
           </motion.div>
+
+          {/* Back to landing */}
+          {onBack && (
+            <motion.button onClick={onBack} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex items-center gap-1.5 text-sm font-medium mb-5 transition"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+              <ArrowLeft size={14} /> Back to home
+            </motion.button>
+          )}
 
           {/* Card */}
           <motion.div

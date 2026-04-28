@@ -12,6 +12,7 @@ import {
   Bell, Settings, Zap, RefreshCw, BarChart2,
 } from 'lucide-react';
 
+import LandingPage from '@/components/landing/LandingPage';
 import AuthScreen from '@/components/auth/AuthScreen';
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
 import Marketplace from '@/components/buyer/Marketplace';
@@ -282,8 +283,9 @@ function NavItem({ item, isActive, onClick }) {
 }
 
 // ── Main App ─────────────────────────────────────────────────────
-export default function OfferBridge() {
+export default function GoZivo() {
   const { user, role, displayName, loading: authLoading, signOut } = useAuth();
+  const [showLanding, setShowLanding] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [db, setDb] = useState({ requests: [], offers: [], escrow: [], disputes: [] });
   const [dbLoading, setDbLoading] = useState(true);
@@ -338,13 +340,14 @@ export default function OfferBridge() {
             </div>
             <div className="absolute -inset-2 rounded-2xl border-2 animate-pulse-ring" style={{ borderColor: 'var(--primary)' }} />
           </div>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading OfferBridge…</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading GoZivo…</p>
         </div>
       </div>
     );
   }
 
-  if (!user) return <AuthScreen />;
+  if (!user && showLanding) return <LandingPage onGetStarted={() => setShowLanding(false)} />;
+  if (!user) return <AuthScreen onBack={() => setShowLanding(true)} />;
 
   const navSections = getNavSections(role);
 
@@ -368,8 +371,8 @@ export default function OfferBridge() {
               <Wallet size={15} className="text-white" />
             </div>
             <span className="font-bold text-lg leading-none">
-              <span className="gradient-text">Offer</span>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>Bridge</span>
+              <span className="gradient-text">Go</span>
+              <span style={{ color: 'var(--text)', fontWeight: 400 }}>Zivo</span>
             </span>
           </div>
         </div>
