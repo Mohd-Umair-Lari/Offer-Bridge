@@ -1,10 +1,10 @@
 // Cache utilities for efficient data management
 const CACHE_KEYS = {
-  REQUESTS: 'offerbridge_requests',
-  OFFERS: 'offerbridge_offers',
-  ESCROW: 'offerbridge_escrow',
-  DISPUTES: 'offerbridge_disputes',
-  TIMESTAMP: 'offerbridge_cache_timestamp',
+  REQUESTS: 'gozivo_requests',
+  OFFERS: 'gozivo_offers',
+  ESCROW: 'gozivo_escrow',
+  DISPUTES: 'gozivo_disputes',
+  TIMESTAMP: 'gozivo_cache_timestamp',
 };
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
@@ -300,17 +300,12 @@ export default function GoZivo() {
     setDbLoading(true);
     setIsFetching(true);
     try {
-      const [reqRes, offRes, escRes, disRes] = await Promise.all([
-        supabase.from('requests').select('id, user_id, title, status, amount, category, deadline, description, required_card, is_public, product_link').limit(50),
-        supabase.from('offers').select('id, user_id, card_name, bank, max_amount, discount, cashback, categories, holder_name, rating, deals_done, status, verified, limit').limit(50),
-        supabase.from('escrow').select('id, status, amount, fee, deal_id, item, buyer, cardholder, created_at').limit(50),
-        supabase.from('disputes').select('id, status, priority, amount, item, buyer, cardholder, reason, dispute_id, created_at').limit(50),
-      ]);
+      const res = await api.fetchAll();
       setDb({
-        requests: reqRes.data || [],
-        offers:   offRes.data || [],
-        escrow:   escRes.data || [],
-        disputes: disRes.data || [],
+        requests: res.requests || [],
+        offers:   res.offers   || [],
+        escrow:   res.escrow   || [],
+        disputes: res.disputes || [],
       });
     } catch (err) {
       console.error('[DB] Fetch error:', err);

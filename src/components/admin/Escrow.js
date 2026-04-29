@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { ShieldCheck, Clock, CheckCircle2, DollarSign, ChevronDown } from 'lucide-react';
 import { MOCK_ESCROW } from '@/lib/mockData';
 
@@ -25,9 +25,10 @@ export default function Escrow({ escrow: escrowProp, onRefresh }) {
   const updateStatus = async (id, newStatus) => {
     setActing(p => ({ ...p, [id]: true }));
     try {
-      const { error } = await supabase.from('escrow').update({ status: newStatus }).eq('id', id);
-      if (error) console.error('Escrow update error:', error);
+      await api.update('escrow', id, { status: newStatus });
       if (onRefresh) await onRefresh();
+    } catch (err) {
+      console.error('Escrow update error:', err);
     } finally {
       setActing(p => ({ ...p, [id]: false }));
     }

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { AlertTriangle, CheckCircle2, Clock, ChevronRight, X } from 'lucide-react';
 import { MOCK_DISPUTES } from '@/lib/mockData';
 
@@ -29,10 +29,11 @@ export default function Disputes({ disputes: disputesProp, onRefresh }) {
   const updateStatus = async (id, newStatus) => {
     setActing(p => ({ ...p, [id]: true }));
     try {
-      const { error } = await supabase.from('disputes').update({ status: newStatus }).eq('id', id);
-      if (error) console.error('Dispute update error:', error);
+      await api.update('disputes', id, { status: newStatus });
       if (onRefresh) await onRefresh();
       if (newStatus === 'resolved') setSelected(null);
+    } catch (err) {
+      console.error('Dispute update error:', err);
     } finally {
       setActing(p => ({ ...p, [id]: false }));
     }

@@ -23,11 +23,6 @@ const FEATURES = [
   { icon: Globe, title: 'Open Marketplace', desc: 'Browse hundreds of card offers across all major banks and categories.', color: '#06b6d4' },
 ];
 
-const PLANS = [
-  { name: 'Free', price: '$0', period: '/mo', desc: 'Get started with basic features', features: ['5 requests/month', 'Public marketplace', 'Basic support', 'Email notifications'], cta: 'Get Started', popular: false },
-  { name: 'Pro', price: '$19', period: '/mo', desc: 'For power users and frequent traders', features: ['Unlimited requests', 'Priority matching', 'Advanced analytics', 'Direct messaging', 'Dedicated support', 'Early access features'], cta: 'Start Pro Trial', popular: true },
-  { name: 'Enterprise', price: '$49', period: '/mo', desc: 'For teams and businesses', features: ['Everything in Pro', 'Team management', 'Custom integrations', 'API access', 'White-label options', 'SLA guarantee'], cta: 'Contact Sales', popular: false },
-];
 
 const STATS = [
   { value: '10K+', label: 'Active Users' },
@@ -58,7 +53,6 @@ export default function LandingPage({ onGetStarted }) {
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm font-medium transition" style={{ color: 'var(--text-muted)' }}>Features</a>
-            <a href="#pricing" className="text-sm font-medium transition" style={{ color: 'var(--text-muted)' }}>Pricing</a>
             <a href="#testimonials" className="text-sm font-medium transition" style={{ color: 'var(--text-muted)' }}>Testimonials</a>
           </div>
           <div className="flex items-center gap-3">
@@ -104,7 +98,7 @@ export default function LandingPage({ onGetStarted }) {
               <motion.button whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
                 onClick={onGetStarted}
                 className="btn-primary text-base px-8 py-3.5 justify-center" style={{ fontSize: '1rem' }}>
-                Start Trading Free <ArrowRight size={18} />
+                Pocket In <ArrowRight size={18} />
               </motion.button>
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
@@ -191,52 +185,6 @@ export default function LandingPage({ onGetStarted }) {
         </div>
       </section>
 
-      {/* ── Pricing ────────────────────────────────────────── */}
-      <section id="pricing" className="py-24 relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-16">
-            <motion.p variants={fadeUp} className="text-sm font-semibold mb-3" style={{ color: 'var(--primary)' }}>PRICING</motion.p>
-            <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold mb-4">Plans that <span className="gradient-text">scale with you</span></motion.h2>
-            <motion.p variants={fadeUp} className="text-base max-w-lg mx-auto" style={{ color: 'var(--text-muted)' }}>Start free. Upgrade when you need more power.</motion.p>
-          </motion.div>
-
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}
-            className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {PLANS.map(p => (
-              <motion.div key={p.name} variants={fadeUp}
-                whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                className="rounded-3xl p-7 flex flex-col relative"
-                style={{
-                  background: p.popular ? 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(124,58,237,0.06) 100%)' : 'var(--surface)',
-                  border: p.popular ? '2px solid rgba(139,92,246,0.4)' : '1px solid var(--border)',
-                  boxShadow: p.popular ? '0 8px 40px rgba(139,92,246,0.2)' : 'var(--shadow-sm)',
-                }}>
-                {p.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 badge badge-purple px-4 py-1 text-xs">Most Popular</span>
-                )}
-                <h3 className="text-xl font-bold mb-1" style={{ color: 'var(--text)' }}>{p.name}</h3>
-                <p className="text-xs mb-4" style={{ color: 'var(--text-dim)' }}>{p.desc}</p>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold" style={{ color: 'var(--text)' }}>{p.price}</span>
-                  <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{p.period}</span>
-                </div>
-                <ul className="space-y-3 mb-8 flex-1">
-                  {p.features.map(f => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-                      <CheckCircle2 size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />{f}
-                    </li>
-                  ))}
-                </ul>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                  onClick={onGetStarted}
-                  className={p.popular ? 'btn-primary w-full justify-center py-3' : 'btn-ghost w-full justify-center py-3'}>
-                  {p.cta}
-                </motion.button>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
 
       {/* ── Testimonials ───────────────────────────────────── */}
       <section id="testimonials" className="py-24" style={{ background: 'var(--surface)' }}>
@@ -283,7 +231,7 @@ export default function LandingPage({ onGetStarted }) {
             <motion.button variants={fadeUp} whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
               onClick={onGetStarted}
               className="btn-primary text-base px-10 py-4 mx-auto justify-center" style={{ fontSize: '1rem' }}>
-              Get Started Free <ArrowRight size={18} />
+              Pocket In Free <ArrowRight size={18} />
             </motion.button>
           </motion.div>
         </div>

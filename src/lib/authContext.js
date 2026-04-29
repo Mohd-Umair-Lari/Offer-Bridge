@@ -1,122 +1,62 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabase';
-import { CacheService } from './cacheService';
+import { api, setToken } from './api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // undefined = still loading, null = not logged in, object = logged in
-  const [user, setUser]       = useState(undefined);
-  const [profile, setProfile] = useState(null);
+  const [user, setUser]     = useState(undefined); // undefined=loading, null=not logged in
+  const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (uid) => {
-    // maybeSingle() returns null (not a 406) when no row exists
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .maybeSingle();
-    if (error) console.warn('[Auth] Profile fetch warning:', error.message);
-    setProfile(data ?? null);
-    return data;
+  // On mount — check for existing token
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    api.me()
+      .then(res => setUser(res.user))
+      .catch(() => { setToken(null); setUser(null); })
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    // Seed initial user state immediately (before onAuthStateChange fires).
-    // onAuthStateChange(INITIAL_SESSION) will also fire shortly after,
-    // but getSession() guarantees the loading state resolves right away.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) fetchProfile(u.id);
-    });
-
-    // Listen for auth state changes (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const u = session?.user ?? null;
-
-        if (u) {
-          setUser(u);
-          await fetchProfile(u.id);
-        } else if (event === 'SIGNED_OUT') {
-          // Only clean up on an explicit sign-out.
-          // DO NOT clear here for TOKEN_REFRESHED or other transitional events —
-          // those can briefly emit a null session while the new token is being
-          // written, and clearing auth keys at that moment kills the live session.
-          setUser(null);
-          setProfile(null);
-          CacheService.clear();
-          try {
-            const keys = Object.keys(localStorage);
-            keys.forEach(key => {
-              if (key.includes('sb-') && key.includes('auth')) {
-                localStorage.removeItem(key);
-              }
-            });
-          } catch (e) {
-            console.warn('Could not clear localStorage:', e);
-          }
-        }
-        // For any other event with a null session (e.g. TOKEN_REFRESHED mid-flight),
-        // do nothing — getSession() below already seeds the initial user state.
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
-
-  // ── Auth actions ───────────────────────────────────────────────────
-  const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
-  };
-
-  const signUp = async (email, password, fullName, role) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, role },
-      },
-    });
-    return { data, error };
-  };
-
-  const signOut = async () => {
+  const signIn = useCallback(async (email, password) => {
     try {
-      // supabase.auth.signOut() triggers onAuthStateChange(SIGNED_OUT),
-      // which handles all cleanup (state, cache, localStorage).
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Fallback cleanup if signOut itself fails and the event never fires
-      setUser(null);
-      setProfile(null);
-      CacheService.clear();
+      const res = await api.login(email, password);
+      setToken(res.token);
+      setUser(res.user);
+      return { data: res, error: null };
+    } catch (err) {
+      return { data: null, error: { message: err.message } };
     }
-  };
+  }, []);
 
-  // ── Derived values ─────────────────────────────────────────────────
-  // Role priority: profile table > JWT metadata > default 'customer'
-  const role = profile?.role ?? user?.user_metadata?.role ?? 'customer';
-  const loading = user === undefined;
+  const signUp = useCallback(async (email, password, fullName, role) => {
+    try {
+      const res = await api.register(email, password, fullName, role);
+      setToken(res.token);
+      setUser(res.user);
+      return { data: res, error: null };
+    } catch (err) {
+      return { data: null, error: { message: err.message } };
+    }
+  }, []);
 
-  const displayName =
-    profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email ?? 'User';
+  const signOut = useCallback(async () => {
+    setToken(null);
+    setUser(null);
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem('gz-token'); } catch {}
+    }
+  }, []);
+
+  const role = user?.role ?? 'customer';
+  const displayName = user?.fullName || user?.email || 'User';
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      profile,
-      role,
-      displayName,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-    }}>
+    <AuthContext.Provider value={{ user, profile: user, role, displayName, loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -128,7 +68,6 @@ export const useAuth = () => {
   return ctx;
 };
 
-// ── Role helpers ─────────────────────────────────────────────────────
 export const ROLE_LABELS = {
   admin:             'Admin',
   customer:          'Customer',

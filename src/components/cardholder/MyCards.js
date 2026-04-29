@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { Plus, CreditCard, CheckCircle2, Tag, Trash2, Globe, Lock } from 'lucide-react';
 
 // Convert ISO date (YYYY-MM-DD) to MM/YY for card display
@@ -51,9 +51,13 @@ export default function MyCards({ offers, userId, onRefresh }) {
     cards.all;
 
   const handleRemove = async (id, isReal) => {
-    if (!isReal) return; // Cannot delete mock cards from DB
-    await supabase.from('offers').delete().eq('id', id);
-    if (onRefresh) onRefresh();
+    if (!isReal) return;
+    try {
+      await api.remove('offers', id);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error('Remove card error:', err);
+    }
   };
 
   const handleAdd = async (e) => {
@@ -61,34 +65,34 @@ export default function MyCards({ offers, userId, onRefresh }) {
     if (!newCard.name || !newCard.last4 || !newCard.expiry || !newCard.limit) return;
     setIsSubmitting(true);
 
-    // Convert MM/YY to standard YYYY-MM-DD for Supabase
+    // Convert MM/YY to standard YYYY-MM-DD for database
     let expiryDate = null;
     if (newCard.expiry.includes('/')) {
       const [mm, yy] = newCard.expiry.split('/');
       if (mm && yy) expiryDate = `20${yy}-${mm}-01`;
     }
 
-    const { error } = await supabase.from('offers').insert({
-      user_id: userId,
-      bank: newCard.bank,
-      card_name: newCard.name,
-      card_type: 'Visa',
-      last4: String(newCard.last4),
-      expiry: expiryDate,
-      max_amount: Number(newCard.limit),
-      is_public: newCard.isPublic,
-      status: 'available',
-      holder_name: newCard.bank
-    });
-
-    setIsSubmitting(false);
-    if (!error) {
+    try {
+      await api.create('offers', {
+        user_id: userId,
+        bank: newCard.bank,
+        card_name: newCard.name,
+        card_type: 'Visa',
+        last4: String(newCard.last4),
+        expiry: expiryDate,
+        max_amount: Number(newCard.limit),
+        is_public: newCard.isPublic,
+        status: 'available',
+        holder_name: newCard.bank
+      });
       setNewCard({ bank: 'HDFC Bank', name: '', last4: '', expiry: '', limit: '', isPublic: true });
       setShowAdd(false);
       if (onRefresh) onRefresh();
-    } else {
-      console.error('Supabase raw error:', error);
-      alert('Error saving card to database:\n' + (error.message || JSON.stringify(error)));
+    } catch (err) {
+      console.error('Save card error:', err);
+      alert('Error saving card: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

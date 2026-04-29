@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 import { Send, CheckCircle2, Calendar, Tag, AlignLeft, Globe, CreditCard } from 'lucide-react';
 
@@ -60,7 +60,7 @@ export default function NewRequest({ onCreated }) {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({}); setDbError(null); setLoading(true);
     try {
-      const { error } = await supabase.from('requests').insert([{
+      await api.create('requests', {
         user_id: user?.id,
         title: form.title.trim(),
         amount: Number(form.amount),
@@ -71,8 +71,7 @@ export default function NewRequest({ onCreated }) {
         required_card: form.requiredCard,
         is_public: form.isPublic,
         status: 'pending',
-      }]);
-      if (error) { setDbError(`Database error: ${error.message}`); return; }
+      });
       setSuccess(true); setForm(INITIAL);
       if (onCreated) onCreated();
     } catch (err) {
