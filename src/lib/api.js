@@ -34,4 +34,16 @@ export const api = {
   create:    (type, data)      => request('/api/data', { method: 'POST', body: JSON.stringify({ type, ...data }) }),
   update:    (type, id, data)  => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type, id, ...data }) }),
   remove:    (type, id)        => request(`/api/data?type=${type}&id=${id}`, { method: 'DELETE' }),
+
+  // Payment portal
+  initiatePayment: (request_id, offer_id)       => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),
+  confirmPayment:  (tx_id, upi_ref)             => request('/api/payment', { method: 'PUT',  body: JSON.stringify({ tx_id, upi_ref }) }),
+  submitTracking:  (tx_id, tracking_id, courier)=> request('/api/payment/tracking', { method: 'POST', body: JSON.stringify({ tx_id, tracking_id, courier }) }),
+  getTransactions: (userId)                     => request(`/api/payment?userId=${userId}`),
+  runRefundCheck:  ()                           => request('/api/payment/refund-check'),
+
+  // Notifications
+  getNotifications: (limit = 20) => request(`/api/notifications?limit=${limit}`),
+  markNotifRead:    (id)          => request('/api/notifications', { method: 'PATCH', body: JSON.stringify({ id }) }),
+  markAllRead:      ()            => request('/api/notifications', { method: 'PATCH', body: JSON.stringify({ markAllRead: true }) }),
 };

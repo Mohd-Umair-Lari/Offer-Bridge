@@ -24,6 +24,9 @@ import AdminOverview from '@/components/admin/AdminOverview';
 import Escrow from '@/components/admin/Escrow';
 import Disputes from '@/components/admin/Disputes';
 import ProsumerDashboard from '@/components/prosumer/ProsumerDashboard';
+import NotificationBell from '@/components/shared/NotificationBell';
+import PaymentModal from '@/components/shared/PaymentModal';
+import TrackingModal from '@/components/shared/TrackingModal';
 
 // ── Nav config ─────────────────────────────────────────────────
 const BUYER_NAV = [
@@ -190,70 +193,7 @@ function UserMenu({ displayName, role, onSignOut }) {
   );
 }
 
-// ── Notification Bell (visual SaaS element) ─────────────────────
-function NotifBell() {
-  const [open, setOpen] = useState(false);
-  const notifs = [
-    { id: 1, text: 'New offer matched your request', time: '2m ago', read: false },
-    { id: 2, text: 'Escrow released for deal #4821', time: '1h ago', read: false },
-    { id: 3, text: 'New card offer available in your area', time: '3h ago', read: true },
-  ];
-  const unread = notifs.filter(n => !n.read).length;
-
-  return (
-    <div className="relative">
-      <motion.button
-        whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-        onClick={() => setOpen(v => !v)}
-        className="w-9 h-9 rounded-xl flex items-center justify-center relative"
-        style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-      >
-        <Bell size={16} />
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ background: 'var(--primary)' }}>
-            {unread}
-          </span>
-        )}
-      </motion.button>
-      <AnimatePresence>
-        {open && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full mt-2 w-72 z-50 rounded-2xl overflow-hidden"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
-            >
-              <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border2)' }}>
-                <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Notifications</p>
-                {unread > 0 && <span className="badge badge-purple">{unread} new</span>}
-              </div>
-              <div className="max-h-72 overflow-y-auto">
-                {notifs.map(n => (
-                  <div key={n.id} className="px-4 py-3 flex gap-3 items-start transition"
-                    style={{ borderBottom: '1px solid var(--border2)', background: !n.read ? 'var(--primary-dim)' : 'transparent' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = !n.read ? 'var(--primary-dim)' : 'transparent'}
-                  >
-                    <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: !n.read ? 'var(--primary)' : 'var(--border)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs leading-snug" style={{ color: 'var(--text)' }}>{n.text}</p>
-                      <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>{n.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+// NotifBell is now imported from shared/NotificationBell (live DB-connected)
 
 // ── Sidebar Nav Item ────────────────────────────────────────────
 function NavItem({ item, isActive, onClick }) {
@@ -292,6 +232,28 @@ export default function GoZivo() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
+  // ── Payment portal state ────────────────────────────────────────
+  const [paymentTx, setPaymentTx]   = useState(null); // tx for PaymentModal (consumer)
+  const [trackingTx, setTrackingTx] = useState(null); // tx for TrackingModal (provider)
+
+  // Open PaymentModal by tx_id (called from NotificationBell click)
+  const openPaymentModal = useCallback(async (txId) => {
+    try {
+      const res = await api.getTransactions(user?.id);
+      const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
+      if (tx) setPaymentTx(tx);
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  // Open TrackingModal by tx_id (called from NotificationBell click)
+  const openTrackingModal = useCallback(async (txId) => {
+    try {
+      const res = await api.getTransactions(user?.id);
+      const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
+      if (tx) setTrackingTx(tx);
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
   const handleSignOut = useCallback(async () => {
     try { await signOut(); } catch (e) { console.error(e); }
   }, [signOut]);
@@ -318,7 +280,12 @@ export default function GoZivo() {
 
   useEffect(() => {
     if (authLoading || !user?.id) return;
-    if (role) { setActiveTab('dashboard'); fetchAll(); }
+    if (role) {
+      setActiveTab('dashboard');
+      fetchAll();
+      // Run auto-refund check on login
+      api.runRefundCheck().catch(() => {});
+    }
   }, [user?.id, role, authLoading, fetchAll]);
 
   const handleTab = (id) => { setActiveTab(id); setMobileOpen(false); };
@@ -348,6 +315,21 @@ export default function GoZivo() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg)' }}>
+      {/* ── Payment Modals ──────────────────────────────────────── */}
+      {paymentTx && (
+        <PaymentModal
+          tx={paymentTx}
+          onClose={() => setPaymentTx(null)}
+          onSuccess={() => { setPaymentTx(null); fetchAll(); }}
+        />
+      )}
+      {trackingTx && (
+        <TrackingModal
+          tx={trackingTx}
+          onClose={() => setTrackingTx(null)}
+          onSuccess={() => { setTrackingTx(null); fetchAll(); }}
+        />
+      )}
 
       {/* ── Topbar ───────────────────────────────────────────── */}
       <nav className="h-14 glass flex items-center justify-between px-4 md:px-6 sticky top-0 z-50"
@@ -384,7 +366,10 @@ export default function GoZivo() {
             <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
             {isFetching ? 'Refreshing…' : 'Refresh'}
           </motion.button>
-          <NotifBell />
+          <NotificationBell
+            onPaymentAction={openPaymentModal}
+            onTrackingAction={openTrackingModal}
+          />
           <ThemeToggle />
           <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} />
         </div>
