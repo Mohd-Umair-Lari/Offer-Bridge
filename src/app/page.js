@@ -14,6 +14,7 @@ import {
 
 import LandingPage from '@/components/landing/LandingPage';
 import AuthScreen from '@/components/auth/AuthScreen';
+import OnboardingWizard from '@/components/auth/OnboardingWizard';
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
 import Marketplace from '@/components/buyer/Marketplace';
 import NewRequest from '@/components/buyer/NewRequest';
@@ -226,7 +227,7 @@ function NavItem({ item, isActive, onClick }) {
 
 // ── Main App ─────────────────────────────────────────────────────
 export default function GoZivo() {
-  const { user, role, displayName, loading: authLoading, signOut } = useAuth();
+  const { user, role, displayName, loading: authLoading, signOut, needsOnboarding } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [db, setDb] = useState({ requests: [], offers: [], escrow: [], disputes: [] });
@@ -333,6 +334,9 @@ export default function GoZivo() {
 
   if (!user && showLanding) return <LandingPage onGetStarted={() => setShowLanding(false)} />;
   if (!user) return <AuthScreen onBack={() => setShowLanding(true)} />;
+
+  // ── Onboarding gate for new OAuth users ───────────────────────
+  if (needsOnboarding) return <OnboardingWizard />;
 
   const navSections = getNavSections(role);
 

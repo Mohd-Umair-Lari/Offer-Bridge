@@ -1,12 +1,20 @@
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
-  email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  fullName: { type: String, default: '' },
-  role:     { type: String, enum: ['admin', 'customer', 'provider', 'customer_provider'], default: 'customer' },
-  isActive: { type: Boolean, default: true },
+  email:               { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:            { type: String, default: null },       // null for OAuth-only users
+  fullName:            { type: String, default: '' },
+  role:                { type: String, enum: ['admin', 'customer', 'provider', 'customer_provider'], default: 'customer' },
+  isActive:            { type: Boolean, default: true },
+  // OAuth fields
+  oauth_provider:      { type: String, default: null },       // 'google' | 'github' | null
+  oauth_id:            { type: String, default: null },       // provider's user ID
+  avatar:              { type: String, default: '' },         // profile picture URL
+  // Onboarding
+  onboarding_complete: { type: Boolean, default: false },     // false = show wizard
+  phone:               { type: String, default: '' },
 }, { timestamps: true });
+
 
 const RequestSchema = new mongoose.Schema({
   user_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
