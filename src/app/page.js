@@ -288,10 +288,28 @@ export default function GoZivo() {
     if (role) {
       setActiveTab('dashboard');
       fetchAll();
-      // Run auto-refund check on login
       api.runRefundCheck().catch(() => {});
     }
   }, [user?.id, role, authLoading, fetchAll]);
+
+  // ── 30-second auto-poll to keep all data live ─────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const id = setInterval(() => {
+      // Silent re-fetch: don't show loading skeleton, just update state
+      api.fetchAll().then(res => {
+        setDb({
+          requests: res.requests || [],
+          offers:   res.offers   || [],
+          escrow:   res.escrow   || [],
+          disputes: res.disputes || [],
+        });
+        // Also bump dashRefreshKey so transaction banners refresh
+        setDashRefreshKey(k => k + 1);
+      }).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [user?.id]);
 
   const handleTab = (id) => { setActiveTab(id); setMobileOpen(false); };
 
