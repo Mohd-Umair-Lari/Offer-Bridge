@@ -386,17 +386,6 @@ export default function GoZivo() {
         </div>
 
         <div className="flex items-center gap-2">
-          <motion.button
-            id="refresh-btn"
-            onClick={() => fetchAll()}
-            disabled={isFetching}
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition"
-            style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-          >
-            <RefreshCw size={12} className={isFetching ? 'animate-spin' : ''} />
-            {isFetching ? 'Refreshing…' : 'Refresh'}
-          </motion.button>
           <NotificationBell
             onPaymentAction={openPaymentModal}
             onTrackingAction={openTrackingModal}
