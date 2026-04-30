@@ -72,7 +72,7 @@ function TrackingBanner({ tx, onSubmit }) {
   );
 }
 
-export default function CardholderDashboard({ offers: offersProp, requests: reqsProp, onTrackingAction }) {
+export default function CardholderDashboard({ offers: offersProp, requests: reqsProp, onTrackingAction, refreshKey = 0 }) {
   const { user } = useAuth();
   const [trackingTxs, setTrackingTxs] = useState([]);
 
@@ -85,7 +85,8 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  useEffect(() => { fetchTrackingTxs(); }, [fetchTrackingTxs]);
+  // Re-fetch whenever refreshKey increments (tracking submitted) or on mount
+  useEffect(() => { fetchTrackingTxs(); }, [fetchTrackingTxs, refreshKey]);
 
   const handleSubmit = (tx) => {
     if (onTrackingAction) onTrackingAction(tx.id, tx);

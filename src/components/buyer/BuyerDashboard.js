@@ -56,11 +56,11 @@ function PendingPaymentBanner({ tx, onPay }) {
   );
 }
 
-export default function BuyerDashboard({ requests = [], onPaymentAction }) {
+export default function BuyerDashboard({ requests = [], onPaymentAction, refreshKey = 0 }) {
   const { user } = useAuth();
-  const [selectedReq, setSelectedReq]       = useState(null);
-  const [pendingTxs, setPendingTxs]         = useState([]);
-  const [txLoading, setTxLoading]           = useState(false);
+  const [selectedReq, setSelectedReq]   = useState(null);
+  const [pendingTxs, setPendingTxs]     = useState([]);
+  const [txLoading, setTxLoading]       = useState(false);
 
   const fetchPendingTxs = useCallback(async () => {
     if (!user?.id) return;
@@ -73,7 +73,8 @@ export default function BuyerDashboard({ requests = [], onPaymentAction }) {
     finally { setTxLoading(false); }
   }, [user?.id]);
 
-  useEffect(() => { fetchPendingTxs(); }, [fetchPendingTxs]);
+  // Re-fetch whenever refreshKey increments (payment confirmed) or on mount
+  useEffect(() => { fetchPendingTxs(); }, [fetchPendingTxs, refreshKey]);
 
   // When user clicks Pay Now on a banner, open the PaymentModal via callback
   const handlePay = (tx) => {

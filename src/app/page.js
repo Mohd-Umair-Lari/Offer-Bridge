@@ -63,7 +63,7 @@ function getNavSections(role) {
 
 // ── Content renderer ────────────────────────────────────────────
 // ── Content renderer ────────────────────────────────────────────
-function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction) {
+function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction, refreshKey) {
   const myRequests     = db.requests.filter(r => r.user_id === user?.id);
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
   const publicRequests = db.requests.filter(r => r.is_public !== false && r.status === 'pending');
@@ -71,9 +71,9 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
 
   if (activeTab === 'dashboard') {
     if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} escrow={db.escrow} disputes={db.disputes} />;
-    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} onTrackingAction={onTrackingAction} />;
+    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} />;
-    return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} />;
+    return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} refreshKey={refreshKey} />;
   }
   if (activeTab === 'marketplace')  return <Marketplace requests={publicRequests} />;
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
@@ -235,8 +235,9 @@ export default function GoZivo() {
   const [isFetching, setIsFetching] = useState(false);
 
   // ── Payment portal state ────────────────────────────────────────
-  const [paymentTx, setPaymentTx]   = useState(null); // tx for PaymentModal (consumer)
-  const [trackingTx, setTrackingTx] = useState(null); // tx for TrackingModal (provider)
+  const [paymentTx, setPaymentTx]       = useState(null);
+  const [trackingTx, setTrackingTx]     = useState(null);
+  const [dashRefreshKey, setDashRefreshKey] = useState(0); // increments to trigger banner refresh
 
   // Open PaymentModal — (txId, txObj?) txObj skips re-fetch when called from dashboard
   const openPaymentModal = useCallback(async (txId, txObj) => {
@@ -324,14 +325,22 @@ export default function GoZivo() {
         <PaymentModal
           tx={paymentTx}
           onClose={() => setPaymentTx(null)}
-          onSuccess={() => { setPaymentTx(null); fetchAll(); }}
+          onSuccess={() => {
+            setPaymentTx(null);
+            setDashRefreshKey(k => k + 1); // triggers BuyerDashboard to re-fetch → banner disappears
+            fetchAll();
+          }}
         />
       )}
       {trackingTx && (
         <TrackingModal
           tx={trackingTx}
           onClose={() => setTrackingTx(null)}
-          onSuccess={() => { setTrackingTx(null); fetchAll(); }}
+          onSuccess={() => {
+            setTrackingTx(null);
+            setDashRefreshKey(k => k + 1); // triggers CardholderDashboard to re-fetch → banner disappears
+            fetchAll();
+          }}
         />
       )}
 
@@ -458,7 +467,7 @@ export default function GoZivo() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.25 }}
                 >
-                  {renderContent(role, activeTab, db, fetchAll, user, openPaymentModal, openTrackingModal)}
+                  {renderContent(role, activeTab, db, fetchAll, user, openPaymentModal, openTrackingModal, dashRefreshKey)}
                 </motion.div>
               </AnimatePresence>
             )}
