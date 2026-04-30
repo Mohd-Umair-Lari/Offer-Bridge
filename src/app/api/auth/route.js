@@ -21,7 +21,7 @@ function safeUser(user) {
     fullName: user.fullName,
     role: user.role,
     avatar: user.avatar || '',
-    onboarding_complete: user.onboarding_complete ?? false,
+    onboarding_complete: user.onboarding_complete ?? true,  // existing users = already done
   };
 }
 

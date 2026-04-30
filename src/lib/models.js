@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema({
   oauth_id:            { type: String, default: null },       // provider's user ID
   avatar:              { type: String, default: '' },         // profile picture URL
   // Onboarding
-  onboarding_complete: { type: Boolean, default: false },     // false = show wizard
+  onboarding_complete: { type: Boolean, default: true },      // false only for new OAuth users
   phone:               { type: String, default: '' },
 }, { timestamps: true });
 
