@@ -1,9 +1,11 @@
 "use client";
-import { motion } from 'framer-motion';
-import { TrendingDown, CheckCircle2, Clock, Tag, ArrowUpRight, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingDown, CheckCircle2, Clock, Tag, ArrowUpRight, CreditCard, AlertCircle, Zap } from 'lucide-react';
 import RequestDetailsModal from '@/components/shared/RequestDetailsModal';
 import StatCard from '@/components/shared/StatCard';
+import { api } from '@/lib/api';
+import { useAuth } from '@/lib/authContext';
 
 const STATUS_STYLES = {
   pending:   'badge badge-warning',
@@ -20,8 +22,63 @@ const CATEGORY_COLORS = {
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.08 } } };
 
-export default function BuyerDashboard({ requests = [] }) {
-  const [selectedReq, setSelectedReq] = useState(null);
+// ── Pending Payment Banner ────────────────────────────────────────
+function PendingPaymentBanner({ tx, onPay }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl p-5 flex items-center gap-4"
+      style={{
+        background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(59,130,246,0.08) 100%)',
+        border: '1px solid rgba(139,92,246,0.3)',
+      }}>
+      <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 4px 14px var(--primary-glow)' }}>
+        <CreditCard size={18} className="text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+          💳 Provider matched your request — payment pending
+        </p>
+        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
+          <strong>{tx.product_title}</strong> · ₹{Number(tx.amount).toLocaleString('en-IN')} · Provider: {tx.provider_name}
+        </p>
+      </div>
+      <motion.button
+        id={`pay-now-${tx.id}`}
+        onClick={() => onPay(tx)}
+        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+        className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white"
+        style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 4px 14px var(--primary-glow)' }}>
+        <Zap size={14} /> Pay Now
+      </motion.button>
+    </motion.div>
+  );
+}
+
+export default function BuyerDashboard({ requests = [], onPaymentAction }) {
+  const { user } = useAuth();
+  const [selectedReq, setSelectedReq]       = useState(null);
+  const [pendingTxs, setPendingTxs]         = useState([]);
+  const [txLoading, setTxLoading]           = useState(false);
+
+  const fetchPendingTxs = useCallback(async () => {
+    if (!user?.id) return;
+    setTxLoading(true);
+    try {
+      const res = await api.getTransactions(user.id);
+      const pending = (res.data || []).filter(t => t.status === 'pending_payment');
+      setPendingTxs(pending);
+    } catch { /* ignore */ }
+    finally { setTxLoading(false); }
+  }, [user?.id]);
+
+  useEffect(() => { fetchPendingTxs(); }, [fetchPendingTxs]);
+
+  // When user clicks Pay Now on a banner, open the PaymentModal via callback
+  const handlePay = (tx) => {
+    if (onPaymentAction) onPaymentAction(tx.id, tx); // pass tx directly so no re-fetch needed
+  };
 
   const pending   = requests.filter(r => r.status === 'pending').length;
   const matched   = requests.filter(r => r.status === 'matched').length;
@@ -29,10 +86,10 @@ export default function BuyerDashboard({ requests = [] }) {
   const saved     = requests.filter(r => r.status === 'completed').reduce((sum, r) => sum + r.amount * 0.12, 0);
 
   const stats = [
-    { label: 'Pending',    value: pending,                                 sub: 'awaiting match',    icon: Clock,        iconClass: 'stat-warning', delay: 0 },
-    { label: 'Matched',    value: matched,                                 sub: 'in progress',        icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.08 },
-    { label: 'Completed',  value: completed,                               sub: 'successful deals',   icon: CheckCircle2, iconClass: 'stat-success', delay: 0.16 },
-    { label: 'Total Saved',value: `₹${saved.toLocaleString('en-IN')}`,   sub: 'est. discount value',icon: TrendingDown, iconClass: 'stat-purple',  delay: 0.24 },
+    { label: 'Pending',     value: pending,                               sub: 'awaiting match',     icon: Clock,        iconClass: 'stat-warning', delay: 0 },
+    { label: 'Matched',     value: matched,                               sub: 'in progress',        icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.08 },
+    { label: 'Completed',   value: completed,                             sub: 'successful deals',   icon: CheckCircle2, iconClass: 'stat-success', delay: 0.16 },
+    { label: 'Total Saved', value: `₹${saved.toLocaleString('en-IN')}`,  sub: 'est. discount value',icon: TrendingDown, iconClass: 'stat-purple',  delay: 0.24 },
   ];
 
   return (
@@ -44,6 +101,24 @@ export default function BuyerDashboard({ requests = [] }) {
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Buyer Dashboard</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Track your purchase requests and savings</p>
       </motion.div>
+
+      {/* ── Pending Payment Banners ── */}
+      <AnimatePresence>
+        {pendingTxs.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={14} style={{ color: '#f59e0b' }} />
+              <p className="text-xs font-semibold" style={{ color: '#f59e0b' }}>
+                {pendingTxs.length} payment{pendingTxs.length > 1 ? 's' : ''} awaiting your action
+              </p>
+            </div>
+            {pendingTxs.map(tx => (
+              <PendingPaymentBanner key={tx.id} tx={tx} onPay={handlePay} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stats */}
       <motion.div variants={container} initial="hidden" animate="visible" className="grid grid-cols-2 lg:grid-cols-4 gap-4">

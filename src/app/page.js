@@ -62,19 +62,20 @@ function getNavSections(role) {
 }
 
 // ── Content renderer ────────────────────────────────────────────
-function renderContent(role, activeTab, db, onRefresh, user) {
-  const myRequests    = db.requests.filter(r => r.user_id === user?.id);
-  const myOffers      = db.offers.filter(o => o.user_id === user?.id);
+// ── Content renderer ────────────────────────────────────────────
+function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction) {
+  const myRequests     = db.requests.filter(r => r.user_id === user?.id);
+  const myOffers       = db.offers.filter(o => o.user_id === user?.id);
+  const publicRequests = db.requests.filter(r => r.is_public !== false && r.status === 'pending');
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
-  const marketOffers  = db.offers.filter(o => o.user_id !== user?.id && o.is_public !== false);
 
   if (activeTab === 'dashboard') {
     if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} escrow={db.escrow} disputes={db.disputes} />;
-    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} />;
+    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} onTrackingAction={onTrackingAction} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} />;
-    return <BuyerDashboard requests={myRequests} />;
+    return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} />;
   }
-  if (activeTab === 'marketplace')  return <Marketplace offers={marketOffers} />;
+  if (activeTab === 'marketplace')  return <Marketplace requests={publicRequests} />;
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
   if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} />;
   if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
@@ -82,6 +83,7 @@ function renderContent(role, activeTab, db, onRefresh, user) {
   if (activeTab === 'disputes')     return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;
   return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }
+
 
 // ── Theme Toggle ────────────────────────────────────────────────
 function ThemeToggle() {
@@ -236,8 +238,9 @@ export default function GoZivo() {
   const [paymentTx, setPaymentTx]   = useState(null); // tx for PaymentModal (consumer)
   const [trackingTx, setTrackingTx] = useState(null); // tx for TrackingModal (provider)
 
-  // Open PaymentModal by tx_id (called from NotificationBell click)
-  const openPaymentModal = useCallback(async (txId) => {
+  // Open PaymentModal — (txId, txObj?) txObj skips re-fetch when called from dashboard
+  const openPaymentModal = useCallback(async (txId, txObj) => {
+    if (txObj) { setPaymentTx(txObj); return; }
     try {
       const res = await api.getTransactions(user?.id);
       const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
@@ -245,8 +248,9 @@ export default function GoZivo() {
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  // Open TrackingModal by tx_id (called from NotificationBell click)
-  const openTrackingModal = useCallback(async (txId) => {
+  // Open TrackingModal — (txId, txObj?) txObj skips re-fetch when called from dashboard
+  const openTrackingModal = useCallback(async (txId, txObj) => {
+    if (txObj) { setTrackingTx(txObj); return; }
     try {
       const res = await api.getTransactions(user?.id);
       const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
@@ -454,7 +458,7 @@ export default function GoZivo() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.25 }}
                 >
-                  {renderContent(role, activeTab, db, fetchAll, user)}
+                  {renderContent(role, activeTab, db, fetchAll, user, openPaymentModal, openTrackingModal)}
                 </motion.div>
               </AnimatePresence>
             )}
