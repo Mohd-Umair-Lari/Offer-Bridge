@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useAuth, ROLE_LABELS, ROLE_COLORS } from '@/lib/authContext';
 import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
-import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
   DollarSign, ShieldAlert, Menu, X, Wallet,
@@ -22,8 +21,6 @@ import CardholderDashboard from '@/components/cardholder/CardholderDashboard';
 import BrowseRequests from '@/components/cardholder/BrowseRequests';
 import MyCards from '@/components/cardholder/MyCards';
 import AdminOverview from '@/components/admin/AdminOverview';
-import Escrow from '@/components/admin/Escrow';
-import Disputes from '@/components/admin/Disputes';
 import ProsumerDashboard from '@/components/prosumer/ProsumerDashboard';
 import NotificationBell from '@/components/shared/NotificationBell';
 import PaymentModal from '@/components/shared/PaymentModal';
@@ -42,8 +39,6 @@ const PROVIDER_NAV = [
 ];
 const ADMIN_NAV = [
   { id: 'dashboard', label: 'Overview',  icon: LayoutGrid },
-  { id: 'escrow',    label: 'Escrow',    icon: DollarSign },
-  { id: 'disputes',  label: 'Disputes',  icon: ShieldAlert },
 ];
 
 function getNavSections(role) {
@@ -71,7 +66,7 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
 
   if (activeTab === 'dashboard') {
-    if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} escrow={db.escrow} disputes={db.disputes} />;
+    if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} transactions={db.transactions} />;
     if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} onPaymentAction={onPaymentAction} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} refreshKey={refreshKey} />;
@@ -80,8 +75,6 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
   if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} />;
   if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
-  if (activeTab === 'escrow')       return <Escrow escrow={db.escrow} onRefresh={onRefresh} />;
-  if (activeTab === 'disputes')     return <Disputes disputes={db.disputes} onRefresh={onRefresh} />;
   return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }
 
@@ -230,7 +223,7 @@ export default function GoZivo() {
   const { user, role, displayName, loading: authLoading, signOut, needsOnboarding } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [db, setDb] = useState({ requests: [], offers: [], escrow: [], disputes: [] });
+  const [db, setDb] = useState({ requests: [], offers: [], transactions: [] });
   const [dbLoading, setDbLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -271,13 +264,12 @@ export default function GoZivo() {
       const res = await api.fetchAll();
       setDb({
         requests: res.requests || [],
-        offers:   res.offers   || [],
-        escrow:   res.escrow   || [],
-        disputes: res.disputes || [],
+        offers:       res.offers   || [],
+        transactions: res.transactions || [],
       });
     } catch (err) {
       console.error('[DB] Fetch error:', err);
-      setDb({ requests: [], offers: [], escrow: [], disputes: [] });
+      setDb({ requests: [], offers: [], transactions: [] });
     } finally {
       setDbLoading(false);
       setIsFetching(false);
@@ -301,9 +293,8 @@ export default function GoZivo() {
       api.fetchAll().then(res => {
         setDb({
           requests: res.requests || [],
-          offers:   res.offers   || [],
-          escrow:   res.escrow   || [],
-          disputes: res.disputes || [],
+          offers:       res.offers   || [],
+          transactions: res.transactions || [],
         });
         // Also bump dashRefreshKey so transaction banners refresh
         setDashRefreshKey(k => k + 1);

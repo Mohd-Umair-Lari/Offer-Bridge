@@ -45,15 +45,7 @@ const OfferSchema = new mongoose.Schema({
   limit:       { type: Number, default: 0 },
 }, { timestamps: true });
 
-const EscrowSchema = new mongoose.Schema({
-  deal_id:     { type: String, default: '' },
-  buyer:       { type: String, default: '' },
-  cardholder:  { type: String, default: '' },
-  item:        { type: String, default: '' },
-  amount:      { type: Number, default: 0 },
-  fee:         { type: Number, default: 0 },
-  status:      { type: String, enum: ['held', 'releasing', 'released', 'refunded'], default: 'held' },
-}, { timestamps: true });
+
 
 // Payment Transaction — full lifecycle
 const TransactionSchema = new mongoose.Schema({
@@ -69,7 +61,7 @@ const TransactionSchema = new mongoose.Schema({
   product_link: { type: String, default: '' },
   category:     { type: String, default: '' },
   upi_ref:      { type: String, default: '' },        // UPI transaction reference
-  escrow_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Escrow' },
+
   tracking_id:  { type: String, default: '' },
   courier:      { type: String, default: '' },
   status: {
@@ -102,22 +94,12 @@ const NotificationSchema = new mongoose.Schema({
   read:       { type: Boolean, default: false },
 }, { timestamps: true });
 
-const DisputeSchema = new mongoose.Schema({
-  dispute_id:  { type: String, default: '' },
-  buyer:       { type: String, default: '' },
-  cardholder:  { type: String, default: '' },
-  item:        { type: String, default: '' },
-  amount:      { type: Number, default: 0 },
-  reason:      { type: String, default: '' },
-  status:      { type: String, enum: ['open', 'investigating', 'resolved'], default: 'open' },
-  priority:    { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
-}, { timestamps: true });
+
 
 // Prevent model re-compilation in dev (hot reload)
 export const User         = mongoose.models.User         || mongoose.model('User', UserSchema);
 export const Request      = mongoose.models.Request      || mongoose.model('Request', RequestSchema);
 export const Offer        = mongoose.models.Offer        || mongoose.model('Offer', OfferSchema);
-export const Escrow       = mongoose.models.Escrow       || mongoose.model('Escrow', EscrowSchema);
-export const Dispute      = mongoose.models.Dispute      || mongoose.model('Dispute', DisputeSchema);
+
 export const Transaction  = mongoose.models.Transaction  || mongoose.model('Transaction', TransactionSchema);
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);

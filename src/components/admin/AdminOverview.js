@@ -1,5 +1,5 @@
 "use client";
-import { MOCK_REQUESTS, MOCK_OFFERS, MOCK_ESCROW, MOCK_DISPUTES } from '@/lib/mockData';
+
 import { DollarSign, TrendingUp, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -26,22 +26,21 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function AdminOverview({ requests, offers, escrow, disputes }) {
-  const reqs  = requests?.length  ? requests  : MOCK_REQUESTS;
-  const offs  = offers?.length    ? offers    : MOCK_OFFERS;
-  const esc   = escrow?.length    ? escrow    : MOCK_ESCROW;
-  const disps = disputes?.length  ? disputes  : MOCK_DISPUTES;
+export default function AdminOverview({ requests, offers, transactions }) {
+  const reqs  = requests     || [];
+  const offs  = offers       || [];
+  const txs   = transactions || [];
 
   const totalVolume  = reqs.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const totalFees    = esc.reduce((s, e) => s + Number(e.fee || 0), 0);
-  const openDisputes = disps.filter(d => d.status !== 'resolved').length;
-  const heldEscrow   = esc.filter(e => e.status === 'held').reduce((s, e) => s + Number(e.amount || 0), 0);
+  const totalFees    = txs.reduce((s, t) => s + Number(t.platform_fee || 0), 0);
+  const openDisputes = 0; // Disputes feature has been sunset
+  const heldEscrow   = txs.filter(t => t.status === 'payment_received' || t.status === 'tracking_pending').reduce((s, t) => s + Number(t.amount || 0), 0);
 
   const stats = [
     { label: 'Total Volume',   value: `₹${totalVolume.toLocaleString('en-IN')}`,  sub: 'all time',       icon: TrendingUp,   iconClass: 'stat-purple',  delay: 0 },
     { label: 'Platform Fees',  value: `₹${totalFees.toLocaleString('en-IN')}`,    sub: 'collected',      icon: DollarSign,   iconClass: 'stat-success', delay: 0.08 },
     { label: 'Escrow Held',    value: `₹${heldEscrow.toLocaleString('en-IN')}`,   sub: 'held currently', icon: ShieldCheck,  iconClass: 'stat-warning', delay: 0.16 },
-    { label: 'Open Disputes',  value: openDisputes,                               sub: 'need attention', icon: AlertTriangle,iconClass: 'stat-danger',  delay: 0.24 },
+    { label: 'Open Disputes',  value: openDisputes,                               sub: 'feature sunset', icon: AlertTriangle,iconClass: 'stat-danger',  delay: 0.24 },
   ];
 
   const trendData = buildTrend(reqs);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
-import { Request, Escrow, Transaction, Notification } from '@/lib/models';
+import { Request, Transaction, Notification } from '@/lib/models';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
 
@@ -42,10 +42,7 @@ export async function POST(req) {
     tx.completed_at = new Date();
     await tx.save();
 
-    // Update Escrow to releasing → released (funds to provider)
-    if (tx.escrow_id) {
-      await Escrow.findByIdAndUpdate(tx.escrow_id, { status: 'released' });
-    }
+
     // Update Request to completed
     await Request.findByIdAndUpdate(tx.request_id, { status: 'completed' });
 

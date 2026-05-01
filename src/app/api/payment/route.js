@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
-import { User, Request, Offer, Escrow, Transaction, Notification } from '@/lib/models';
+import { User, Request, Offer, Transaction, Notification } from '@/lib/models';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
 const PLATFORM_FEE_RATE = 0.02; // 2%
@@ -110,23 +110,11 @@ export async function PUT(req) {
     const now = new Date();
     const trackingDue = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +24h
 
-    // Create Escrow record
-    const escrow = await Escrow.create({
-      deal_id:    tx._id.toString(),
-      buyer:      tx.buyer_name,
-      cardholder: tx.provider_name,
-      item:       tx.product_title,
-      amount:     tx.amount,
-      fee:        tx.platform_fee,
-      status:     'held',
-    });
-
-    // Update transaction
-    tx.status          = 'tracking_pending';
+    // Update transaction to hold payment securely
+    tx.status          = 'payment_received';
     tx.upi_ref         = upi_ref || `UPI${Date.now()}`;
     tx.payment_at      = now;
     tx.tracking_due_at = trackingDue;
-    tx.escrow_id       = escrow._id;
     await tx.save();
 
     // Notify PROVIDER: must submit tracking within 24h

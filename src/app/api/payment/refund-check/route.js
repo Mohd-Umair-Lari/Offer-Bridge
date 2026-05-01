@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { Escrow, Transaction, Notification } from '@/lib/models';
+import { Transaction, Notification } from '@/lib/models';
 
 // ── GET /api/payment/refund-check
 // This route is called on a schedule (or on every page load) to auto-refund
@@ -23,10 +23,7 @@ export async function GET() {
       tx.refunded_at = now;
       await tx.save();
 
-      // Mark escrow as refunded
-      if (tx.escrow_id) {
-        await Escrow.findByIdAndUpdate(tx.escrow_id, { status: 'refunded' });
-      }
+
 
       // Notify BUYER: refund issued
       await Notification.create({

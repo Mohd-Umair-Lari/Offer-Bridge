@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
-import { Request, Offer, Escrow, Dispute } from '@/lib/models';
+import { Request, Offer, Transaction } from '@/lib/models';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
 
@@ -19,18 +19,17 @@ export async function GET(request) {
     const type = searchParams.get('type'); // requests | offers | escrow | disputes | all
 
     if (type === 'all') {
-      const [requests, offers, escrow, disputes] = await Promise.all([
+      const [requests, offers, transactions] = await Promise.all([
         Request.find().sort({ createdAt: -1 }).limit(50).lean(),
         Offer.find().sort({ createdAt: -1 }).limit(50).lean(),
-        Escrow.find().sort({ createdAt: -1 }).limit(50).lean(),
-        Dispute.find().sort({ createdAt: -1 }).limit(50).lean(),
+        Transaction.find().sort({ createdAt: -1 }).limit(50).lean(),
       ]);
       // Map _id to id for frontend compatibility
       const mapId = arr => arr.map(d => ({ ...d, id: d._id.toString(), _id: undefined }));
-      return NextResponse.json({ requests: mapId(requests), offers: mapId(offers), escrow: mapId(escrow), disputes: mapId(disputes) });
+      return NextResponse.json({ requests: mapId(requests), offers: mapId(offers), transactions: mapId(transactions) });
     }
 
-    const Model = { requests: Request, offers: Offer, escrow: Escrow, disputes: Dispute }[type];
+    const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
     const data = await Model.find().sort({ createdAt: -1 }).limit(50).lean();
@@ -49,7 +48,7 @@ export async function POST(request) {
     const body = await request.json();
     const { type, ...payload } = body;
 
-    const Model = { requests: Request, offers: Offer, escrow: Escrow, disputes: Dispute }[type];
+    const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
     if (user) payload.user_id = user.id;
@@ -67,7 +66,7 @@ export async function PATCH(request) {
     const body = await request.json();
     const { type, id, ...updates } = body;
 
-    const Model = { requests: Request, offers: Offer, escrow: Escrow, disputes: Dispute }[type];
+    const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
     const doc = await Model.findByIdAndUpdate(id, updates, { new: true }).lean();
@@ -86,7 +85,7 @@ export async function DELETE(request) {
     const type = searchParams.get('type');
     const id = searchParams.get('id');
 
-    const Model = { requests: Request, offers: Offer, escrow: Escrow, disputes: Dispute }[type];
+    const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
     await Model.findByIdAndDelete(id);
