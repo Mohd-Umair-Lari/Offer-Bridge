@@ -45,8 +45,8 @@ export async function POST(request) {
         email: email.toLowerCase(),
         password: hashed,
         fullName: fullName || '',
-        role: role || 'customer',
-        onboarding_complete: true, // email/password users finish onboarding inline during signup
+        role: 'customer',           // default; OnboardingWizard will let user pick their role
+        onboarding_complete: false, // show OnboardingWizard after signup
       });
 
       return NextResponse.json({ token: makeToken(user), user: safeUser(user) });

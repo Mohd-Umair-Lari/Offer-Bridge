@@ -2,14 +2,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/authContext';
-import { Wallet, Eye, EyeOff, ShoppingBag, CreditCard, LayoutGrid, ShieldCheck, ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { Wallet, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 
-const ROLES = [
-  { id: 'customer',          title: 'Customer',           sub: 'Buyer only',         icon: ShoppingBag,  color: 'var(--info)',    gradFrom: '#3b82f6', gradTo: '#2563eb' },
-  { id: 'provider',          title: 'Provider',           sub: 'Card provider only',  icon: CreditCard,   color: '#10b981',        gradFrom: '#10b981', gradTo: '#059669' },
-  { id: 'customer_provider', title: 'Customer + Provider', sub: 'Both roles',         icon: LayoutGrid,   color: 'var(--primary)', gradFrom: '#8b5cf6', gradTo: '#7c3aed' },
-  { id: 'admin',             title: 'Admin',              sub: 'Platform admin',      icon: ShieldCheck,  color: 'var(--text-muted)', gradFrom: '#6b7280', gradTo: '#4b5563' },
-];
 
 // ── Floating Orb ─────────────────────────────────────────────────
 function Orb({ size, x, y, delay, color, blur, animClass }) {
@@ -98,8 +92,7 @@ export default function AuthScreen({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPw: '' });
-  const [selectedRole, setSelectedRole] = useState('customer');
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
 
   const set = field => e => {
@@ -110,12 +103,11 @@ export default function AuthScreen({ onBack }) {
 
   const validate = () => {
     const errs = {};
-    if (mode === 'signup' && !form.name.trim())        errs.name      = 'Full name is required';
-    if (!form.email.trim())                            errs.email     = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.email))        errs.email     = 'Enter a valid email';
-    if (!form.password)                                errs.password  = 'Password is required';
-    else if (form.password.length < 6)                 errs.password  = 'Min 6 characters';
-    if (mode === 'signup' && form.confirmPw !== form.password) errs.confirmPw = 'Passwords do not match';
+    if (mode === 'signup' && !form.name.trim()) errs.name     = 'Full name is required';
+    if (!form.email.trim())                     errs.email    = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email    = 'Enter a valid email';
+    if (!form.password)                         errs.password = 'Password is required';
+    else if (form.password.length < 6)          errs.password = 'Min 6 characters';
     return errs;
   };
 
@@ -129,13 +121,10 @@ export default function AuthScreen({ onBack }) {
         const { error } = await signIn(form.email, form.password);
         if (error) setServerError(error.message);
       } else {
-        const { error } = await signUp(form.email, form.password, form.name.trim(), selectedRole);
+        // signUp sets onboarding_complete=false → OnboardingWizard will open automatically
+        const { error } = await signUp(form.email, form.password, form.name.trim());
         if (error) setServerError(error.message);
-        else {
-          setSuccessMsg('Account created! Check your email or sign in if confirmation is disabled.');
-          setMode('login');
-          setForm(p => ({ ...p, password: '', confirmPw: '', name: '' }));
-        }
+        // On success: authContext sets user → needsOnboarding=true → wizard shown
       }
     } finally { setLoading(false); }
   };
@@ -301,41 +290,12 @@ export default function AuthScreen({ onBack }) {
                 <InputField id="auth-password" label="Password" type="password" value={form.password} onChange={set('password')} placeholder="••••••••" error={errors.password}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
                 {mode === 'signup' && (
-                  <InputField id="auth-confirm-pw" label="Confirm Password" type="password" value={form.confirmPw} onChange={set('confirmPw')} placeholder="••••••••" error={errors.confirmPw} autoComplete="new-password" />
-                )}
-
-                {/* Role selection */}
-                {mode === 'signup' && (
-                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text-muted)' }}>I am a…</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {ROLES.map(r => {
-                        const Icon = r.icon;
-                        const isSel = selectedRole === r.id;
-                        return (
-                          <motion.button key={r.id} type="button" id={`role-card-${r.id}`}
-                            onClick={() => setSelectedRole(r.id)}
-                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                            className="relative p-3.5 rounded-2xl text-left transition-all"
-                            style={{
-                              background: isSel ? `${r.gradFrom}15` : 'var(--surface2)',
-                              border: isSel ? `2px solid ${r.gradFrom}50` : '2px solid var(--border)',
-                              boxShadow: isSel ? `0 4px 16px ${r.gradFrom}20` : 'none',
-                            }}>
-                            {isSel && (
-                              <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full flex items-center justify-center"
-                                style={{ background: `linear-gradient(135deg, ${r.gradFrom}, ${r.gradTo})` }}>
-                                <Check size={9} className="text-white" />
-                              </div>
-                            )}
-                            <Icon size={20} className="mb-2" style={{ color: isSel ? r.color : 'var(--text-dim)' }} />
-                            <p className="text-xs font-bold" style={{ color: isSel ? r.color : 'var(--text)' }}>{r.title}</p>
-                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-dim)' }}>{r.sub}</p>
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
+                  <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+                    className="text-xs rounded-xl px-3 py-2.5 flex items-center gap-2"
+                    style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.15)', color: 'var(--text-muted)' }}>
+                    <span style={{ color: 'var(--primary)' }}>✦</span>
+                    After sign up, you&apos;ll choose your role — Buyer, Provider, or both.
+                  </motion.p>
                 )}
 
                 {/* ── OAuth Social Buttons (only on login, shown on both) ── */}
