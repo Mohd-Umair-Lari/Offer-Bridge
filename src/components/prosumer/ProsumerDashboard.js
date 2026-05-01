@@ -100,8 +100,8 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
     try {
       const res = await api.getTransactions(user.id);
       const data = res.data || [];
-      setPendingTxs(data.filter(t => t.status === 'pending_payment'));
-      setTrackingTxs(data.filter(t => t.status === 'tracking_pending'));
+      setPendingTxs(data.filter(t => t.status === 'pending_payment' && t.buyer_id === user.id));
+      setTrackingTxs(data.filter(t => t.status === 'tracking_pending' && t.provider_id === user.id));
       setLastUpdated(new Date());
     } catch {}
   }, [user?.id]);

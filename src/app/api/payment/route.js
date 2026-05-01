@@ -111,7 +111,7 @@ export async function PUT(req) {
     const trackingDue = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +24h
 
     // Update transaction to hold payment securely
-    tx.status          = 'payment_received';
+    tx.status          = 'tracking_pending';
     tx.upi_ref         = upi_ref || `UPI${Date.now()}`;
     tx.payment_at      = now;
     tx.tracking_due_at = trackingDue;

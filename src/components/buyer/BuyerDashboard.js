@@ -156,7 +156,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
     if (!user?.id) return;
     try {
       const res = await api.getTransactions(user.id);
-      setPendingTxs((res.data || []).filter(t => t.status === 'pending_payment'));
+      setPendingTxs((res.data || []).filter(t => t.status === 'pending_payment' && t.buyer_id === user.id));
       setLastUpdated(new Date());
     } catch { /* ignore */ }
   }, [user?.id]);

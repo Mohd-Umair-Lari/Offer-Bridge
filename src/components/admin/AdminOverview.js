@@ -34,7 +34,7 @@ export default function AdminOverview({ requests, offers, transactions }) {
   const totalVolume  = reqs.reduce((s, r) => s + Number(r.amount || 0), 0);
   const totalFees    = txs.reduce((s, t) => s + Number(t.platform_fee || 0), 0);
   const openDisputes = 0; // Disputes feature has been sunset
-  const heldEscrow   = txs.filter(t => t.status === 'payment_received' || t.status === 'tracking_pending').reduce((s, t) => s + Number(t.amount || 0), 0);
+  const heldEscrow   = txs.filter(t => t.status === 'tracking_pending').reduce((s, t) => s + Number(t.amount || 0), 0);
 
   const stats = [
     { label: 'Total Volume',   value: `₹${totalVolume.toLocaleString('en-IN')}`,  sub: 'all time',       icon: TrendingUp,   iconClass: 'stat-purple',  delay: 0 },
