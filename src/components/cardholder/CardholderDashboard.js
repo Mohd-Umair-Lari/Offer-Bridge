@@ -155,7 +155,7 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
     if (!user?.id) return;
     try {
       const res = await api.getTransactions(user.id);
-      setTrackingTxs((res.data || []).filter(t => t.status === 'tracking_pending' && t.provider_id === user.id));
+      setTrackingTxs((res.data || []).filter(t => (t.status === 'tracking_pending' || t.status === 'payment_received') && t.provider_id === user.id));
       setLastUpdated(new Date());
     } catch { /* ignore */ }
   }, [user?.id]);

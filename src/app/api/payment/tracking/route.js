@@ -25,7 +25,7 @@ export async function POST(req) {
 
     const tx = await Transaction.findById(tx_id);
     if (!tx) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
-    if (tx.status !== 'tracking_pending')
+    if (tx.status !== 'tracking_pending' && tx.status !== 'payment_received')
       return NextResponse.json({ error: 'Cannot submit tracking at this stage' }, { status: 409 });
 
     // Verify it's the provider
