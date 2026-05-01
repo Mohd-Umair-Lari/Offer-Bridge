@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/authContext';
-import { Wallet, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Wallet, Eye, EyeOff, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 
 
 // ── Floating Orb ─────────────────────────────────────────────────
