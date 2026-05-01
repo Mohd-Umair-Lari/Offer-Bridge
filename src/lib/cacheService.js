@@ -33,23 +33,15 @@ export const CacheService = {
     try {
       localStorage.setItem(key, JSON.stringify(data));
       localStorage.setItem(CACHE_KEYS.TIMESTAMP, Date.now().toString());
-      console.log('[Cache] Set:', key);
-    } catch {
-      console.warn('[Cache] Failed to set:', key);
-    }
+    } catch { /* storage unavailable */ }
   },
 
   // Clear all cache (call on logout or session change)
   clear: () => {
     if (typeof window === 'undefined') return;
     try {
-      Object.values(CACHE_KEYS).forEach(key => {
-        localStorage.removeItem(key);
-      });
-      console.log('[Cache] Cleared');
-    } catch {
-      console.warn('[Cache] Failed to clear');
-    }
+      Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+    } catch { /* storage unavailable */ }
   }
 };
 
@@ -60,7 +52,6 @@ export const withRetry = async (fn, maxRetries = 3, delay = 1000) => {
       return await fn();
     } catch (error) {
       if (i === maxRetries - 1) throw error;
-      console.warn(`[Retry] Attempt ${i + 1} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       delay *= 2; // Exponential backoff
     }
