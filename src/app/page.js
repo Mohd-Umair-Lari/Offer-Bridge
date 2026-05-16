@@ -192,27 +192,28 @@ function UserMenu({ displayName, role, onSignOut }) {
 // NotifBell is now imported from shared/NotificationBell (live DB-connected)
 
 // ── Sidebar Nav Item ────────────────────────────────────────────
-function NavItem({ item, isActive, onClick }) {
+function NavItem({ item, isActive, onClick, collapsed }) {
   const Icon = item.icon;
   return (
     <motion.button
       key={item.id}
       id={`nav-${item.id}`}
       onClick={onClick}
-      whileHover={{ x: 2 }}
-      className={`nav-item ${isActive ? 'active' : ''}`}
+      whileHover={{ x: collapsed ? 0 : 2, scale: collapsed ? 1.05 : 1 }}
+      className={`nav-item ${isActive ? 'active' : ''} ${collapsed ? 'justify-center px-0' : ''}`}
+      title={collapsed ? item.label : undefined}
     >
       {isActive && (
         <motion.div
           layoutId="sidebar-pill"
-          className="absolute inset-0 rounded-xl"
+          className={`absolute inset-0 ${collapsed ? 'rounded-xl' : 'rounded-xl'}`}
           style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
         />
       )}
-      <span className="relative z-10 flex items-center gap-2.5 w-full">
-        <Icon size={16} style={{ color: isActive ? 'var(--primary)' : 'var(--text-dim)' }} />
-        {item.label}
+      <span className={`relative z-10 flex items-center ${collapsed ? 'justify-center' : 'gap-2.5 w-full'}`}>
+        <Icon size={18} style={{ color: isActive ? 'var(--primary)' : 'var(--text-dim)' }} />
+        {!collapsed && <span>{item.label}</span>}
       </span>
     </motion.button>
   );
@@ -226,6 +227,7 @@ export default function GoZivo() {
   const [db, setDb] = useState({ requests: [], offers: [], transactions: [] });
   const [dbLoading, setDbLoading] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
   // ── Payment portal state ────────────────────────────────────────
@@ -362,22 +364,25 @@ export default function GoZivo() {
         style={{ borderBottom: '1px solid var(--border)' }}>
 
         <div className="flex items-center gap-3">
-          <button id="mobile-menu-btn"
-            className="md:hidden p-1.5 rounded-lg transition"
-            style={{ color: 'var(--text-muted)' }}
-            onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', boxShadow: '0 2px 12px var(--primary-glow)' }}>
               <Wallet size={15} className="text-white" />
             </div>
-            <span className="font-bold text-lg leading-none">
+            <span className="font-bold text-lg leading-none hidden sm:block">
               <span className="gradient-text">Go</span>
               <span style={{ color: 'var(--text)', fontWeight: 400 }}>Zivo</span>
             </span>
           </div>
+          
+          {/* Desktop sidebar toggle */}
+          <button id="desktop-menu-btn"
+            className="hidden md:flex p-1.5 rounded-lg transition ml-2"
+            style={{ color: 'var(--text-muted)' }}
+            onClick={() => setDesktopCollapsed(!desktopCollapsed)}
+            title="Toggle Sidebar">
+            <Menu size={18} />
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -392,39 +397,29 @@ export default function GoZivo() {
 
       <div className="flex flex-1 relative overflow-hidden">
 
-        {/* Mobile overlay */}
-        <AnimatePresence>
-          {mobileOpen && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-30 md:hidden"
-              style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
-              onClick={() => setMobileOpen(false)}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* ── Sidebar ──────────────────────────────────────── */}
+        {/* ── Desktop Sidebar ──────────────────────────────────────── */}
         <aside className={`
-          fixed md:static top-14 left-0 bottom-0 z-40
-          w-56 flex-shrink-0 flex flex-col
-          transform transition-transform duration-200 ease-out
-          md:translate-x-0
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        `} style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
+          hidden md:flex flex-col flex-shrink-0
+          transition-all duration-300 ease-in-out
+          ${desktopCollapsed ? 'w-20' : 'w-56'}
+        `} style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)', zIndex: 40 }}>
 
-          <div className="p-3 flex-1 overflow-y-auto space-y-5 pt-4">
-            {navSections.map(({ label, items }) => (
+          <div className="p-3 flex-1 overflow-y-auto space-y-5 pt-4 scrollbar-hide">
+            {navSections.map(({ label, items }, idx) => (
               <div key={label}>
-                <p className="text-[10px] uppercase tracking-widest font-semibold px-3 mb-2"
-                  style={{ color: 'var(--text-dim)' }}>{label}</p>
-                <nav className="space-y-0.5">
+                {!desktopCollapsed && (
+                  <p className="text-[10px] uppercase tracking-widest font-semibold px-3 mb-2"
+                    style={{ color: 'var(--text-dim)' }}>{label}</p>
+                )}
+                {desktopCollapsed && idx > 0 && <div className="h-px bg-[var(--border2)] mx-4 my-2" />}
+                <nav className="space-y-1">
                   {items.map(item => (
                     <NavItem
                       key={item.id}
                       item={item}
                       isActive={activeTab === item.id}
                       onClick={() => handleTab(item.id)}
+                      collapsed={desktopCollapsed}
                     />
                   ))}
                 </nav>
@@ -434,30 +429,34 @@ export default function GoZivo() {
 
           {/* Sidebar footer */}
           <div className="p-3" style={{ borderTop: '1px solid var(--border2)' }}>
-            <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl"
+            <div className={`flex items-center ${desktopCollapsed ? 'justify-center' : 'gap-2.5 px-2'} py-2 rounded-xl`}
               style={{ background: 'var(--surface2)' }}>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white text-sm font-bold"
                 style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)' }}>
                 {displayName?.[0]?.toUpperCase() ?? 'U'}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{displayName}</p>
-                <span className="badge badge-purple text-[9px]">{ROLE_LABELS[role] ?? role}</span>
-              </div>
-              <button id="sidebar-signout" onClick={handleSignOut} title="Sign out"
-                className="p-1.5 rounded-lg transition"
-                style={{ color: 'var(--text-dim)' }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}>
-                <LogOut size={13} />
-              </button>
+              {!desktopCollapsed && (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{displayName}</p>
+                    <span className="badge badge-purple text-[9px]">{ROLE_LABELS[role] ?? role}</span>
+                  </div>
+                  <button id="sidebar-signout" onClick={handleSignOut} title="Sign out"
+                    className="p-1.5 rounded-lg transition"
+                    style={{ color: 'var(--text-dim)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}>
+                    <LogOut size={13} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </aside>
 
         {/* ── Main Content ──────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto min-h-[calc(100vh-56px)]" style={{ background: 'var(--bg)' }}>
-          <div className="p-4 md:p-6 max-w-6xl">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0" style={{ background: 'var(--bg)' }}>
+          <div className="p-4 md:p-6 max-w-6xl mx-auto">
             {dbLoading && !db.requests.length ? (
               <SkeletonDashboard />
             ) : (
@@ -475,6 +474,35 @@ export default function GoZivo() {
             )}
           </div>
         </main>
+
+        {/* ── Mobile Bottom Navigation ────────────────────────────── */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass" 
+             style={{ borderTop: '1px solid var(--border)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="flex justify-around items-center h-16 px-2">
+            {navSections.flatMap(s => s.items).slice(0, 5).map(item => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={`bottom-${item.id}`}
+                  onClick={() => handleTab(item.id)}
+                  className="flex flex-col items-center justify-center w-full h-full space-y-1 relative"
+                  style={{ color: isActive ? 'var(--primary)' : 'var(--text-dim)' }}
+                >
+                  {isActive && (
+                    <motion.div layoutId="bottom-nav-indicator"
+                      className="absolute top-0 w-8 h-1 rounded-b-full"
+                      style={{ background: 'var(--primary)' }} />
+                  )}
+                  <Icon size={20} className={isActive ? 'mb-0.5' : ''} />
+                  <span className="text-[10px] font-medium tracking-wide">
+                    {item.label.split(' ')[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
