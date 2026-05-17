@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { Request, Transaction, Notification } from '@/lib/models';
+import { config } from '@/lib/config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
+const JWT_SECRET = config.jwt.secret;
 
 function getUser(req) {
   const auth = req.headers.get('authorization');
@@ -12,8 +13,6 @@ function getUser(req) {
   catch { return null; }
 }
 
-// ── POST /api/payment/tracking  →  provider submits tracking ID
-// body: { tx_id, tracking_id, courier }
 export async function POST(req) {
   try {
     await connectDB();
@@ -28,11 +27,9 @@ export async function POST(req) {
     if (tx.status !== 'tracking_pending' && tx.status !== 'payment_received')
       return NextResponse.json({ error: 'Cannot submit tracking at this stage' }, { status: 409 });
 
-    // Verify it's the provider
     if (tx.provider_id.toString() !== user.id)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    // Check 24h deadline hasn't passed
     if (tx.tracking_due_at && new Date() > new Date(tx.tracking_due_at))
       return NextResponse.json({ error: 'Tracking deadline passed — payment was refunded' }, { status: 410 });
 
@@ -42,11 +39,8 @@ export async function POST(req) {
     tx.completed_at = new Date();
     await tx.save();
 
-
-    // Update Request to completed
     await Request.findByIdAndUpdate(tx.request_id, { status: 'completed' });
 
-    // Notify BUYER with tracking info
     await Notification.create({
       user_id: tx.buyer_id,
       type:    'tracking',
@@ -55,7 +49,6 @@ export async function POST(req) {
       tx_id:   tx._id.toString(),
     });
 
-    // Notify PROVIDER: payment released
     await Notification.create({
       user_id: tx.provider_id,
       type:    'info',

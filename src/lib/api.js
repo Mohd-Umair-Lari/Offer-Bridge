@@ -1,4 +1,3 @@
-// Centralized API helper — all MongoDB calls go through here
 const TOKEN_KEY = 'gz-token';
 
 function getToken() {

@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { User, Request, Offer, Transaction, Notification } from '@/lib/models';
+import { config } from '@/lib/config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
-const PLATFORM_FEE_RATE = 0.02; // 2%
+const JWT_SECRET = config.jwt.secret;
+const PLATFORM_FEE_RATE = config.payment.platformFeeRate;
 
 function getUser(req) {
   const auth = req.headers.get('authorization');
@@ -13,7 +14,6 @@ function getUser(req) {
   catch { return null; }
 }
 
-// ── GET /api/payment?userId=xxx  →  all transactions for a user
 export async function GET(req) {
   try {
     await connectDB();
@@ -32,8 +32,6 @@ export async function GET(req) {
   }
 }
 
-// ── POST /api/payment  →  provider clicks "Make an Offer" → initiates transaction
-// body: { request_id, offer_id }
 export async function POST(req) {
   try {
     await connectDB();
@@ -56,7 +54,6 @@ export async function POST(req) {
     const amount       = Number(requestDoc.amount);
     const platform_fee = Math.round(amount * PLATFORM_FEE_RATE);
 
-    // Create Transaction
     const tx = await Transaction.create({
       request_id:    requestDoc._id,
       offer_id:      offerDoc._id,
@@ -72,7 +69,6 @@ export async function POST(req) {
       status:        'pending_payment',
     });
 
-    // Notify the BUYER to pay
     await Notification.create({
       user_id: requestDoc.user_id,
       type:    'payment',
@@ -81,7 +77,6 @@ export async function POST(req) {
       tx_id:   tx._id.toString(),
     });
 
-    // Mark request as matched
     await Request.findByIdAndUpdate(request_id, { status: 'matched' });
 
     return NextResponse.json({ data: { ...tx.toObject(), id: tx._id.toString() } }, { status: 201 });
@@ -91,8 +86,6 @@ export async function POST(req) {
   }
 }
 
-// ── PUT /api/payment  →  consumer confirms UPI payment
-// body: { tx_id, upi_ref }
 export async function PUT(req) {
   try {
     await connectDB();
@@ -108,16 +101,14 @@ export async function PUT(req) {
       return NextResponse.json({ error: 'Already paid or invalid status' }, { status: 409 });
 
     const now = new Date();
-    const trackingDue = new Date(now.getTime() + 24 * 60 * 60 * 1000); // +24h
+    const trackingDue = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-    // Update transaction to hold payment securely
     tx.status          = 'tracking_pending';
     tx.upi_ref         = upi_ref || `UPI${Date.now()}`;
     tx.payment_at      = now;
     tx.tracking_due_at = trackingDue;
     await tx.save();
 
-    // Notify PROVIDER: must submit tracking within 24h
     await Notification.create({
       user_id: tx.provider_id,
       type:    'action',
@@ -126,7 +117,6 @@ export async function PUT(req) {
       tx_id:   tx._id.toString(),
     });
 
-    // Notify BUYER: payment confirmed, waiting for tracking
     await Notification.create({
       user_id: tx.buyer_id,
       type:    'info',

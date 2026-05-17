@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { Request, Offer, Transaction } from '@/lib/models';
+import { config } from '@/lib/config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
+const JWT_SECRET = config.jwt.secret;
 
 function getUser(request) {
   const auth = request.headers.get('authorization');

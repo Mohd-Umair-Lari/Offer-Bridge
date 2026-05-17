@@ -1,21 +1,17 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
+import { config } from '@/lib/config';
 
-/**
- * NextAuth handles the OAuth redirect/callback loop with Google & GitHub.
- * NEXTAUTH_URL is automatically picked up from the environment variable —
- * on Vercel, set it to your production domain (e.g. https://offerbridge.vercel.app).
- */
 const handler = NextAuth({
   providers: [
     GoogleProvider({
-      clientId:     process.env.GOOGLE_CLIENT_ID     ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      clientId:     config.nextauth.google.clientId,
+      clientSecret: config.nextauth.google.clientSecret,
     }),
     GitHubProvider({
-      clientId:     process.env.GITHUB_CLIENT_ID     ?? '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+      clientId:     config.nextauth.github.clientId,
+      clientSecret: config.nextauth.github.clientSecret,
     }),
   ],
 
@@ -39,7 +35,7 @@ const handler = NextAuth({
     },
   },
 
-  secret: process.env.NEXTAUTH_SECRET || process.env.JWT_SECRET,
+  secret: config.nextauth.secret,
   session: { strategy: 'jwt' },
 });
 

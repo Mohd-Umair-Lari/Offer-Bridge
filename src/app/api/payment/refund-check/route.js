@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Transaction, Notification } from '@/lib/models';
 
-// ── GET /api/payment/refund-check
-// This route is called on a schedule (or on every page load) to auto-refund
-// transactions where tracking_due_at has passed and status is still 'tracking_pending'
-// In production, call this via a Vercel cron job or on each dashboard load.
 export async function GET() {
   try {
     await connectDB();
@@ -23,9 +19,6 @@ export async function GET() {
       tx.refunded_at = now;
       await tx.save();
 
-
-
-      // Notify BUYER: refund issued
       await Notification.create({
         user_id: tx.buyer_id,
         type:    'refund',
@@ -34,7 +27,6 @@ export async function GET() {
         tx_id:   tx._id.toString(),
       });
 
-      // Notify PROVIDER: penalty notice
       await Notification.create({
         user_id: tx.provider_id,
         type:    'info',

@@ -26,7 +26,6 @@ import NotificationBell from '@/components/shared/NotificationBell';
 import PaymentModal from '@/components/shared/PaymentModal';
 import TrackingModal from '@/components/shared/TrackingModal';
 
-// ── Nav config ─────────────────────────────────────────────────
 const BUYER_NAV = [
   { id: 'dashboard',   label: 'Dashboard',   icon: LayoutGrid },
   { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
@@ -57,8 +56,6 @@ function getNavSections(role) {
   }
 }
 
-// ── Content renderer ────────────────────────────────────────────
-// ── Content renderer ────────────────────────────────────────────
 function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction, refreshKey) {
   const myRequests     = db.requests.filter(r => r.user_id === user?.id);
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
@@ -79,7 +76,6 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
 }
 
 
-// ── Theme Toggle ────────────────────────────────────────────────
 function ThemeToggle() {
   const [theme, setTheme] = useState('dark');
 
@@ -120,7 +116,6 @@ function ThemeToggle() {
   );
 }
 
-// ── User Menu ───────────────────────────────────────────────────
 function UserMenu({ displayName, role, onSignOut }) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -191,7 +186,6 @@ function UserMenu({ displayName, role, onSignOut }) {
 
 // NotifBell is now imported from shared/NotificationBell (live DB-connected)
 
-// ── Sidebar Nav Item ────────────────────────────────────────────
 function NavItem({ item, isActive, onClick, collapsed }) {
   const Icon = item.icon;
   return (
@@ -219,7 +213,6 @@ function NavItem({ item, isActive, onClick, collapsed }) {
   );
 }
 
-// ── Main App ─────────────────────────────────────────────────────
 export default function GoZivo() {
   const { user, role, displayName, loading: authLoading, signOut, needsOnboarding } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
@@ -230,29 +223,26 @@ export default function GoZivo() {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  // ── Payment portal state ────────────────────────────────────────
   const [paymentTx, setPaymentTx]       = useState(null);
   const [trackingTx, setTrackingTx]     = useState(null);
-  const [dashRefreshKey, setDashRefreshKey] = useState(0); // increments to trigger banner refresh
+  const [dashRefreshKey, setDashRefreshKey] = useState(0);
 
-  // Open PaymentModal — (txId, txObj?) txObj skips re-fetch when called from dashboard
   const openPaymentModal = useCallback(async (txId, txObj) => {
     if (txObj) { setPaymentTx(txObj); return; }
     try {
       const res = await api.getTransactions(user?.id);
       const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
       if (tx) setPaymentTx(tx);
-    } catch { /* ignore */ }
+    } catch {}
   }, [user?.id]);
 
-  // Open TrackingModal — (txId, txObj?) txObj skips re-fetch when called from dashboard
   const openTrackingModal = useCallback(async (txId, txObj) => {
     if (txObj) { setTrackingTx(txObj); return; }
     try {
       const res = await api.getTransactions(user?.id);
       const tx = (res.data || []).find(t => t.id === txId || t._id === txId);
       if (tx) setTrackingTx(tx);
-    } catch { /* ignore */ }
+    } catch {}
   }, [user?.id]);
 
   const handleSignOut = useCallback(async () => {
@@ -287,7 +277,6 @@ export default function GoZivo() {
     }
   }, [user?.id, role, authLoading, fetchAll]);
 
-  // ── 30-second auto-poll to keep all data live ─────────────────
   useEffect(() => {
     if (!user?.id) return;
     const id = setInterval(() => {
@@ -298,7 +287,6 @@ export default function GoZivo() {
           offers:       res.offers   || [],
           transactions: res.transactions || [],
         });
-        // Also bump dashRefreshKey so transaction banners refresh
         setDashRefreshKey(k => k + 1);
       }).catch(() => {});
     }, 30_000);
@@ -307,7 +295,6 @@ export default function GoZivo() {
 
   const handleTab = (id) => { setActiveTab(id); setMobileOpen(false); };
 
-  // ── Auth loading
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
@@ -328,7 +315,6 @@ export default function GoZivo() {
   if (!user && showLanding) return <LandingPage onGetStarted={() => setShowLanding(false)} />;
   if (!user) return <AuthScreen onBack={() => setShowLanding(true)} />;
 
-  // ── Onboarding gate for new OAuth users ───────────────────────
   if (needsOnboarding) return <OnboardingWizard />;
 
   const navSections = getNavSections(role);
@@ -342,7 +328,7 @@ export default function GoZivo() {
           onClose={() => setPaymentTx(null)}
           onSuccess={() => {
             setPaymentTx(null);
-            setDashRefreshKey(k => k + 1); // triggers BuyerDashboard to re-fetch → banner disappears
+            setDashRefreshKey(k => k + 1);
             fetchAll();
           }}
         />
@@ -353,7 +339,7 @@ export default function GoZivo() {
           onClose={() => setTrackingTx(null)}
           onSuccess={() => {
             setTrackingTx(null);
-            setDashRefreshKey(k => k + 1); // triggers CardholderDashboard to re-fetch → banner disappears
+            setDashRefreshKey(k => k + 1);
             fetchAll();
           }}
         />

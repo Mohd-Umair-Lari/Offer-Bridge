@@ -8,7 +8,6 @@ const COURIERS = ['Amazon', 'Flipkart', 'Delhivery', 'BlueDart', 'DTDC', 'FedEx'
 
 function CountdownTimer({ dueAt }) {
   const [, forceUpdate] = useState(0);
-  // Trigger rerender every minute
   useState(() => {
     const id = setInterval(() => forceUpdate(n => n + 1), 60_000);
     return () => clearInterval(id);

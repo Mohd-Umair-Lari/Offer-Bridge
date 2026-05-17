@@ -3,8 +3,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models';
+import { config } from '@/lib/config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
+const JWT_SECRET = config.jwt.secret;
 
 function makeToken(user) {
   return jwt.sign(
@@ -21,7 +22,7 @@ function safeUser(user) {
     fullName: user.fullName,
     role: user.role,
     avatar: user.avatar || '',
-    onboarding_complete: user.onboarding_complete ?? true,  // existing users = already done
+    onboarding_complete: user.onboarding_complete ?? true,
   };
 }
 
@@ -31,7 +32,6 @@ export async function POST(request) {
     const body = await request.json();
     const { action, email, password, fullName, role } = body;
 
-    // ── register ──────────────────────────────────────────────────
     if (action === 'register') {
       if (!email || !password)
         return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
@@ -45,14 +45,13 @@ export async function POST(request) {
         email: email.toLowerCase(),
         password: hashed,
         fullName: fullName || '',
-        role: 'customer',           // default; OnboardingWizard will let user pick their role
-        onboarding_complete: false, // show OnboardingWizard after signup
+        role: 'customer',
+        onboarding_complete: false,
       });
 
       return NextResponse.json({ token: makeToken(user), user: safeUser(user) });
     }
 
-    // ── login ─────────────────────────────────────────────────────
     if (action === 'login') {
       if (!email || !password)
         return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
@@ -71,7 +70,6 @@ export async function POST(request) {
       return NextResponse.json({ token: makeToken(user), user: safeUser(user) });
     }
 
-    // ── me ────────────────────────────────────────────────────────
     if (action === 'me') {
       const authHeader = request.headers.get('authorization');
       if (!authHeader?.startsWith('Bearer '))
@@ -87,7 +85,6 @@ export async function POST(request) {
       }
     }
 
-    // ── complete-onboarding ───────────────────────────────────────
     if (action === 'complete-onboarding') {
       const { token: rawToken, role: newRole, fullName: newName, phone } = body;
       if (!rawToken) return NextResponse.json({ error: 'No token' }, { status: 401 });

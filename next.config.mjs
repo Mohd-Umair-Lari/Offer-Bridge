@@ -2,16 +2,14 @@
 const nextConfig = {
   reactCompiler: true,
 
-  // Allow OAuth provider profile images
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },   // Google avatars
-      { protocol: 'https', hostname: 'avatars.githubusercontent.com' }, // GitHub avatars
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
       { protocol: 'https', hostname: '*.googleusercontent.com' },
     ],
   },
 
-  // Security headers for production
   async headers() {
     return [
       {
@@ -22,9 +20,23 @@ const nextConfig = {
           { key: 'X-XSS-Protection',          value: '1; mode=block' },
           { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' },
+          { key: 'Content-Security-Policy',   value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; font-src 'self' data:;" },
         ],
       },
     ];
+  },
+
+  async rewrites() {
+    return [];
+  },
+
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  compress: true,
+  swcMinify: true,
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
   },
 };
 
