@@ -34,7 +34,6 @@ const nextConfig = {
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   compress: true,
-  swcMinify: true,
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
