@@ -185,6 +185,15 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
 
   const handlePay = (tx) => { if (onPaymentAction) onPaymentAction(tx.id || tx._id, tx); };
 
+  const handleRequestUpdated = useCallback(async () => {
+    if (!selectedReq) return;
+    try {
+      const res = await api.getRequests();
+      const updated = (res.data || []).find(r => (r.id || r._id) === (selectedReq.id || selectedReq._id));
+      if (updated) setSelectedReq(updated);
+    } catch { /* ignore */ }
+  }, [selectedReq]);
+
   // ── Computed stats ──────────────────────────────────────────────
   const pending      = requests.filter(r => r.status === 'pending').length;
   const matched      = requests.filter(r => r.status === 'matched').length;
@@ -208,7 +217,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
 
   return (
     <div className="space-y-7 max-w-5xl">
-      {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} />}
+      {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} onUpdated={handleRequestUpdated} />}
       {editingReq && <EditRequestModal req={editingReq} onClose={() => setEditingReq(null)} onUpdated={() => { setEditingReq(null); window.location.reload(); }} />}
 
       {/* ── Header ── */}
