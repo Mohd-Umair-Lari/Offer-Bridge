@@ -64,11 +64,21 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     await connectDB();
+    const user = getUser(request);
     const body = await request.json();
     const { type, id, ...updates } = body;
 
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+
+    // Authorization: only allow users to edit their own requests
+    if (type === 'requests' && user) {
+      const existing = await Request.findById(id).lean();
+      if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (existing.user_id.toString() !== user.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      // Only allow editing pending requests
+      if (existing.status !== 'pending') return NextResponse.json({ error: 'Can only edit pending requests' }, { status: 400 });
+    }
 
     const doc = await Model.findByIdAndUpdate(id, updates, { new: true }).lean();
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });

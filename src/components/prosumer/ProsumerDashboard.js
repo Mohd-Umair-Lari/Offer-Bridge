@@ -4,9 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingDown, TrendingUp, CheckCircle2, Clock, CreditCard,
   ShoppingBag, Truck, Zap, AlertCircle, Activity, RefreshCw,
-  ArrowUpRight, Banknote, Package, BarChart2, ShieldCheck,
+  ArrowUpRight, Banknote, Package, BarChart2, ShieldCheck, Tag,
 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
+import EditRequestModal from '@/components/shared/EditRequestModal';
+import NotificationFeed from '@/components/shared/NotificationFeed';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
@@ -90,6 +92,7 @@ function TrackingBanner({ tx, onSubmit }) {
 // ── Main ──────────────────────────────────────────────────────────
 export default function ProsumerDashboard({ requests=[], offers:offersProp=[], onPaymentAction, onTrackingAction, refreshKey=0 }) {
   const { user } = useAuth();
+  const [editingReq, setEditingReq] = useState(null);
   const [pendingTxs, setPendingTxs]   = useState([]);
   const [trackingTxs, setTrackingTxs] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -135,6 +138,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
 
   return (
     <div className="space-y-7 max-w-5xl">
+      {editingReq && <EditRequestModal req={editingReq} onClose={() => setEditingReq(null)} onUpdated={() => { setEditingReq(null); window.location.reload(); }} />}
 
       {/* Header */}
       <motion.div initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }}
@@ -224,7 +228,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
                 const meta = STATUS_META[req.status] || STATUS_META.pending;
                 return (
                   <motion.div key={req.id} variants={item}
-                    className="flex items-center gap-3 px-5 py-3.5 transition"
+                    className="flex items-center gap-3 px-5 py-3.5 transition group"
                     style={{ borderBottom:'1px solid var(--border2)' }}
                     onMouseEnter={e=>e.currentTarget.style.background='var(--surface2)'}
                     onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
@@ -237,6 +241,16 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
                       ₹{Number(req.amount).toLocaleString('en-IN')}
                     </p>
                     <span className={`badge ${meta.cls} shrink-0 text-[10px]`}>{meta.label}</span>
+                    {req.status === 'pending' && (
+                      <motion.button
+                        onClick={() => setEditingReq(req)}
+                        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                        className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
+                        style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
+                        title="Edit request">
+                        <Tag size={12} />
+                      </motion.button>
+                    )}
                   </motion.div>
                 );
               })}
@@ -327,6 +341,11 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
             Use the sidebar to access My Cards, Browse Requests, and New Request.
           </p>
         </div>
+      </motion.div>
+
+      {/* ── Notifications ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+        <NotificationFeed onPaymentAction={(txId) => onPaymentAction?.(txId, null)} onTrackingAction={(txId) => onTrackingAction?.(txId, null)} />
       </motion.div>
     </div>
   );

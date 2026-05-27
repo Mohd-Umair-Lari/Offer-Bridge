@@ -7,6 +7,7 @@ import {
   ShieldCheck, BarChart2, Zap, Banknote, ArrowUpRight, Package,
 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
+import NotificationFeed from '@/components/shared/NotificationFeed';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
@@ -239,10 +240,11 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </motion.div>
 
-      {/* ── Active Offers ── */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        className="card overflow-hidden">
-        <div className="px-6 py-5 flex items-center justify-between"
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Active Offers ── */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="card overflow-hidden lg:col-span-2">
+          <div className="px-6 py-5 flex items-center justify-between"
           style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(139,92,246,0.04) 0%,transparent 100%)' }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -278,6 +280,11 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
           </motion.div>
         )}
       </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="lg:col-span-1">
+        <NotificationFeed onTrackingAction={(txId) => onTrackingAction?.(txId, null)} />
+      </motion.div>
+      </div>
 
       {/* ── Earnings Overview ── */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}

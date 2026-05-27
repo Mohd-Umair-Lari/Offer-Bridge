@@ -7,7 +7,9 @@ import {
   RefreshCw, Eye, ChevronRight, Sparkles, Package,
 } from 'lucide-react';
 import RequestDetailsModal from '@/components/shared/RequestDetailsModal';
+import EditRequestModal from '@/components/shared/EditRequestModal';
 import StatCard from '@/components/shared/StatCard';
+import NotificationFeed from '@/components/shared/NotificationFeed';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
@@ -81,7 +83,7 @@ function PayBanner({ tx, onPay, onDismiss }) {
 }
 
 // ── Request row ────────────────────────────────────────────────────
-function RequestRow({ req, index, onViewDetails }) {
+function RequestRow({ req, index, onViewDetails, onEdit }) {
   const color = CATEGORY_COLORS[req.category] || '#8b5cf6';
   const meta  = STATUS_META[req.status] || { label: req.status, cls: 'badge-neutral', dot: '#6b7280' };
   return (
@@ -132,14 +134,26 @@ function RequestRow({ req, index, onViewDetails }) {
         {meta.label}
       </span>
 
-      {/* Details */}
-      <motion.button
-        onClick={() => onViewDetails(req)}
-        whileHover={{ scale: 1.06, x: 2 }} whileTap={{ scale: 0.94 }}
-        className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
-        style={{ color: 'var(--primary)', background: 'var(--primary-dim)' }}>
-        <Eye size={13} />
-      </motion.button>
+      {/* Actions */}
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        {req.status === 'pending' && (
+          <motion.button
+            onClick={() => onEdit(req)}
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+            className="shrink-0 p-1.5 rounded-lg transition"
+            style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
+            title="Edit request">
+            <Tag size={13} />
+          </motion.button>
+        )}
+        <motion.button
+          onClick={() => onViewDetails(req)}
+          whileHover={{ scale: 1.06, x: 2 }} whileTap={{ scale: 0.94 }}
+          className="shrink-0 p-1.5 rounded-lg transition"
+          style={{ color: 'var(--primary)', background: 'var(--primary-dim)' }}>
+          <Eye size={13} />
+        </motion.button>
+      </div>
     </motion.div>
   );
 }
@@ -148,6 +162,7 @@ function RequestRow({ req, index, onViewDetails }) {
 export default function BuyerDashboard({ requests = [], onPaymentAction, refreshKey = 0 }) {
   const { user } = useAuth();
   const [selectedReq, setSelectedReq] = useState(null);
+  const [editingReq, setEditingReq] = useState(null);
   const [pendingTxs, setPendingTxs]   = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const pollRef = useRef(null);
@@ -194,6 +209,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
   return (
     <div className="space-y-7 max-w-5xl">
       {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} />}
+      {editingReq && <EditRequestModal req={editingReq} onClose={() => setEditingReq(null)} onUpdated={() => { setEditingReq(null); window.location.reload(); }} />}
 
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
@@ -242,11 +258,12 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </motion.div>
 
-      {/* ── Requests Table ── */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
-        className="card overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Requests Table ── */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
+          className="card overflow-hidden lg:col-span-2">
 
-        {/* Table header */}
+          {/* Table header */}
         <div className="px-6 py-5 flex items-center justify-between"
           style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(139,92,246,0.04) 0%,transparent 100%)' }}>
           <div className="flex items-center gap-3">
@@ -281,7 +298,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
         ) : (
           <motion.div variants={container} initial="hidden" animate="visible">
             {requests.slice(0, 8).map((req, i) => (
-              <RequestRow key={req.id} req={req} index={i} onViewDetails={setSelectedReq} />
+              <RequestRow key={req.id} req={req} index={i} onViewDetails={setSelectedReq} onEdit={setEditingReq} />
             ))}
           </motion.div>
         )}
@@ -296,6 +313,11 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
           </div>
         )}
       </motion.div>
+
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }} className="lg:col-span-1">
+        <NotificationFeed onPaymentAction={(txId) => onPaymentAction?.(txId, null)} />
+      </motion.div>
+      </div>
 
       {/* ── Activity Timeline ── */}
       {requests.length > 0 && (
