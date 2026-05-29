@@ -285,7 +285,7 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                 )}
 
                 {/* Tracking Information - Only after provider submitted tracking */}
-                {(req.status === 'matched' || req.status === 'completed') && req._tracking && req._tracking.tracking_id && (
+                {req._tracking && req._tracking.tracking_id && (
                   <div>
                     <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
                       <Truck size={15} style={{ color: '#10b981' }} /> Tracking Details
