@@ -302,7 +302,17 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                         </div>
                       )}
                       <motion.button
-                        onClick={() => window.open(`https://www.indiapost.gov.in/vas/trackandtrace/`, '_blank')}\n                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}\n                        className=\"w-full py-2.5 rounded-xl text-sm font-semibold text-white transition\"\n                        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', border: '1px solid rgba(16,185,129,0.3)' }}>\n                        <ExternalLink size={14} className=\"inline mr-1\" /> Track Your Package\n                      </motion.button>\n                    </div>\n                  </div>\n                )}\n              </div>\n            )}
+                        onClick={() => window.open(`https://www.indiapost.gov.in/vas/trackandtrace/`, '_blank')}
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition"
+                        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                        <ExternalLink size={14} className="inline mr-1" /> Track Your Package
+                      </motion.button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer */}
