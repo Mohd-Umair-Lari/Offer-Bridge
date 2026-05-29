@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingDown, CheckCircle2, Clock, Tag, ArrowUpRight, CreditCard,
   AlertCircle, Zap, Activity, ShoppingBag, Calendar, ExternalLink,
-  RefreshCw, Eye, ChevronRight, Sparkles, Package,
+  RefreshCw, Eye, ChevronRight, Sparkles, Package, Truck, Link as LinkIcon,
 } from 'lucide-react';
 import RequestDetailsModal from '@/components/shared/RequestDetailsModal';
 import EditRequestModal from '@/components/shared/EditRequestModal';
@@ -77,6 +77,50 @@ function PayBanner({ tx, onPay, onDismiss }) {
         whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
         className="shrink-0 btn-primary text-sm px-5 py-2.5">
         <Zap size={14} /> Pay ₹{Number(tx.amount).toLocaleString('en-IN')}
+      </motion.button>
+    </motion.div>
+  );
+}
+
+// ── Order Placed Banner (Tracking Available) ───────────────────────
+function TrackingBanner({ tx, onViewTracking }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.14) 0%,rgba(6,182,212,0.06) 100%)', border: '1px solid rgba(16,185,129,0.35)' }}>
+
+      <motion.div
+        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+        className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', boxShadow: '0 6px 20px rgba(16,185,129,0.4)' }}>
+        <Truck size={18} className="text-white" />
+      </motion.div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="live-dot-green" />
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#10b981' }}>Order Placed</p>
+        </div>
+        <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
+          Your order has been shipped with tracking available
+        </p>
+        <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-semibold" style={{ color: '#10b981' }}>{tx.product_title}</span>
+          {' · Tracking via '}<span className="capitalize">{tx.courier || 'Standard'}</span>
+        </p>
+      </div>
+
+      <motion.button
+        onClick={() => onViewTracking(tx)}
+        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+        className="shrink-0 text-white text-sm px-5 py-2.5 rounded-xl font-semibold transition"
+        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', border: '1px solid rgba(16,185,129,0.3)' }}>
+        <LinkIcon size={14} className="inline mr-1" /> View Tracking
       </motion.button>
     </motion.div>
   );
@@ -164,6 +208,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
   const [selectedReq, setSelectedReq] = useState(null);
   const [editingReq, setEditingReq] = useState(null);
   const [pendingTxs, setPendingTxs]   = useState([]);
+  const [trackingTxs, setTrackingTxs] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const pollRef = useRef(null);
 
@@ -172,6 +217,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
     try {
       const res = await api.getTransactions(user.id);
       setPendingTxs((res.data || []).filter(t => t.status === 'pending_payment' && t.buyer_id === user.id));
+      setTrackingTxs((res.data || []).filter(t => t.status === 'tracking_submitted' && t.buyer_id === user.id));
       setLastUpdated(new Date());
     } catch { /* ignore */ }
   }, [user?.id]);
@@ -184,6 +230,11 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
   }, [fetchPendingTxs, refreshKey]);
 
   const handlePay = (tx) => { if (onPaymentAction) onPaymentAction(tx.id || tx._id, tx); };
+
+  const handleViewTracking = (tx) => {
+    const req = requests.find(r => (r.id || r._id) === (tx.request_id?.toString?.() || tx.request_id));
+    if (req) setSelectedReq({ ...req, _tracking: tx });
+  };
 
   const handleRequestUpdated = useCallback(async () => {
     if (!selectedReq) return;
@@ -256,6 +307,24 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
             </div>
             {pendingTxs.map(tx => (
               <PayBanner key={tx.id || tx._id} tx={tx} onPay={handlePay} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Tracking Available Banners ── */}
+      <AnimatePresence mode="popLayout">
+        {trackingTxs.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="space-y-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+              <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#10b981' }}>
+                {trackingTxs.length} Order{trackingTxs.length > 1 ? 's' : ''} Shipped
+              </p>
+            </div>
+            {trackingTxs.map(tx => (
+              <TrackingBanner key={tx.id || tx._id} tx={tx} onViewTracking={handleViewTracking} />
             ))}
           </motion.div>
         )}

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Tag, CreditCard, Link as LinkIcon, DollarSign, AlignLeft, ShieldCheck, Globe, Edit, Save, RotateCcw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Calendar, Tag, CreditCard, Link as LinkIcon, DollarSign, AlignLeft, ShieldCheck, Globe, Edit, Save, RotateCcw, CheckCircle2, AlertCircle, Truck, ExternalLink } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const STATUS_CLS = {
@@ -283,8 +283,26 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                     </a>
                   </div>
                 )}
-              </div>
-            )}
+
+                {/* Tracking Information */}
+                {req._tracking && req._tracking.tracking_id && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2 text-sm font-semibold" style={{ color: 'var(--text)' }}>
+                      <Truck size={15} style={{ color: '#10b981' }} /> Tracking Details
+                    </div>
+                    <div className="space-y-3">
+                      <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <p className="text-xs uppercase font-semibold mb-2" style={{ color: '#10b981' }}>Tracking ID</p>
+                        <p className="text-sm font-mono font-bold break-all" style={{ color: 'var(--text)' }}>{req._tracking.tracking_id}</p>
+                      </div>
+                      {req._tracking.courier && (
+                        <div className="rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          <p className="text-xs uppercase font-semibold mb-2" style={{ color: '#3b82f6' }}>Courier</p>
+                          <p className="text-sm font-bold capitalize" style={{ color: 'var(--text)' }}>{req._tracking.courier}</p>
+                        </div>
+                      )}
+                      <motion.button
+                        onClick={() => window.open(`https://www.indiapost.gov.in/vas/trackandtrace/`, '_blank')}\n                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}\n                        className=\"w-full py-2.5 rounded-xl text-sm font-semibold text-white transition\"\n                        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', border: '1px solid rgba(16,185,129,0.3)' }}>\n                        <ExternalLink size={14} className=\"inline mr-1\" /> Track Your Package\n                      </motion.button>\n                    </div>\n                  </div>\n                )}\n              </div>\n            )}
           </div>
 
           {/* Footer */}
