@@ -236,6 +236,16 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
     if (req) setSelectedReq({ ...req, _tracking: tx });
   };
 
+  const handleViewRequestDetails = (req) => {
+    // Look for any tracking transaction for this request
+    const trackingTx = trackingTxs.find(tx => (tx.request_id?.toString?.() || tx.request_id) === (req.id || req._id));
+    if (trackingTx) {
+      setSelectedReq({ ...req, _tracking: trackingTx });
+    } else {
+      setSelectedReq(req);
+    }
+  };
+
   const handleRequestUpdated = useCallback(async () => {
     if (!selectedReq) return;
     try {
@@ -376,7 +386,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
         ) : (
           <motion.div variants={container} initial="hidden" animate="visible">
             {requests.slice(0, 8).map((req, i) => (
-              <RequestRow key={req.id} req={req} index={i} onViewDetails={setSelectedReq} onEdit={setEditingReq} />
+              <RequestRow key={req.id} req={req} index={i} onViewDetails={handleViewRequestDetails} onEdit={setEditingReq} />
             ))}
           </motion.div>
         )}

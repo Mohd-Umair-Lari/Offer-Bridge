@@ -338,7 +338,9 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                   Close
                 </motion.button>
                 {canEdit && (
-                  <motion.button onClick={() => setIsEditing(true)} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                  <motion.button 
+                    onClick={() => setIsEditing(true)}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
                     className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition text-white"
                     style={{ background: 'var(--primary)', border: '1px solid rgba(139,92,246,0.3)' }}>
                     <Edit size={14} className="inline mr-1" /> Edit Request
