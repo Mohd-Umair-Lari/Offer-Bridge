@@ -59,33 +59,32 @@ export async function POST(req) {
     
     if (requestDoc.product_link && amount) {
       try {
-        const crawlerRes = await fetch(new URL('/api/crawler/real-discounts', req.url).toString(), {
+        // Use lightweight extract-product crawler (works on Vercel)
+        const crawlerRes = await fetch(new URL('/api/crawler/extract-product', req.url).toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productUrl: requestDoc.product_link,
-            productPrice: amount,
-          }),
+          body: JSON.stringify({ productUrl: requestDoc.product_link }),
         });
-        
+
         if (crawlerRes.ok) {
           const crawlerData = await crawlerRes.json();
           if (crawlerData.success && crawlerData.best_card) {
             actualDiscountAmount = crawlerData.best_card.discount_amount || actualDiscountAmount;
             bestCardForDiscount = {
               bank: crawlerData.best_card.bank,
+              card_name: crawlerData.best_card.card_name || crawlerData.best_card.cardName || null,
               discount_amount: actualDiscountAmount,
-              source: crawlerData.best_card.source || 'scraped',
+              source: crawlerData.best_card.source || 'estimated',
             };
-            
-            // Store scraped discount info
+
+            // Persist best card recommendation on the request
             await Request.findByIdAndUpdate(request_id, {
               best_card_info: bestCardForDiscount,
             });
           }
         }
       } catch (e) {
-        console.error('[Payment] Real discount crawler failed:', e);
+        console.error('[Payment] Extract-product crawler failed:', e);
       }
     }
 
