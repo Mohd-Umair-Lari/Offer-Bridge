@@ -52,7 +52,7 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
 
   if (!req) return null;
 
-  const canEdit = req.status === 'pending';
+  const canEdit = req.status !== 'completed';
 
   const set = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;

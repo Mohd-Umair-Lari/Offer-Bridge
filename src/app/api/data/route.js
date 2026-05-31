@@ -76,8 +76,8 @@ export async function PATCH(request) {
       const existing = await Request.findById(id).lean();
       if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       if (existing.user_id.toString() !== user.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-      // Only allow editing pending requests
-      if (existing.status !== 'pending') return NextResponse.json({ error: 'Can only edit pending requests' }, { status: 400 });
+      // Cannot edit completed requests
+      if (existing.status === 'completed') return NextResponse.json({ error: 'Cannot edit completed requests' }, { status: 400 });
     }
 
     const doc = await Model.findByIdAndUpdate(id, updates, { new: true }).lean();
