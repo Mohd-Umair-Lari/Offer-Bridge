@@ -3,182 +3,28 @@ import { connectDB } from '@/lib/mongodb';
 import { Offer } from '@/lib/models';
 
 /**
- * PRODUCT EXTRACTION CRAWLER - Bypass Bot Detection
+ * LIGHTWEIGHT PRODUCT EXTRACTION CRAWLER
  * 
- * This crawler:
- * 1. Visits product page using stealth techniques
- * 2. Bypasses bot detection (user agents, delays, proxy rotation)
- * 3. Extracts: title, price, images
- * 4. Finds best card discount for this product
- * 5. Returns auto-fill data for request form
+ * Works on Vercel serverless (no heavy dependencies)
+ * Uses:
+ * - Native fetch with headers spoofing
+ * - HTML parsing with regex + Open Graph
+ * - JSON-LD structured data extraction
+ * - Fallback mechanisms for blocked sites
  * 
- * Endpoint: POST /api/crawler/extract-product
- * Body: { productUrl: "https://amazon.in/laptop..." }
- * 
- * Returns:
- * {
- *   success: true,
- *   product: {
- *     title: "Samsung 15.6 inch Laptop",
- *     price: 45000,
- *     currency: "INR",
- *     image: "https://...",
- *     description: "..."
- *   },
- *   best_card: {
- *     bank: "HDFC",
- *     discount_amount: 5000,
- *     card_name: "HDFC Regalia"
- *   },
- *   merchant: "amazon"
- * }
+ * Supports: Amazon, Flipkart, Myntra, CRED
  */
 
 // Rotating User Agents to bypass bot detection
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 ];
 
-const REFERRERS = [
-  'https://www.google.com/',
-  'https://www.bing.com/',
-  'https://www.duckduckgo.com/',
-  'https://www.yahoo.com/',
-];
-
-// Merchant-specific extractors
-const MERCHANT_EXTRACTORS = {
-  'amazon': {
-    name: 'Amazon',
-    selectors: {
-      title: 'h1, span[id*="productTitle"]',
-      price: 'span.a-price-whole, [data-a-color="price"]',
-      image: 'img[alt*="image"]',
-      description: '#feature-bullets',
-    },
-    extract: async (page) => {
-      try {
-        // Extract product title
-        const titleElem = await page.locator('span[id*="productTitle"]').first();
-        const title = await titleElem.textContent();
-
-        // Extract price
-        const priceElem = await page.locator('span.a-price-whole').first();
-        const priceText = await priceElem.textContent();
-        const price = parseInt(priceText?.replace(/[^\d]/g, ''), 10);
-
-        // Extract image
-        const imgElem = await page.locator('img[alt*="image"]').first();
-        const image = await imgElem.getAttribute('src');
-
-        // Extract description
-        const descElem = await page.locator('#feature-bullets li');
-        let description = '';
-        const descCount = await descElem.count();
-        if (descCount > 0) {
-          description = await descElem.first().textContent();
-        }
-
-        return {
-          title: title?.trim() || 'Unknown Product',
-          price: isNaN(price) ? 0 : price,
-          image: image || '',
-          description: description?.substring(0, 200) || '',
-          merchant: 'amazon',
-        };
-      } catch (e) {
-        console.error('[Amazon Extract]', e.message);
-        return null;
-      }
-    }
-  },
-
-  'flipkart': {
-    name: 'Flipkart',
-    selectors: {
-      title: 'span[class*="B_NuCI"]',
-      price: 'div[class*="_30jeq3"]',
-      image: 'img[class*="r6Akfd"]',
-    },
-    extract: async (page) => {
-      try {
-        // Extract product title
-        const titleElem = await page.locator('span[class*="B_NuCI"]').first();
-        const title = await titleElem.textContent();
-
-        // Extract price
-        const priceElem = await page.locator('div[class*="_30jeq3"]').first();
-        const priceText = await priceElem.textContent();
-        const price = parseInt(priceText?.replace(/[^\d]/g, ''), 10);
-
-        // Extract image
-        const imgElem = await page.locator('img[class*="r6Akfd"]').first();
-        const image = await imgElem.getAttribute('src');
-
-        return {
-          title: title?.trim() || 'Unknown Product',
-          price: isNaN(price) ? 0 : price,
-          image: image || '',
-          description: '',
-          merchant: 'flipkart',
-        };
-      } catch (e) {
-        console.error('[Flipkart Extract]', e.message);
-        return null;
-      }
-    }
-  },
-
-  'myntra': {
-    name: 'Myntra',
-    extract: async (page) => {
-      try {
-        const title = await page.locator('h1').first().textContent();
-        const priceText = await page.locator('[class*="productPriceContainer"]').first().textContent();
-        const price = parseInt(priceText?.replace(/[^\d]/g, ''), 10);
-        const image = await page.locator('img[class*="productImageImg"]').first().getAttribute('src');
-
-        return {
-          title: title?.trim() || 'Unknown Product',
-          price: isNaN(price) ? 0 : price,
-          image: image || '',
-          description: '',
-          merchant: 'myntra',
-        };
-      } catch (e) {
-        console.error('[Myntra Extract]', e.message);
-        return null;
-      }
-    }
-  },
-
-  'cred': {
-    name: 'CRED',
-    extract: async (page) => {
-      try {
-        const title = await page.locator('h1').first().textContent();
-        const priceText = await page.locator('[data-testid="price"]').first().textContent();
-        const price = parseInt(priceText?.replace(/[^\d]/g, ''), 10);
-
-        return {
-          title: title?.trim() || 'Unknown Product',
-          price: isNaN(price) ? 0 : price,
-          image: '',
-          description: '',
-          merchant: 'cred',
-        };
-      } catch (e) {
-        console.error('[CRED Extract]', e.message);
-        return null;
-      }
-    }
-  },
-};
+function getRandomUserAgent() {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
 
 function extractMerchant(url) {
   try {
@@ -193,28 +39,232 @@ function extractMerchant(url) {
   }
 }
 
-function getRandomUserAgent() {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+/**
+ * Extract Open Graph metadata from HTML
+ */
+function extractOpenGraphData(html) {
+  try {
+    const titleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
+    const imageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
+    const descMatch = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i);
+
+    return {
+      title: titleMatch?.[1] || null,
+      image: imageMatch?.[1] || null,
+      description: descMatch?.[1] || null,
+    };
+  } catch {
+    return { title: null, image: null, description: null };
+  }
 }
 
-function getRandomReferrer() {
-  return REFERRERS[Math.floor(Math.random() * REFERRERS.length)];
+/**
+ * Extract structured data (JSON-LD)
+ */
+function extractJsonLD(html) {
+  try {
+    const jsonMatch = html.match(/<script\s+type=["']application\/ld\+json["'][^>]*>([^<]+)<\/script>/i);
+    if (!jsonMatch) return null;
+
+    const data = JSON.parse(jsonMatch[1]);
+    
+    if (data['@type'] === 'Product') {
+      return {
+        title: data.name,
+        description: data.description,
+        image: typeof data.image === 'string' ? data.image : data.image?.[0],
+        price: data.offers?.price || data.price?.price,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Flipkart-specific extraction
+ */
+function extractFlipkartData(html) {
+  try {
+    // Try JSON-LD first (most reliable)
+    const jsonLD = extractJsonLD(html);
+    if (jsonLD?.price) {
+      return {
+        title: jsonLD.title || 'Product',
+        price: parseInt(jsonLD.price.toString(), 10) || 0,
+        image: jsonLD.image || '',
+        description: jsonLD.description || '',
+      };
+    }
+
+    // Fallback: Extract from Flipkart's page structure
+    // Look for price in common patterns
+    const pricePatterns = [
+      /₹\s*([\d,]+)/,
+      /price["\']?\s*:\s*["\']?([\d,]+)/i,
+      /productPrice["\']?\s*:\s*["\']?([\d,]+)/i,
+    ];
+
+    let price = null;
+    for (const pattern of pricePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        price = parseInt(match[1].replace(/,/g, ''), 10);
+        break;
+      }
+    }
+
+    // Extract title from H1 or meta tags
+    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || 
+                       html.match(/<title>([^<]+)<\/title>/);
+    const title = titleMatch?.[1]?.split('|')?.[0]?.trim();
+
+    // Try OG tags as fallback
+    const ogData = extractOpenGraphData(html);
+
+    return {
+      title: title || ogData.title || 'Product',
+      price: price || 0,
+      image: ogData.image || '',
+      description: ogData.description || '',
+    };
+  } catch (e) {
+    console.error('[Flipkart Extract]', e);
+    return null;
+  }
+}
+
+/**
+ * Amazon-specific extraction
+ */
+function extractAmazonData(html) {
+  try {
+    // JSON-LD is most reliable
+    const jsonLD = extractJsonLD(html);
+    if (jsonLD?.price) {
+      return {
+        title: jsonLD.title || 'Product',
+        price: parseInt(jsonLD.price.toString(), 10) || 0,
+        image: jsonLD.image || '',
+        description: jsonLD.description || '',
+      };
+    }
+
+    // Extract from page structure
+    const titleMatch = html.match(/<span\s+id=["']productTitle["'][^>]*>([^<]+)<\/span>/);
+    const priceMatch = html.match(/<span\s+class=["'][^"']*a-price-whole[^"']*["'][^>]*>([^<]+)<\/span>/);
+
+    const title = titleMatch?.[1]?.trim();
+    const priceText = priceMatch?.[1];
+    const price = priceText ? parseInt(priceText.replace(/[^\d]/g, ''), 10) : 0;
+
+    const ogData = extractOpenGraphData(html);
+
+    return {
+      title: title || ogData.title || 'Product',
+      price: price || 0,
+      image: ogData.image || '',
+      description: ogData.description || '',
+    };
+  } catch (e) {
+    console.error('[Amazon Extract]', e);
+    return null;
+  }
+}
+
+/**
+ * Generic extraction using Open Graph + meta tags
+ */
+function extractGenericData(html) {
+  try {
+    const jsonLD = extractJsonLD(html);
+    if (jsonLD?.price) {
+      return {
+        title: jsonLD.title || 'Product',
+        price: parseInt(jsonLD.price.toString(), 10) || 0,
+        image: jsonLD.image || '',
+        description: jsonLD.description || '',
+      };
+    }
+
+    const ogData = extractOpenGraphData(html);
+
+    // Try to find price anywhere
+    const priceMatch = html.match(/₹\s*([\d,]+)|price\s*[:=]\s*[^\s]*([\d,]+)/i);
+    const price = priceMatch 
+      ? parseInt((priceMatch[1] || priceMatch[2]).replace(/,/g, ''), 10) 
+      : 0;
+
+    return {
+      title: ogData.title || 'Product',
+      price: price || 0,
+      image: ogData.image || '',
+      description: ogData.description || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch product data with retries
+ */
+async function fetchProductPage(url) {
+  const maxRetries = 3;
+  let lastError;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Cache-Control': 'no-cache',
+        },
+        timeout: 10000,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+      
+      if (!html || html.length < 1000) {
+        throw new Error('Response too small');
+      }
+
+      return html;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[Fetch Attempt ${attempt + 1}] Failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000 + attempt * 1000));
+      }
+    }
+  }
+
+  throw lastError || new Error('Failed to fetch product page');
 }
 
 async function findBestCardForProduct(productPrice) {
   try {
     await connectDB();
 
-    // Fetch all active provider cards
     const cards = await Offer.find({ status: 'available', verified: true })
-      .select('bank card_name holder_name rating max_amount categories')
+      .select('bank card_name holder_name rating max_amount')
       .lean();
 
-    if (!cards.length) {
-      return null;
-    }
+    if (!cards.length) return null;
 
-    // Estimate discount for each card (2-5% of price based on bank)
     const cardDiscounts = cards.map(card => {
       let discountPercent = 3;
       if (card.bank?.includes('Amex')) discountPercent = 5;
@@ -226,14 +276,11 @@ async function findBestCardForProduct(productPrice) {
       return {
         bank: card.bank,
         card_name: card.card_name,
-        discount_amount: Math.min(discountAmount, Math.round(productPrice * 0.15)), // Cap at 15%
-        categories: card.categories,
+        discount_amount: Math.min(discountAmount, Math.round(productPrice * 0.15)),
       };
     });
 
-    // Sort by discount amount descending
     cardDiscounts.sort((a, b) => b.discount_amount - a.discount_amount);
-
     return cardDiscounts[0];
   } catch (e) {
     console.error('[Find Best Card]', e);
@@ -241,6 +288,9 @@ async function findBestCardForProduct(productPrice) {
   }
 }
 
+/**
+ * Main extraction function
+ */
 async function extractProductData(productUrl) {
   const merchant = extractMerchant(productUrl);
 
@@ -253,91 +303,39 @@ async function extractProductData(productUrl) {
   }
 
   try {
-    // Dynamic import for Playwright
-    const { chromium } = await import('playwright');
+    // Fetch HTML with retry logic
+    const html = await fetchProductPage(productUrl);
 
-    // Launch browser with anti-detection measures
-    const browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-web-resources',
-        '--disable-dev-shm-usage',
-        '--no-first-run',
-        '--no-default-browser-check',
-      ],
-    });
-
-    const context = await browser.createContext({
-      userAgent: getRandomUserAgent(),
-      extraHTTPHeaders: {
-        'Accept-Language': 'en-IN,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Referer': getRandomReferrer(),
-      },
-      viewport: { width: 1920, height: 1080 },
-    });
-
-    const page = await context.newPage();
-
-    // Stealth measures
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => false,
-      });
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-      });
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-IN', 'en'],
-      });
-    });
-
-    // Load page with retries
-    let retries = 3;
-    let success = false;
-    while (retries > 0 && !success) {
-      try {
-        await page.goto(productUrl, {
-          waitUntil: 'networkidle',
-          timeout: 20000,
-        });
-        success = true;
-      } catch (e) {
-        retries--;
-        if (retries > 0) {
-          await page.waitForTimeout(2000 + Math.random() * 3000); // Random delay
-        }
-      }
+    // Extract based on merchant
+    let productData;
+    if (merchant === 'flipkart') {
+      productData = extractFlipkartData(html);
+    } else if (merchant === 'amazon') {
+      productData = extractAmazonData(html);
+    } else {
+      productData = extractGenericData(html);
     }
 
-    if (!success) {
-      throw new Error('Failed to load product page');
+    if (!productData || !productData.title || productData.price === 0) {
+      return {
+        success: false,
+        message: 'Could not extract product data. Try a different link.',
+        merchant,
+      };
     }
 
-    // Random delay to seem like real user
-    await page.waitForTimeout(1000 + Math.random() * 2000);
-
-    // Extract product data using merchant-specific extractor
-    const extractor = MERCHANT_EXTRACTORS[merchant];
-    if (!extractor) {
-      throw new Error(`No extractor for ${merchant}`);
-    }
-
-    const productData = await extractor.extract(page);
-
-    if (!productData) {
-      throw new Error('Failed to extract product data');
-    }
-
-    // Find best card for this product price
+    // Find best card
     const bestCard = await findBestCardForProduct(productData.price);
-
-    await browser.close();
 
     return {
       success: true,
-      product: productData,
+      product: {
+        title: productData.title,
+        price: productData.price,
+        currency: 'INR',
+        image: productData.image || '',
+        description: productData.description || '',
+      },
       best_card: bestCard || {
         bank: 'Any Bank',
         discount_amount: Math.round(productData.price * 0.03),
@@ -350,7 +348,7 @@ async function extractProductData(productUrl) {
     console.error('[Product Extraction]', err.message);
     return {
       success: false,
-      message: err.message,
+      message: 'Failed to fetch product: ' + err.message,
       merchant,
     };
   }
