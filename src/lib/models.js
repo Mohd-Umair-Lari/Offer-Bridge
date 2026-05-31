@@ -66,12 +66,12 @@ const TransactionSchema = new mongoose.Schema({
   tracking_id:  { type: String, default: '' },
   courier:      { type: String, default: '' },
   
-  // NEW: Dynamic discount-based earnings model (50/35/15 split)
-  card_discount_percent: { type: Number, default: 0 },        // Scraped from product link
-  customer_savings:      { type: Number, default: 0 },        // amount × discount × 0.50 (buyer reward)
-  provider_earning:      { type: Number, default: 0 },        // amount × discount × 0.35 (seller reward)
-  platform_commission:   { type: Number, default: 0 },        // amount × discount × 0.15 (platform fee)
-  discount_source:       { type: String, default: 'scraped' }, // 'scraped' | 'manual' | 'api'
+  // NEW: Real card discount amount (in rupees, scraped from product page)
+  card_discount_amount:  { type: Number, default: 0 },        // Actual ₹ amount from card offer
+  customer_savings:      { type: Number, default: 0 },        // card_discount_amount × 0.50 (buyer reward)
+  provider_earning:      { type: Number, default: 0 },        // card_discount_amount × 0.35 (seller reward)
+  platform_commission:   { type: Number, default: 0 },        // card_discount_amount × 0.15 (platform fee)
+  discount_source:       { type: String, default: 'scraped' }, // 'scraped' | 'estimated_fallback' | 'manual'
   
   status: {
     type: String,

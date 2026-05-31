@@ -53,61 +53,47 @@ export async function POST(req) {
 
     const amount = Number(requestDoc.amount);
     
-    // If best_card not yet found, crawl for it now
-    let bestCardInfo = requestDoc.best_card_info;
-    if (!bestCardInfo && requestDoc.product_link) {
+    // Scrape REAL card discounts from product page (in rupees, not percentages)
+    let actualDiscountAmount = Math.round(amount * 0.05); // ₹ fallback (5%)
+    let bestCardForDiscount = null;
+    
+    if (requestDoc.product_link && amount) {
       try {
-        const crawlerRes = await fetch(new URL('/api/crawler/best-card', req.url).toString(), {
+        const crawlerRes = await fetch(new URL('/api/crawler/real-discounts', req.url).toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             productUrl: requestDoc.product_link,
-            productCategory: requestDoc.category,
+            productPrice: amount,
           }),
         });
+        
         if (crawlerRes.ok) {
           const crawlerData = await crawlerRes.json();
           if (crawlerData.success && crawlerData.best_card) {
-            bestCardInfo = {
-              card_id: crawlerData.best_card.card_id,
-              card_name: crawlerData.best_card.card_name,
+            actualDiscountAmount = crawlerData.best_card.discount_amount || actualDiscountAmount;
+            bestCardForDiscount = {
               bank: crawlerData.best_card.bank,
-              discount_percent: crawlerData.best_discount,
+              discount_amount: actualDiscountAmount,
+              source: crawlerData.best_card.source || 'scraped',
             };
-            // Update request with best card info
-            await Request.findByIdAndUpdate(request_id, { best_card_info: bestCardInfo });
+            
+            // Store scraped discount info
+            await Request.findByIdAndUpdate(request_id, {
+              best_card_info: bestCardForDiscount,
+            });
           }
         }
       } catch (e) {
-        console.error('[Payment] Best card crawler failed:', e);
+        console.error('[Payment] Real discount crawler failed:', e);
       }
-    }
-
-    // Fetch card discount from crawler
-    let cardDiscountPercent = 5; // Default fallback
-    try {
-      const crawlerRes = await fetch(new URL('/api/crawler/discount', req.url).toString(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productUrl: requestDoc.product_link,
-          bank: offerDoc.bank,
-          cardName: offerDoc.card_name,
-        }),
-      });
-      if (crawlerRes.ok) {
-        const crawlerData = await crawlerRes.json();
-        cardDiscountPercent = crawlerData.discount_percent || 5;
-      }
-    } catch {
-      // Fallback to default if crawler fails
     }
 
     // Calculate earnings using new 50/35/15 split model
-    const discountValue = amount * (cardDiscountPercent / 100);
-    const customerSavings = Math.round(discountValue * 0.50);
-    const providerEarning = Math.round(discountValue * 0.35);
-    const platformCommission = Math.round(discountValue * 0.15);
+    // NOW: actualDiscountAmount is in RUPEES (not percentage)
+    const customerSavings = Math.round(actualDiscountAmount * 0.50);
+    const providerEarning = Math.round(actualDiscountAmount * 0.35);
+    const platformCommission = Math.round(actualDiscountAmount * 0.15);
 
     const tx = await Transaction.create({
       request_id:    requestDoc._id,
@@ -120,11 +106,11 @@ export async function POST(req) {
       product_title: requestDoc.title,
       product_link:  requestDoc.product_link || '',
       category:      requestDoc.category     || '',
-      card_discount_percent: cardDiscountPercent,
+      card_discount_amount: actualDiscountAmount,
       customer_savings: customerSavings,
       provider_earning: providerEarning,
       platform_commission: platformCommission,
-      discount_source: 'scraped',
+      discount_source: bestCardForDiscount?.source || 'estimated',
       status:        'pending_payment',
     });
 

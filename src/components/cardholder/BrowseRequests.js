@@ -199,15 +199,16 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
                     <div style={{ color: 'var(--text-muted)' }}>Your estimated earning:</div>
                     {(() => {
-                      const discount = req.best_card_info?.discount_percent || 5;
-                      const earning = Math.round(req.amount * (discount / 100) * 0.35);
-                      const customerSave = Math.round(req.amount * (discount / 100) * 0.50);
-                      const platformFee = Math.round(req.amount * (discount / 100) * 0.15);
+                      // Use ACTUAL rupee discount amount (not percentage)
+                      const discountAmount = req.best_card_info?.discount_amount || Math.round(req.amount * 0.05);
+                      const earning = Math.round(discountAmount * 0.35);
+                      const customerSave = Math.round(discountAmount * 0.50);
+                      const platformFee = Math.round(discountAmount * 0.15);
                       return (
                         <>
                           <div className="mt-1 flex items-baseline gap-1">
                             <span className="font-bold" style={{ color: '#10b981' }}>₹{earning.toLocaleString('en-IN')}</span>
-                            <span style={{ color: 'var(--text-dim)' }}>from {discount}% card discount</span>
+                            <span style={{ color: 'var(--text-dim)' }}>from ₹{discountAmount.toLocaleString('en-IN')} card discount</span>
                           </div>
                           <div className="text-[10px] mt-1.5 space-y-0.5" style={{ color: 'var(--text-dim)' }}>
                             <div>💳 Customer saves: ₹{customerSave.toLocaleString('en-IN')}</div>
