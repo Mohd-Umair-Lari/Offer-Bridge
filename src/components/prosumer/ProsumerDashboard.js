@@ -241,16 +241,14 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
                       ₹{Number(req.amount).toLocaleString('en-IN')}
                     </p>
                     <span className={`badge ${meta.cls} shrink-0 text-[10px]`}>{meta.label}</span>
-                    {req.status === 'pending' && (
-                      <motion.button
-                        onClick={() => setEditingReq(req)}
-                        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-                        className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
-                        style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
-                        title="Edit request">
-                        <Tag size={12} />
-                      </motion.button>
-                    )}
+                    <motion.button
+                      onClick={() => setEditingReq(req)}
+                      whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+                      className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
+                      style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
+                      title={req.status === 'pending' ? 'Edit request' : 'View & Edit request'}>
+                      <Tag size={12} />
+                    </motion.button>
                   </motion.div>
                 );
               })}

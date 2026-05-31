@@ -180,16 +180,14 @@ function RequestRow({ req, index, onViewDetails, onEdit }) {
 
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-        {req.status === 'pending' && (
-          <motion.button
-            onClick={() => onEdit(req)}
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-            className="shrink-0 p-1.5 rounded-lg transition"
-            style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
-            title="Edit request">
-            <Tag size={13} />
-          </motion.button>
-        )}
+        <motion.button
+          onClick={() => onEdit(req)}
+          whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+          className="shrink-0 p-1.5 rounded-lg transition"
+          style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
+          title={req.status === 'pending' ? 'Edit request' : 'View & Edit request'}>
+          <Tag size={13} />
+        </motion.button>
         <motion.button
           onClick={() => onViewDetails(req)}
           whileHover={{ scale: 1.06, x: 2 }} whileTap={{ scale: 0.94 }}
