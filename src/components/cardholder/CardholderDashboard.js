@@ -146,7 +146,7 @@ function OfferRow({ offer, index }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────
-export default function CardholderDashboard({ offers: offersProp, requests: reqsProp, onTrackingAction, refreshKey = 0 }) {
+export default function CardholderDashboard({ offers: offersProp, transactions: txsProp = [], requests: allReqs = [], onTrackingAction, refreshKey = 0 }) {
   const { user } = useAuth();
   const [trackingTxs, setTrackingTxs] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -170,16 +170,18 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
 
   const handleSubmit = (tx) => { if (onTrackingAction) onTrackingAction(tx.id || tx._id, tx); };
 
-  const myOffers   = offersProp || [];
-  const allReqs    = reqsProp   || [];
-  const matched    = allReqs.filter(r => r.status === 'matched');
-  const completed  = allReqs.filter(r => r.status === 'completed');
-  const totalEarned   = completed.reduce((s, r) => s + Number(r.amount) * 0.02, 0);
-  const pendingEarned = matched.reduce((s, r)   => s + Number(r.amount) * 0.02, 0);
+  const myOffers    = offersProp || [];
+  const allTxs      = txsProp || [];
+  
+  // Calculate stats from provider's transactions using new 50/35/15 model
+  const matchedTxs    = allTxs.filter(t => t.status !== 'completed' && t.status !== 'refunded' && t.status !== 'cancelled');
+  const completedTxs  = allTxs.filter(t => t.status === 'completed');
+  const totalEarned   = completedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
+  const pendingEarned = matchedTxs.reduce((s, t)   => s + Number(t.provider_earning || 0), 0);
 
   const stats = [
     { label: 'Active Cards',     value: myOffers.length,                              sub: 'listed in marketplace',  icon: CreditCard,   iconClass: 'stat-purple',  delay: 0,    live: true },
-    { label: 'Matched Deals',    value: matched.length,                               sub: 'in progress',            icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.07 },
+    { label: 'Matched Deals',    value: matchedTxs.length,                            sub: 'in progress',            icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.07 },
     { label: 'Total Earned',     value: `₹${Math.round(totalEarned).toLocaleString('en-IN')}`,  sub: 'from completed deals', icon: Banknote,     iconClass: 'stat-success', delay: 0.14 },
     { label: 'Pending Earnings', value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`,sub: 'from active deals',    icon: TrendingUp,   iconClass: 'stat-warning', delay: 0.21 },
   ];
@@ -303,9 +305,9 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
 
         <div className="p-6 grid sm:grid-cols-3 gap-4">
           {[
-            { label: 'Total Earned',    value: `₹${Math.round(totalEarned).toLocaleString('en-IN')}`,   sub: `${completed.length} deals`, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)' },
-            { label: 'Pending Payout',  value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: `${matched.length} in progress`, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
-            { label: 'Escrow Protected',value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: 'Held safely in escrow', color: 'var(--primary)', bg: 'var(--primary-dim)', border: 'rgba(139,92,246,0.2)' },
+            { label: 'Total Earned',    value: `₹${Math.round(totalEarned).toLocaleString('en-IN')}`,   sub: `${completedTxs.length} deals completed`, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)' },
+            { label: 'Pending Payout',  value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: `${matchedTxs.length} in progress`, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
+            { label: 'Escrow Protected',value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: 'Dynamic 50/35/15 split', color: 'var(--primary)', bg: 'var(--primary-dim)', border: 'rgba(139,92,246,0.2)' },
           ].map(({ label, value, sub, color, bg, border }) => (
             <motion.div key={label} whileHover={{ y: -3 }}
               className="rounded-2xl p-5 text-center"
@@ -317,19 +319,20 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
           ))}
         </div>
 
-        {/* Escrow info */}
+        {/* Earnings Model Info */}
         <div className="mx-6 mb-6 rounded-xl p-4 flex items-start gap-3"
           style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
           <ShieldCheck size={15} style={{ color: 'var(--primary)' }} className="shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-            OfferBridge holds funds in <strong style={{ color: 'var(--primary)' }}>escrow</strong> until you provide a tracking ID.
-            You have <strong style={{ color: '#f59e0b' }}>24 hours</strong> per order — funds are auto-refunded if the deadline is missed.
+            <strong style={{ color: 'var(--primary)' }}>Dynamic Earnings Model:</strong> You earn <strong>35%</strong> of the card discount per deal.
+            Customers save <strong>50%</strong>, we keep <strong>15%</strong> platform fee.
+            Funds held in <strong style={{ color: 'var(--primary)' }}>escrow</strong> until you provide a tracking ID within <strong style={{ color: '#f59e0b' }}>24 hours</strong>.
           </p>
         </div>
       </motion.div>
 
       {/* ── Recent Deals ── */}
-      {allReqs.length > 0 && (
+      {allTxs.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.46 }}
           className="card overflow-hidden">
           <div className="px-6 py-5 flex items-center gap-3"
@@ -340,27 +343,37 @@ export default function CardholderDashboard({ offers: offersProp, requests: reqs
             </div>
             <div>
               <h2 className="font-bold" style={{ color: 'var(--text)' }}>Recent Deals</h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Your latest matched requests</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>Your latest matched transactions</p>
             </div>
           </div>
           <motion.div variants={container} initial="hidden" animate="visible">
-            {allReqs.slice(0, 5).map((req, i) => {
-              const meta = STATUS_META[req.status] || STATUS_META.pending;
+            {allTxs.slice(0, 5).map((tx, i) => {
+              const statusMap = {
+                'pending_payment': { label: 'Awaiting Payment', cls: 'badge-warning', color: '#f59e0b' },
+                'payment_received': { label: 'Payment Received', cls: 'badge-info', color: '#3b82f6' },
+                'tracking_pending': { label: 'Ship Now!', cls: 'badge-danger', color: '#ef4444' },
+                'tracking_submitted': { label: 'Shipped', cls: 'badge-cyan', color: '#06b6d4' },
+                'completed': { label: 'Completed', cls: 'badge-success', color: '#10b981' },
+                'refunded': { label: 'Refunded', cls: 'badge-error', color: '#ef4444' },
+                'cancelled': { label: 'Cancelled', cls: 'badge-muted', color: '#6b7280' },
+              };
+              const meta = statusMap[tx.status] || { label: tx.status, cls: 'badge-muted', color: '#6b7280' };
+              const isCompleted = tx.status === 'completed';
               return (
-                <motion.div key={req.id} variants={item}
+                <motion.div key={tx.id || tx._id} variants={item}
                   className="flex items-center gap-4 px-5 py-4 transition"
                   style={{ borderBottom: '1px solid var(--border2)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <CheckCircle2 size={16} style={{ color: req.status === 'completed' ? '#10b981' : 'var(--border)' }} />
+                  <CheckCircle2 size={16} style={{ color: isCompleted ? '#10b981' : 'var(--border)' }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{req.title}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>{req.category}</p>
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{tx.product_title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>from {tx.buyer_name}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text)' }}>₹{Number(req.amount).toLocaleString('en-IN')}</p>
+                    <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text)' }}>₹{Number(tx.amount).toLocaleString('en-IN')}</p>
                     <p className="text-[11px]" style={{ color: '#10b981' }}>
-                      +₹{Math.round(Number(req.amount) * 0.02).toLocaleString('en-IN')} earned
+                      +₹{Number(tx.provider_earning || 0).toLocaleString('en-IN')} earning
                     </p>
                   </div>
                   <span className={`badge ${meta.cls} shrink-0`}>{meta.label}</span>

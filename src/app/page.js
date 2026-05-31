@@ -61,16 +61,17 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
   const publicRequests = db.requests.filter(r => r.is_public !== false && r.status === 'pending');
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
+  const myTransactions = db.transactions.filter(t => t.provider_id === user?.id);
 
   if (activeTab === 'dashboard') {
     if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} transactions={db.transactions} />;
-    if (role === 'provider')          return <CardholderDashboard offers={myOffers} requests={myRequests} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
+    if (role === 'provider')          return <CardholderDashboard offers={myOffers} transactions={myTransactions} requests={db.requests} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} onPaymentAction={onPaymentAction} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} refreshKey={refreshKey} />;
   }
   if (activeTab === 'marketplace')  return <Marketplace requests={publicRequests} />;
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
-  if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} />;
+  if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} transactions={myTransactions} />;
   if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
   return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }

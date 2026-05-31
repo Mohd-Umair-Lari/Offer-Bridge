@@ -22,9 +22,15 @@ const RequestSchema = new mongoose.Schema({
   deadline:      { type: String, default: '' },
   description:   { type: String, default: '' },
   product_link:  { type: String, default: '' },
-  required_card: { type: String, default: 'Any' },
   is_public:     { type: Boolean, default: true },
   status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled'], default: 'pending' },
+  // NEW: Auto-discovered best card for this product
+  best_card_info: {
+    card_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
+    card_name: String,
+    bank: String,
+    discount_percent: Number,
+  },
 }, { timestamps: true });
 
 const OfferSchema = new mongoose.Schema({
@@ -53,13 +59,20 @@ const TransactionSchema = new mongoose.Schema({
   buyer_name:   { type: String, default: '' },
   provider_name:{ type: String, default: '' },
   amount:       { type: Number, required: true },
-  platform_fee: { type: Number, default: 0 },
   product_title:{ type: String, default: '' },
   product_link: { type: String, default: '' },
   category:     { type: String, default: '' },
   upi_ref:      { type: String, default: '' },
   tracking_id:  { type: String, default: '' },
   courier:      { type: String, default: '' },
+  
+  // NEW: Dynamic discount-based earnings model (50/35/15 split)
+  card_discount_percent: { type: Number, default: 0 },        // Scraped from product link
+  customer_savings:      { type: Number, default: 0 },        // amount × discount × 0.50 (buyer reward)
+  provider_earning:      { type: Number, default: 0 },        // amount × discount × 0.35 (seller reward)
+  platform_commission:   { type: Number, default: 0 },        // amount × discount × 0.15 (platform fee)
+  discount_source:       { type: String, default: 'scraped' }, // 'scraped' | 'manual' | 'api'
+  
   status: {
     type: String,
     enum: [

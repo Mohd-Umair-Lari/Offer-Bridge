@@ -19,7 +19,7 @@ function useOfferState() {
   return [states, set];
 }
 
-export default function BrowseRequests({ requests: reqsProp, offers: offersProp }) {
+export default function BrowseRequests({ requests: reqsProp, offers: offersProp, transactions: txsProp = [] }) {
   const [search, setSearch]       = useState('');
   const [category, setCategory]   = useState('All');
   const [activeTab, setActiveTab] = useState('marketplace');
@@ -29,13 +29,16 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
   const myOffers    = offersProp || [];
   const myBanks     = myOffers.map(o => o.bank);
   const allRequests = reqsProp  || [];
+  const myTxs       = txsProp   || [];
+  const requestsWithOffer = new Set(myTxs.map(t => t.request_id?.toString?.() || t.request_id));
 
   const pendingReqs = allRequests.filter(r => {
     if (r.status !== 'pending') return false;
+    if (requestsWithOffer.has(r.id?.toString?.() || r._id?.toString?.() || r.id)) return false;
+    // Check if ANY provider card has sufficient limit (no specific card required)
     return myOffers.some(o => {
-      const matchesBank    = r.required_card === 'Any' || o.bank === r.required_card;
       const sufficientLimit = Number(o.max_amount || o.limit || 0) >= Number(r.amount);
-      return matchesBank && sufficientLimit;
+      return sufficientLimit;
     });
   });
 
@@ -59,14 +62,13 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
       setErrorMsg('You have no active cards listed. Go to My Cards to add one.');
       return;
     }
-    // Pick the best matching offer
+    // Find any matching offer with sufficient limit
     const matchingOffer = myOffers.find(o => {
-      const matchesBank    = req.required_card === 'Any' || o.bank === req.required_card;
       const sufficientLimit = Number(o.max_amount || o.limit || 0) >= Number(req.amount);
-      return matchesBank && sufficientLimit;
+      return sufficientLimit;
     });
     if (!matchingOffer) {
-      setErrorMsg('No matching card found for this request.');
+      setErrorMsg('No card with sufficient limit found for this request.');
       return;
     }
 
@@ -187,17 +189,34 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp 
                   <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-dim)' }}>
                     <span className="flex items-center gap-1"><Calendar size={12} />Due {new Date(req.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     <span className="flex items-center gap-1"><Tag size={12} />{req.category}</span>
-                    {req.required_card !== 'Any' && (
-                      <span className="flex items-center gap-1 font-medium" style={{ color: '#f59e0b' }}>
-                        <ShieldCheck size={12} />Needs {req.required_card}
+                    {req.best_card_info?.card_name && (
+                      <span className="flex items-center gap-1 font-medium" style={{ color: '#10b981' }}>
+                        <ShieldCheck size={12} />Best: {req.best_card_info.card_name}
                       </span>
                     )}
                   </div>
 
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Your estimated earning: </span>
-                    <span className="font-bold" style={{ color: '#10b981' }}>₹{Math.round(req.amount * 0.02).toLocaleString('en-IN')}</span>
-                    <span style={{ color: 'var(--text-dim)' }}> (2% commission)</span>
+                    <div style={{ color: 'var(--text-muted)' }}>Your estimated earning:</div>
+                    {(() => {
+                      const discount = req.best_card_info?.discount_percent || 5;
+                      const earning = Math.round(req.amount * (discount / 100) * 0.35);
+                      const customerSave = Math.round(req.amount * (discount / 100) * 0.50);
+                      const platformFee = Math.round(req.amount * (discount / 100) * 0.15);
+                      return (
+                        <>
+                          <div className="mt-1 flex items-baseline gap-1">
+                            <span className="font-bold" style={{ color: '#10b981' }}>₹{earning.toLocaleString('en-IN')}</span>
+                            <span style={{ color: 'var(--text-dim)' }}>from {discount}% card discount</span>
+                          </div>
+                          <div className="text-[10px] mt-1.5 space-y-0.5" style={{ color: 'var(--text-dim)' }}>
+                            <div>💳 Customer saves: ₹{customerSave.toLocaleString('en-IN')}</div>
+                            <div>🏦 You earn: ₹{earning.toLocaleString('en-IN')}</div>
+                            <div>🔹 Platform fee: ₹{platformFee.toLocaleString('en-IN')}</div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   <motion.button

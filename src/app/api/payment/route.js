@@ -51,8 +51,63 @@ export async function POST(req) {
 
     const buyerDoc = await User.findById(requestDoc.user_id).lean();
 
-    const amount       = Number(requestDoc.amount);
-    const platform_fee = Math.round(amount * PLATFORM_FEE_RATE);
+    const amount = Number(requestDoc.amount);
+    
+    // If best_card not yet found, crawl for it now
+    let bestCardInfo = requestDoc.best_card_info;
+    if (!bestCardInfo && requestDoc.product_link) {
+      try {
+        const crawlerRes = await fetch(new URL('/api/crawler/best-card', req.url).toString(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productUrl: requestDoc.product_link,
+            productCategory: requestDoc.category,
+          }),
+        });
+        if (crawlerRes.ok) {
+          const crawlerData = await crawlerRes.json();
+          if (crawlerData.success && crawlerData.best_card) {
+            bestCardInfo = {
+              card_id: crawlerData.best_card.card_id,
+              card_name: crawlerData.best_card.card_name,
+              bank: crawlerData.best_card.bank,
+              discount_percent: crawlerData.best_discount,
+            };
+            // Update request with best card info
+            await Request.findByIdAndUpdate(request_id, { best_card_info: bestCardInfo });
+          }
+        }
+      } catch (e) {
+        console.error('[Payment] Best card crawler failed:', e);
+      }
+    }
+
+    // Fetch card discount from crawler
+    let cardDiscountPercent = 5; // Default fallback
+    try {
+      const crawlerRes = await fetch(new URL('/api/crawler/discount', req.url).toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productUrl: requestDoc.product_link,
+          bank: offerDoc.bank,
+          cardName: offerDoc.card_name,
+        }),
+      });
+      if (crawlerRes.ok) {
+        const crawlerData = await crawlerRes.json();
+        cardDiscountPercent = crawlerData.discount_percent || 5;
+      }
+    } catch {
+      // Fallback to default if crawler fails
+    }
+
+    // Calculate earnings using new 50/35/15 split model
+    const discountValue = amount * (cardDiscountPercent / 100);
+    const customerSavings = Math.round(discountValue * 0.50);
+    const providerEarning = Math.round(discountValue * 0.35);
+    const platformCommission = Math.round(discountValue * 0.15);
 
     const tx = await Transaction.create({
       request_id:    requestDoc._id,
@@ -62,10 +117,14 @@ export async function POST(req) {
       buyer_name:    buyerDoc?.fullName  || 'Buyer',
       provider_name: providerDoc?.fullName || 'Provider',
       amount,
-      platform_fee,
       product_title: requestDoc.title,
       product_link:  requestDoc.product_link || '',
       category:      requestDoc.category     || '',
+      card_discount_percent: cardDiscountPercent,
+      customer_savings: customerSavings,
+      provider_earning: providerEarning,
+      platform_commission: platformCommission,
+      discount_source: 'scraped',
       status:        'pending_payment',
     });
 
