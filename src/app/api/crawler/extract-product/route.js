@@ -2,20 +2,6 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Offer } from '@/lib/models';
 
-/**
- * LIGHTWEIGHT PRODUCT EXTRACTION CRAWLER
- * 
- * Works on Vercel serverless (no heavy dependencies)
- * Uses:
- * - Native fetch with headers spoofing
- * - HTML parsing with regex + Open Graph
- * - JSON-LD structured data extraction
- * - Fallback mechanisms for blocked sites
- * 
- * Supports: Amazon, Flipkart, Myntra, CRED
- */
-
-// Rotating User Agents to bypass bot detection
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -58,16 +44,13 @@ function extractOpenGraphData(html) {
   }
 }
 
-/**
- * Extract structured data (JSON-LD)
- */
 function extractJsonLD(html) {
   try {
     const jsonMatch = html.match(/<script\s+type=["']application\/ld\+json["'][^>]*>([^<]+)<\/script>/i);
     if (!jsonMatch) return null;
 
     const data = JSON.parse(jsonMatch[1]);
-    
+
     if (data['@type'] === 'Product') {
       return {
         title: data.name,
@@ -116,8 +99,8 @@ function extractFlipkartData(html) {
     }
 
     // Extract title from H1 or meta tags
-    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || 
-                       html.match(/<title>([^<]+)<\/title>/);
+    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/) ||
+      html.match(/<title>([^<]+)<\/title>/);
     const title = titleMatch?.[1]?.split('|')?.[0]?.trim();
 
     // Try OG tags as fallback
@@ -192,8 +175,8 @@ function extractGenericData(html) {
 
     // Try to find price anywhere
     const priceMatch = html.match(/₹\s*([\d,]+)|price\s*[:=]\s*[^\s]*([\d,]+)/i);
-    const price = priceMatch 
-      ? parseInt((priceMatch[1] || priceMatch[2]).replace(/,/g, ''), 10) 
+    const price = priceMatch
+      ? parseInt((priceMatch[1] || priceMatch[2]).replace(/,/g, ''), 10)
       : 0;
 
     return {
@@ -236,7 +219,7 @@ async function fetchProductPage(url) {
       }
 
       const html = await response.text();
-      
+
       if (!html || html.length < 1000) {
         throw new Error('Response too small');
       }
@@ -245,7 +228,7 @@ async function fetchProductPage(url) {
     } catch (error) {
       lastError = error;
       console.warn(`[Fetch Attempt ${attempt + 1}] Failed:`, error.message);
-      
+
       if (attempt < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, 2000 + attempt * 1000));
       }
@@ -270,9 +253,9 @@ async function findBestCardForProduct(productPrice) {
       if (card.bank?.includes('Amex')) discountPercent = 5;
       else if (card.bank?.includes('HDFC')) discountPercent = 4;
       else if (card.bank?.includes('ICICI')) discountPercent = 3.5;
-      
+
       const discountAmount = Math.round(productPrice * (discountPercent / 100));
-      
+
       return {
         bank: card.bank,
         card_name: card.card_name,
