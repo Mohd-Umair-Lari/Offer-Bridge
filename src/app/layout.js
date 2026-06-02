@@ -9,6 +9,10 @@ export const metadata = {
   title: "Gozivo — The Marketplace for Exclusive Card Benefits",
   description:
     "Gozivo connects buyers with cardholders to unlock exclusive credit card discounts. Secure escrow, verified providers, and real earnings on every deal.",
+  icons: {
+    icon: '/logo.png',
+    apple: '/icon-192x192.png',
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -17,7 +21,8 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#8b5cf6" />
-        <link rel="apple-touch-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('ob-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
