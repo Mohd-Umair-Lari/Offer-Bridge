@@ -1,33 +1,26 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 
-function env(key) { return process.env[key] || ''; }
-
-let _mongoose = null;
-let _ExtDraft = null;
+const DB_NAME = 'offerbridge';
 
 async function getDB() {
-  if (!_mongoose) {
-    const uri = env('MONGODB_URI');
-    if (!uri) throw new Error('MONGODB_URI not configured.');
-    const m = await import('mongoose');
-    const mongoose = m.default;
-    if (mongoose.connection.readyState === 1) {
-      _mongoose = mongoose;
-    } else {
-      global._mongoCache = global._mongoCache || {};
-      if (!global._mongoCache.promise) {
-        global._mongoCache.promise = mongoose.connect(uri, { bufferCommands: false });
-      }
-      await global._mongoCache.promise;
-      _mongoose = mongoose;
-    }
+  if (!global._mongooseCache) global._mongooseCache = { conn: null, promise: null };
+  const cache = global._mongooseCache;
+  if (cache.conn) return cache.conn;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI not configured.');
+  if (!cache.promise) {
+    cache.promise = mongoose.connect(uri, { dbName: DB_NAME, bufferCommands: false, maxPoolSize: 10 })
+      .then(m => m)
+      .catch(e => { cache.promise = null; throw e; });
   }
-  return _mongoose;
+  cache.conn = await cache.promise;
+  return cache.conn;
 }
 
 async function getModel() {
-  if (_ExtDraft) return _ExtDraft;
-  const mongoose = await getDB();
+  await getDB();
+  if (mongoose.models.ExtDraft) return mongoose.models.ExtDraft;
 
   const schema = new mongoose.Schema({
     productUrl: { type: String, required: true },
@@ -47,8 +40,7 @@ async function getModel() {
 
   schema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-  _ExtDraft = mongoose.models.ExtDraft || mongoose.model('ExtDraft', schema);
-  return _ExtDraft;
+  return mongoose.model('ExtDraft', schema);
 }
 
 const GROQ_SYSTEM_PROMPT = `You are a financial offer parser for Indian e-commerce. Given a product price in INR and a list of raw credit/debit card offer strings scraped from Amazon or Flipkart, determine the single best card offer.

@@ -2,10 +2,6 @@ import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// NOTE: do NOT throw here at module level — that would crash every route that
-// imports this file before any request handler can catch the error.
-// The guard is inside connectDB() so it only throws at call-time.
-
 let cached = global.mongoose;
 if (!cached) cached = global.mongoose = { conn: null, promise: null };
 
