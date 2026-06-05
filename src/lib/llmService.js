@@ -19,11 +19,38 @@ You must return a STRICT JSON object representing the single best offer. Do not 
 
 JSON Format:
 {
-  "bestOfferBank": "HDFC", // Name of the bank or card issuer (e.g., HDFC, ICICI, SBI, AXIS) in uppercase. If no offer applies, empty string "".
-  "discountAmount": 1500, // The numerical discount value in INR. Integer only. If no offer, 0.
-  "finalPriceAfterDiscount": 33500, // Original price minus the discountAmount. Integer only.
-  "offerDescription": "Flat INR 1500 Off on HDFC Credit Card" // A clear, concise summary of the selected card's offer. If no offer, "No card discount available".
+  "bestOfferBank": "HDFC",
+  "discountAmount": 1500,
+  "finalPriceAfterDiscount": 33500,
+  "offerDescription": "Flat INR 1500 Off on HDFC Credit Card"
 }`;
+
+async function callGroq(apiKey, price, rawOffers) {
+  const promptText = `Product Original Price: INR ${price}\nAvailable Offer Strings:\n${JSON.stringify(rawOffers, null, 2)}\n\nSelect the single best offer using the system rules.`;
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: promptText },
+      ],
+      temperature: 0.1,
+      max_tokens: 256,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API Error: Status ${response.status} - ${errorText}`);
+  }
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Empty response from Groq API');
+  return text;
+}
+
 
 /**
  * Calls Gemini API using fetch REST request
@@ -133,10 +160,10 @@ function cleanJsonResponse(rawText) {
  * Main evaluation function
  */
 export async function evaluateBestOffer(price, rawOffers) {
+  const groqKey   = process.env.GROQ_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   const openAIKey = process.env.OPENAI_API_KEY;
 
-  // Fallback default response if no keys configured or no offers present
   const defaultNoOfferResponse = {
     bestOfferBank: '',
     discountAmount: 0,
@@ -150,19 +177,22 @@ export async function evaluateBestOffer(price, rawOffers) {
 
   let rawJsonText = '';
   try {
-    if (geminiKey) {
+    if (groqKey) {
+      console.log('[LLM Service] Using Groq (llama3-8b-8192) for offer evaluation');
+      rawJsonText = await callGroq(groqKey, price, rawOffers);
+    } else if (geminiKey) {
       console.log('[LLM Service] Using Gemini API for offer evaluation');
       rawJsonText = await callGemini(geminiKey, price, rawOffers);
     } else if (openAIKey) {
       console.log('[LLM Service] Using OpenAI API for offer evaluation');
       rawJsonText = await callOpenAI(openAIKey, price, rawOffers);
     } else {
-      console.warn('[LLM Service] No LLM API Key found in env. Applying a rule-based mock parser for testing.');
-      // Rule-based basic parsing as absolute fallback
+      console.warn('[LLM Service] No LLM API Key found. Running local regex parser.');
       return parseOffersLocally(price, rawOffers);
     }
 
     const cleanJson = cleanJsonResponse(rawJsonText);
+
     const result = JSON.parse(cleanJson);
 
     // Validate structure and fill default values

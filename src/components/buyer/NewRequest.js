@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
@@ -47,6 +47,33 @@ export default function NewRequest({ onCreated }) {
   const [fetchError, setFetchError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [dbError, setDbError] = useState(null);
+  const [fromExtension, setFromExtension] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const draftId = params.get('draftId');
+    if (!draftId) return;
+
+    fetch(`/api/extension/draft?id=${draftId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) return;
+        setForm(prev => ({
+          ...prev,
+          productLink: data.productUrl || '',
+          title: data.title || '',
+          amount: data.price ? data.price.toString() : '',
+          bestCardInfo: data.bestOffer?.discountAmount > 0 ? {
+            bank: data.bestOffer.bestOfferBank,
+            discount_amount: data.bestOffer.discountAmount,
+            card_name: data.bestOffer.offerDescription,
+          } : null,
+        }));
+        setFromExtension(true);
+        window.history.replaceState({}, '', window.location.pathname);
+      })
+      .catch(() => {});
+  }, []);
 
   const set = field => e => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -162,6 +189,19 @@ export default function NewRequest({ onCreated }) {
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>New Purchase Request</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Paste a product link and we'll auto-fill details + find the best card offer.</p>
       </div>
+
+      <AnimatePresence>
+        {fromExtension && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+            </svg>
+            <span><strong>Loaded from Chrome Extension</strong> — price &amp; card offer pre-filled. Review and submit.</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {dbError && (
