@@ -1,33 +1,27 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 
-function env(key) { return process.env[key] || ''; }
-
-let _mongoose = null;
-let _ScrapedProduct = null;
+const DB_NAME = 'offerbridge';
+const env = (k) => process.env[k] || '';
 
 async function getDB() {
-  if (!_mongoose) {
-    const uri = env('MONGODB_URI');
-    if (!uri) throw new Error('MONGODB_URI is not configured in environment variables.');
-    const m = await import('mongoose');
-    const mongoose = m.default;
-    if (mongoose.connection.readyState === 1) {
-      _mongoose = mongoose;
-    } else {
-      global._mongoCache = global._mongoCache || {};
-      if (!global._mongoCache.promise) {
-        global._mongoCache.promise = mongoose.connect(uri, { bufferCommands: false });
-      }
-      await global._mongoCache.promise;
-      _mongoose = mongoose;
-    }
+  if (!global._mongooseCache) global._mongooseCache = { conn: null, promise: null };
+  const cache = global._mongooseCache;
+  if (cache.conn) return cache.conn;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('MONGODB_URI is not configured in environment variables.');
+  if (!cache.promise) {
+    cache.promise = mongoose.connect(uri, { dbName: DB_NAME, bufferCommands: false, maxPoolSize: 10 })
+      .then(m => m)
+      .catch(e => { cache.promise = null; throw e; });
   }
-  return _mongoose;
+  cache.conn = await cache.promise;
+  return cache.conn;
 }
 
 async function getModel() {
-  if (_ScrapedProduct) return _ScrapedProduct;
-  const mongoose = await getDB();
+  await getDB();
+  if (mongoose.models.ScrapedProduct) return mongoose.models.ScrapedProduct;
   const schema = new mongoose.Schema({
     url:       { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     domain:    { type: String, enum: ['amazon', 'flipkart'], required: true },
@@ -45,8 +39,7 @@ async function getModel() {
     lastScrapedAt: { type: Date, default: Date.now },
   }, { timestamps: true });
   schema.index({ updatedAt: -1 });
-  _ScrapedProduct = mongoose.models.ScrapedProduct || mongoose.model('ScrapedProduct', schema);
-  return _ScrapedProduct;
+  return mongoose.model('ScrapedProduct', schema);
 }
 
 const UA_POOL = [
