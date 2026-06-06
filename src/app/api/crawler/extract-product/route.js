@@ -130,44 +130,119 @@ function extractBankOffers(text) {
   return result.slice(0, 15);
 }
 
-async function fetchDirect(url, timeoutMs = 22000) {
+const BROWSER_PROFILES = [
+  {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br, zstd',
+    'sec-ch-ua': '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Cache-Control': 'max-age=0',
+  },
+  {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'Upgrade-Insecure-Requests': '1',
+  },
+  {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-IN,hi;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'sec-ch-ua': '"Chromium";v="124", "Android WebView";v="124"',
+    'sec-ch-ua-mobile': '?1',
+    'sec-ch-ua-platform': '"Android"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'Upgrade-Insecure-Requests': '1',
+  },
+];
+
+function toMobileFlipkartUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('flipkart')) {
+      u.hostname = 'dl.flipkart.com';
+      return u.toString();
+    }
+  } catch {}
+  return url;
+}
+
+async function tryFetch(url, profile, timeoutMs = 18000) {
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': randUA(),
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-IN,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Cache-Control': 'no-cache',
-      'DNT': '1',
-      'sec-fetch-dest': 'document',
-      'sec-fetch-mode': 'navigate',
-      'sec-fetch-site': 'none',
-      'sec-fetch-user': '?1',
-      'Upgrade-Insecure-Requests': '1',
-    },
+    headers: { ...profile, 'Referer': 'https://www.google.com/', 'Origin': undefined },
     redirect: 'follow',
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const html = await res.text();
-  if (!html || html.length < 500) throw new Error('Response too small — request was blocked');
+  if (!html || html.length < 800) throw new Error('Response too small — blocked');
   return html;
 }
 
-async function fetchViaScraperAPI(url, render = false) {
+async function fetchViaScraperAPI(url) {
   const key = env('SCRAPER_API_KEY');
-  const params = new URLSearchParams({ api_key: key, url, country_code: 'in', ...(render ? { render: 'true' } : {}) });
-  const res = await fetch(`https://api.scraperapi.com/?${params}`, { signal: AbortSignal.timeout(50000) });
+  if (!key) throw new Error('No ScraperAPI key');
+  const params = new URLSearchParams({ api_key: key, url, country_code: 'in', render: 'false' });
+  const res = await fetch(`https://api.scraperapi.com/?${params}`, { signal: AbortSignal.timeout(55000) });
   if (!res.ok) throw new Error(`ScraperAPI HTTP ${res.status}`);
   const html = await res.text();
-  if (!html || html.length < 500) throw new Error('ScraperAPI returned empty response');
+  if (!html || html.length < 800) throw new Error('ScraperAPI returned empty response');
   return html;
 }
 
-async function fetchPage(url, render = false) {
-  const key = env('SCRAPER_API_KEY');
-  if (key) return fetchViaScraperAPI(url, render);
-  return fetchDirect(url);
+async function fetchPage(url, merchant) {
+  const scraperKey = env('SCRAPER_API_KEY');
+
+  if (scraperKey) {
+    try { return await fetchViaScraperAPI(url); } catch (e) {
+      console.warn('[ScraperAPI] Failed:', e.message, '— falling back to direct fetch');
+    }
+  }
+
+  const urls = merchant === 'flipkart'
+    ? [url, toMobileFlipkartUrl(url)]
+    : [url];
+
+  let lastErr;
+  for (const targetUrl of urls) {
+    for (const profile of BROWSER_PROFILES) {
+      try {
+        const html = await tryFetch(targetUrl, profile);
+        if (!isBotWall(html)) return html;
+        throw new Error('Bot wall detected');
+      } catch (e) {
+        lastErr = e;
+        await new Promise(r => setTimeout(r, 400));
+      }
+    }
+  }
+
+  const is529 = lastErr?.message?.includes('529');
+  const isBlocked = lastErr?.message?.includes('403') || lastErr?.message?.includes('503') || lastErr?.message?.includes('blocked') || lastErr?.message?.includes('bot');
+
+  if (is529 || isBlocked) {
+    throw new Error(
+      `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} is blocking server-side access from cloud IPs (HTTP ${lastErr?.message}). ` +
+      `Add a SCRAPER_API_KEY to your environment variables for reliable bypass, or use the Chrome Extension instead.`
+    );
+  }
+  throw lastErr || new Error(`Could not fetch ${merchant} page`);
 }
 
 async function fetchKeepa(asin) {
@@ -351,39 +426,21 @@ async function scrapeProduct(productUrl, merchant) {
       let rawOffers = [];
       try {
         const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : productUrl;
-        const html = await fetchPage(targetUrl, !!env('SCRAPER_API_KEY'));
+        const html = await fetchPage(targetUrl, 'amazon');
         if (html && !isBotWall(html)) rawOffers = extractBankOffers(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
       } catch {}
       return { title: keepa.title, price: keepa.price, image: keepa.image, rawOffers, asin, domain: 'amazon', lowestEver: keepa.lowestEver || 0 };
     }
 
     const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : productUrl;
-    let html;
-    try {
-      html = await fetchPage(targetUrl, !!env('SCRAPER_API_KEY'));
-    } catch (e) {
-      const msg = e.message || '';
-      const blocked = msg.includes('403') || msg.includes('503') || msg.includes('blocked') || msg.includes('too small');
-      throw new Error(blocked
-        ? `Amazon is blocking automated access.${env('SCRAPER_API_KEY') ? ' ScraperAPI also hit issues — try again.' : ' Add SCRAPER_API_KEY to .env for reliable bypass.'}`
-        : `Could not load Amazon page: ${msg}`);
-    }
-    if (isBotWall(html)) throw new Error(`Amazon bot-detection wall encountered.${env('SCRAPER_API_KEY') ? ' Try again in a minute.' : ' Add SCRAPER_API_KEY to .env to bypass.'}`);
+    const html = await fetchPage(targetUrl, 'amazon');
+    if (isBotWall(html)) throw new Error('Amazon bot-detection wall encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
     const parsed = parseAmazon(html, asin);
     return { ...parsed, domain: 'amazon', lowestEver: 0 };
   }
 
-  let html;
-  try {
-    html = await fetchPage(productUrl, false);
-  } catch (e) {
-    const msg = e.message || '';
-    const blocked = msg.includes('403') || msg.includes('503') || msg.includes('blocked');
-    throw new Error(blocked
-      ? `Flipkart is blocking automated access.${env('SCRAPER_API_KEY') ? ' ScraperAPI also hit issues.' : ' Add SCRAPER_API_KEY to .env for reliable bypass.'}`
-      : `Could not load Flipkart page: ${msg}`);
-  }
-  if (isBotWall(html)) throw new Error('Flipkart bot-detection encountered. Try again shortly.');
+  const html = await fetchPage(productUrl, 'flipkart');
+  if (isBotWall(html)) throw new Error('Flipkart bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
   const parsed = parseFlipkart(html);
   return { ...parsed, domain: 'flipkart', lowestEver: 0 };
 }
