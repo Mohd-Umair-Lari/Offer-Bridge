@@ -6,9 +6,9 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "sw
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata = {
-  title: "Gozivo — The Marketplace for Exclusive Card Benefits",
+  title: "OfferBridges — The Marketplace for Exclusive Card Benefits",
   description:
-    "Gozivo connects buyers with cardholders to unlock exclusive credit card discounts. Secure escrow, verified providers, and real earnings on every deal.",
+    "OfferBridges connects buyers with cardholders to unlock exclusive credit card discounts. Secure escrow, verified providers, and real earnings on every deal.",
   icons: {
     icon: '/logo.png',
     apple: '/icon-192x192.png',

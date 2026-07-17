@@ -214,7 +214,7 @@ function NavItem({ item, isActive, onClick, collapsed }) {
   );
 }
 
-export default function GoZivo() {
+export default function OfferBridges() {
   const { user, role, displayName, loading: authLoading, signOut, needsOnboarding } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -307,7 +307,7 @@ export default function GoZivo() {
             </div>
             <div className="absolute -inset-2 rounded-2xl border-2 animate-pulse-ring" style={{ borderColor: 'var(--primary)' }} />
           </div>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading GoZivo…</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading OfferBridges…</p>
         </div>
       </div>
     );

@@ -126,7 +126,7 @@ export default function OnboardingWizard() {
 
               <div>
                 <h1 className="text-3xl font-bold" style={{ color: 'var(--text)' }}>
-                  Welcome to <span className="gradient-text">OfferBridge</span>!
+                  Welcome to <span className="gradient-text">OfferBridges</span>!
                 </h1>
                 <p className="mt-3 text-base leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                   Hey <strong style={{ color: 'var(--primary)' }}>{user?.fullName?.split(' ')[0] || 'there'}</strong> 👋 — let's get you set up in under a minute.
@@ -162,7 +162,7 @@ export default function OnboardingWizard() {
               transition={{ duration: 0.28 }} className="space-y-5">
 
               <div className="text-center">
-                <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>How will you use OfferBridge?</h2>
+                <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>How will you use OfferBridges?</h2>
                 <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Choose your role — you can update this later</p>
               </div>
 

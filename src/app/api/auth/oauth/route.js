@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gozivo-default-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET || 'offerbridges-default-secret-change-me';
 
 function makeToken(user) {
   return jwt.sign(

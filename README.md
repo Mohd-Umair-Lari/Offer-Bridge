@@ -1,12 +1,12 @@
-# OfferBridge - Credit Card Rewards Marketplace
+# OfferBridges - Credit Card Rewards Marketplace
 
-🚀 **Live Production App**: [https://www.gozivo.in/](https://www.gozivo.in/)
+🚀 **Live Production App**: [https://offer-bridge.vercel.app/](https://offer-bridge.vercel.app/)
 
 ## Overview
 
-OfferBridge (powered by GoZivo) is a revolutionary peer-to-peer marketplace that connects credit card holders with service providers. The platform enables users to monetize their unused credit card rewards and cashback offers while helping others maximize their purchasing power through secure escrow transactions.
+OfferBridges is a revolutionary peer-to-peer marketplace that connects credit card holders with service providers. The platform enables users to monetize their unused credit card rewards and cashback offers while helping others maximize their purchasing power through secure escrow transactions.
 
-Whether you're a **cardholder looking to earn extra income** from your card benefits or a **service provider seeking competitive card offers**, OfferBridge provides a trusted, transparent, and secure platform for seamless transactions.
+Whether you're a **cardholder looking to earn extra income** from your card benefits or a **service provider seeking competitive card offers**, OfferBridges provides a trusted, transparent, and secure platform for seamless transactions.
 
 ## Key Problem Solved
 
@@ -14,7 +14,7 @@ Whether you're a **cardholder looking to earn extra income** from your card bene
 - **For Service Providers**: Finding the right credit card benefits for client transactions is time-consuming
 - **For Both**: Managing and tracking card-based transactions manually is error-prone and risky
 
-OfferBridge solves these problems with automated matching, secure escrow payments, and real-time tracking.
+OfferBridges solves these problems with automated matching, secure escrow payments, and real-time tracking.
 
 ## Features
 
@@ -140,7 +140,7 @@ Service Provider      Escrow System         Cardholder
 
 ### Access the Live Platform
 
-Visit **[https://www.gozivo.in/](https://www.gozivo.in/)** to start using OfferBridge.
+Visit **[https://offer-bridge.vercel.app/](https://offer-bridge.vercel.app/)** to start using OfferBridges.
 
 **User Roles**:
 - **Cardholder (Provider)**: List your credit card offers and earn commissions
@@ -150,7 +150,7 @@ Visit **[https://www.gozivo.in/](https://www.gozivo.in/)** to start using OfferB
 
 ### First Steps
 
-1. Visit [https://www.gozivo.in/](https://www.gozivo.in/)
+1. Visit [https://offer-bridge.vercel.app/](https://offer-bridge.vercel.app/)
 2. Sign up with email or OAuth (Google/GitHub)
 3. Complete your profile onboarding
 4. Start creating requests or listing card offers
@@ -158,7 +158,7 @@ Visit **[https://www.gozivo.in/](https://www.gozivo.in/)** to start using OfferB
 
 ## Production Deployment
 
-OfferBridge is hosted on **Vercel** with:
+OfferBridges is hosted on **Vercel** with:
 - **Global CDN**: Fast content delivery worldwide
 - **Auto-scaling**: Handles traffic spikes automatically
 - **SSL/TLS**: End-to-end encryption
@@ -268,7 +268,7 @@ Recommended production limits:
 **GitHub Repository**:
 - Source code available on [GitHub](https://github.com/umairnow/Offer-Bridge)
 - Latest commits automatically deploy to production via Vercel CI/CD
-- Production URL: [https://www.gozivo.in/](https://www.gozivo.in/)
+- Production URL: [https://offer-bridge.vercel.app/](https://offer-bridge.vercel.app/)
 
 ## Production Status
 
@@ -358,7 +358,7 @@ src/
 
 ## Security Reporting
 
-Found a security vulnerability? Please report it to: **security@gozivo.in**
+Found a security vulnerability? Please report it to: **security@offer-bridge.vercel.app**
 
 Include:
 - Vulnerability description
@@ -374,18 +374,18 @@ Proprietary - All rights reserved
 
 ## Support & Resources
 
-**Help Center**: [https://www.gozivo.in/help](https://www.gozivo.in/help)
+**Help Center**: [https://offer-bridge.vercel.app/help](https://offer-bridge.vercel.app/help)
 - **FAQ**: Common questions and troubleshooting
 - **Guides**: Step-by-step tutorials for all user types
 - **Contact**: Support team available 24/7
 
 **Report Issues**:
 - In-app support: Use the help button in settings
-- Email: support@gozivo.in
+- Email: support@offer-bridge.vercel.app
 - Response time: < 4 hours
 
 **Security Issues**:
-- Found a vulnerability? Email: security@gozivo.in
+- Found a vulnerability? Email: security@offer-bridge.vercel.app
 - Include: description, reproduction steps, potential impact
 
 ## Roadmap
@@ -407,4 +407,4 @@ Proprietary - All rights reserved
 
 ---
 
-**Built with security and scalability first. OfferBridge is production-ready and currently serving thousands of users on [https://www.gozivo.in/](https://www.gozivo.in/)**
+**Built with security and scalability first. OfferBridges is production-ready and currently serving thousands of users on [https://offer-bridge.vercel.app/](https://offer-bridge.vercel.app/)**

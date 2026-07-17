@@ -89,7 +89,7 @@ export default function LandingPage({ onGetStarted }) {
 
             <motion.p variants={fadeUp} transition={{ duration: 0.6 }}
               className="text-lg md:text-xl max-w-2xl mx-auto mb-10" style={{ color: 'var(--text-muted)' }}>
-              GoZivo connects buyers seeking credit card discounts with verified cardholders.<br className="hidden md:block" />
+              OfferBridges connects buyers seeking credit card discounts with verified cardholders.<br className="hidden md:block" />
               Save money. Earn rewards. Every deal is escrow-protected.
             </motion.p>
 
@@ -128,7 +128,7 @@ export default function LandingPage({ onGetStarted }) {
             <motion.p variants={fadeUp} className="text-sm font-semibold mb-3" style={{ color: 'var(--primary)' }}>FEATURES</motion.p>
             <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold mb-4">Everything you need to <span className="gradient-text">trade smarter</span></motion.h2>
             <motion.p variants={fadeUp} className="text-base max-w-xl mx-auto" style={{ color: 'var(--text-muted)' }}>
-              Built for security, speed, and simplicity. GoZivo handles the complexity so you can focus on deals.
+              Built for security, speed, and simplicity. OfferBridges handles the complexity so you can focus on deals.
             </motion.p>
           </motion.div>
 
@@ -226,7 +226,7 @@ export default function LandingPage({ onGetStarted }) {
               Ready to start <span className="gradient-text">saving</span>?
             </motion.h2>
             <motion.p variants={fadeUp} className="text-base mb-8" style={{ color: 'var(--text-muted)' }}>
-              Join thousands of users already trading smarter on GoZivo. No credit card required.
+              Join thousands of users already trading smarter on OfferBridges. No credit card required.
             </motion.p>
             <motion.button variants={fadeUp} whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
               onClick={onGetStarted}
@@ -245,9 +245,9 @@ export default function LandingPage({ onGetStarted }) {
               style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
               <Wallet size={14} className="text-white" />
             </div>
-            <span className="font-bold text-lg"><span className="gradient-text">Go</span>Zivo</span>
+            <span className="font-bold text-lg"><span className="gradient-text">Offer</span>Bridges</span>
           </div>
-          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>© {new Date().getFullYear()} GoZivo. All rights reserved.</p>
+          <p className="text-xs" style={{ color: 'var(--text-dim)' }}>© {new Date().getFullYear()} OfferBridges. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="text-xs transition" style={{ color: 'var(--text-muted)' }}>Privacy</a>
             <a href="#" className="text-xs transition" style={{ color: 'var(--text-muted)' }}>Terms</a>

@@ -57,7 +57,7 @@
 
 #### `src/app/api/auth/route.js` - MODIFIED
 **Changes:**
-- Removed fallback JWT secret: `'gozivo-default-secret-change-me'`
+- Removed fallback JWT secret: `'offerbridges-default-secret-change-me'`
 - Imports config from `@/lib/config`
 - Uses `config.jwt.secret` instead of hardcoded value
 - Removed all `// ──` style comments (10 removed)
@@ -272,7 +272,7 @@ Testing:
 
 ```bash
 # Verify no hardcoded secrets remain
-git grep -i "gozivo-default-secret" src/
+git grep -i "offerbridges-default-secret" src/
 
 # Verify no API keys in code
 git grep -i "sk_live\|pk_live\|AIza" src/

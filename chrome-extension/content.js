@@ -1,7 +1,7 @@
 (function () {
   if (document.getElementById('ob-extension-btn')) return;
 
-  const OFFER_BRIDGE_URL = 'https://gozivo.in';
+  const OFFER_BRIDGE_URL = 'https://offer-bridge.vercel.app';
 
   function getMerchant() {
     const h = location.hostname;

@@ -1,6 +1,6 @@
 {
-  "name": "OfferBridge",
-  "short_name": "OfferBridge",
+  "name": "OfferBridges",
+  "short_name": "OfferBridges",
   "description": "The Marketplace for Exclusive Card Benefits",
   "start_url": "/",
   "display": "standalone",

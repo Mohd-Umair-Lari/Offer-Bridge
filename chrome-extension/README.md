@@ -15,10 +15,10 @@ Injects a **"Send to Offer-Bridge"** floating button on Amazon.in and Flipkart.c
 1. Go to any Amazon.in or Flipkart.com product page
 2. A floating **"Send to Offer-Bridge"** button appears at the bottom-right
 3. Click it — the extension reads the product title, price, and all bank/card offer text directly from the page DOM
-4. This data is sent to `https://gozivo.in/api/extension/draft`
+4. This data is sent to `https://offer-bridge.vercel.app/api/extension/draft`
 5. The backend runs it through **Groq LLM (llama3-8b-8192)** to find the best card offer
 6. A draft is saved to MongoDB (expires in 30 minutes)
-7. You are redirected to `https://gozivo.in?draftId=...`
+7. You are redirected to `https://offer-bridge.vercel.app?draftId=...`
 8. The New Request form auto-fills with title, price, and best card offer
 
 ## Required Environment Variable

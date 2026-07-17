@@ -1,5 +1,5 @@
 /**
- * Earnings Calculator - GoZivo Business Model v2
+ * Earnings Calculator - OfferBridges Business Model v2
  * 
  * Split: 50% Customer | 35% Provider | 15% Platform
  */

@@ -31,7 +31,7 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
 
   const total   = Number(tx.amount);
   const feeAmt  = Math.round(total * 0.02);
-  const upiDeep = `upi://pay?pa=${ESCROW_UPI}&pn=OfferBridge+Escrow&am=${total}&cu=INR&tn=OfferBridge_${tx.id || tx._id}`;
+  const upiDeep = `upi://pay?pa=${ESCROW_UPI}&pn=OfferBridges+Escrow&am=${total}&cu=INR&tn=OfferBridges_${tx.id || tx._id}`;
 
   const copyUPI = () => {
     navigator.clipboard.writeText(ESCROW_UPI);
@@ -85,7 +85,7 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
               </div>
               <div>
                 <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>Secure Escrow Payment</p>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Protected by OfferBridge Escrow</p>
+                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Protected by OfferBridges Escrow</p>
               </div>
             </div>
             {step !== 'simulating' && (

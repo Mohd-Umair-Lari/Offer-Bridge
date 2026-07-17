@@ -1,4 +1,4 @@
-const OFFER_BRIDGE_API = 'https://gozivo.in/api/extension/draft';
+const OFFER_BRIDGE_API = 'https://offer-bridge.vercel.app/api/extension/draft';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action !== 'SEND_DRAFT') return;
