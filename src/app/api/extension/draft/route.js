@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
 const DB_NAME = 'offerbridge';
+const env = (k) => process.env[k] || '';
+
 
 async function getDB() {
   if (!global._mongooseCache) global._mongooseCache = { conn: null, promise: null };
