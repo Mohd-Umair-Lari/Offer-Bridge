@@ -206,15 +206,36 @@ async function fetchViaScraperAPI(url) {
   return html;
 }
 
+async function fetchViaJina(url) {
+
+  // Jina AI Reader — free, cloud-friendly proxy that renders and returns page text
+  // Works from Vercel/cloud IPs where direct Amazon/Flipkart fetches are blocked
+  const jinaUrl = `https://r.jina.ai/${url}`;
+  const res = await fetch(jinaUrl, {
+    headers: {
+      'Accept': 'text/plain, text/html, */*',
+      'X-Return-Format': 'html',   // Ask Jina to return raw HTML
+    },
+    signal: AbortSignal.timeout(45000),
+  });
+  if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
+  const text = await res.text();
+  if (!text || text.length < 400) throw new Error('Jina returned empty response');
+  console.log(`[Jina] Fetched ${text.length} chars for ${url}`);
+  return text;
+}
+
 async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
 
+  // 1. ScraperAPI (if key configured)
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {
-      console.warn('[ScraperAPI] Failed:', e.message, '— falling back to direct fetch');
+      console.warn('[ScraperAPI] Failed:', e.message, '— trying next method');
     }
   }
 
+  // 2. Direct fetch with browser-profile spoofing
   const urls = merchant === 'flipkart'
     ? [url, toMobileFlipkartUrl(url)]
     : [url];
@@ -233,17 +254,27 @@ async function fetchPage(url, merchant) {
     }
   }
 
-  const is529 = lastErr?.message?.includes('529');
-  const isBlocked = lastErr?.message?.includes('403') || lastErr?.message?.includes('503') || lastErr?.message?.includes('blocked') || lastErr?.message?.includes('bot');
+  // 3. Jina AI Reader fallback (free cloud proxy — works from Vercel IPs)
+  const isBlocked = lastErr?.message?.includes('403') || lastErr?.message?.includes('503')
+    || lastErr?.message?.includes('529') || lastErr?.message?.includes('blocked')
+    || lastErr?.message?.includes('bot') || lastErr?.message?.includes('too small');
 
-  if (is529 || isBlocked) {
-    throw new Error(
-      `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} is blocking server-side access from cloud IPs (HTTP ${lastErr?.message}). ` +
-      `Add a SCRAPER_API_KEY to your environment variables for reliable bypass, or use the Chrome Extension instead.`
-    );
+  if (isBlocked) {
+    console.log(`[Crawler] Direct fetch blocked. Trying Jina AI Reader for: ${url}`);
+    try {
+      return await fetchViaJina(url);
+    } catch (jinaErr) {
+      console.warn('[Jina] Failed:', jinaErr.message);
+      throw new Error(
+        `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} blocked direct access and Jina proxy also failed. ` +
+        `Add a SCRAPER_API_KEY to your environment for reliable bypass, or use the Chrome Extension instead.`
+      );
+    }
   }
+
   throw lastErr || new Error(`Could not fetch ${merchant} page`);
 }
+
 
 async function fetchKeepa(asin) {
   const key = env('KEEPA_API_KEY');
