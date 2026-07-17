@@ -108,7 +108,13 @@ function extractOG(html, prop) {
 }
 
 function isBotWall(html) {
-  return /robot\s*check|verify\s+you\s+are\s+human|captcha|automated\s+access|unusual\s+traffic/i.test(html);
+  if (!html) return false;
+  // Strip <script> and <style> blocks first — Flipkart/Amazon embed JS config vars
+  // that contain words like "captcha" or "automated" causing false-positive bot-wall detection
+  const cleanHtml = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '');
+  return /robot\s*check|verify\s+you\s+are\s+human|captcha|automated\s+access|unusual\s+traffic/i.test(cleanHtml);
 }
 
 function extractBankOffers(text) {
