@@ -213,23 +213,43 @@ async function fetchViaScraperAPI(url) {
 }
 
 async function fetchViaJina(url) {
-
-  // Jina AI Reader — free, cloud-friendly proxy that renders and returns page text
-  // Works from Vercel/cloud IPs where direct Amazon/Flipkart fetches are blocked
+  // Jina AI Reader — free cloud proxy. Use markdown mode (no X-Return-Format header)
+  // which uses a different request path than html mode and is less frequently rate-limited
   const jinaUrl = `https://r.jina.ai/${url}`;
+  const jinaKey = env('JINA_API_KEY');
+  const headers = {
+    'Accept': 'text/plain, */*',
+    'X-Timeout': '30',
+    ...(jinaKey ? { 'Authorization': `Bearer ${jinaKey}` } : {}),
+  };
+
   const res = await fetch(jinaUrl, {
-    headers: {
-      'Accept': 'text/plain, text/html, */*',
-      'X-Return-Format': 'html',   // Ask Jina to return raw HTML
-    },
-    signal: AbortSignal.timeout(45000),
+    headers,
+    signal: AbortSignal.timeout(40000),
   });
   if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
   const text = await res.text();
-  if (!text || text.length < 400) throw new Error('Jina returned empty response');
-  console.log(`[Jina] Fetched ${text.length} chars for ${url}`);
+  if (!text || text.length < 300) throw new Error('Jina returned too short response');
+  if (/E00[0-9]|Something went wrong|Please try again/i.test(text.slice(0, 500))) {
+    throw new Error('Jina service error: ' + text.slice(0, 100));
+  }
+  console.log(`[Jina] Fetched ${text.length} chars (markdown) for ${url}`);
   return text;
 }
+
+async function fetchViaAllOrigins(url) {
+  // AllOrigins — free CORS/proxy service, works for many blocked sites
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&charset=UTF-8`;
+  const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(25000) });
+  if (!res.ok) throw new Error(`AllOrigins HTTP ${res.status}`);
+  const json = await res.json();
+  const html = json?.contents;
+  if (!html || html.length < 500) throw new Error('AllOrigins returned empty or too-small response');
+  if (isBotWall(html)) throw new Error('AllOrigins: bot wall on response');
+  console.log(`[AllOrigins] Fetched ${html.length} chars for ${url}`);
+  return html;
+}
+
 
 async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
@@ -260,19 +280,28 @@ async function fetchPage(url, merchant) {
     }
   }
 
-  // 3. Jina AI Reader fallback (free cloud proxy — works from Vercel IPs)
+  // 3. Jina AI Reader → AllOrigins waterfall (both free, work from Vercel IPs)
   const isBlocked = lastErr?.message?.includes('403') || lastErr?.message?.includes('503')
     || lastErr?.message?.includes('529') || lastErr?.message?.includes('blocked')
     || lastErr?.message?.includes('bot') || lastErr?.message?.includes('too small');
 
   if (isBlocked) {
+    // 3a. Try Jina AI Reader (markdown mode)
     console.log(`[Crawler] Direct fetch blocked. Trying Jina AI Reader for: ${url}`);
     try {
       return await fetchViaJina(url);
     } catch (jinaErr) {
-      console.warn('[Jina] Failed:', jinaErr.message);
+      console.warn('[Jina] Failed:', jinaErr.message, '— trying AllOrigins');
+    }
+
+    // 3b. Try AllOrigins as second free proxy
+    console.log(`[Crawler] Jina failed. Trying AllOrigins for: ${url}`);
+    try {
+      return await fetchViaAllOrigins(url);
+    } catch (originsErr) {
+      console.warn('[AllOrigins] Failed:', originsErr.message);
       throw new Error(
-        `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} blocked direct access and Jina proxy also failed. ` +
+        `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} blocked all proxy attempts. ` +
         `Add a SCRAPER_API_KEY to your environment for reliable bypass, or use the Chrome Extension instead.`
       );
     }
@@ -280,6 +309,7 @@ async function fetchPage(url, merchant) {
 
   throw lastErr || new Error(`Could not fetch ${merchant} page`);
 }
+
 
 
 async function fetchKeepa(asin) {
