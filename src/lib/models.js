@@ -24,13 +24,17 @@ const RequestSchema = new mongoose.Schema({
   product_link:  { type: String, default: '' },
   is_public:     { type: Boolean, default: true },
   status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled'], default: 'pending' },
-  // NEW: Auto-discovered best card for this product
+  // Auto-discovered best card for this product (populated by crawler)
   best_card_info: {
-    card_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
-    card_name: String,
-    bank: String,
-    discount_percent: Number,
+    card_id:         { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
+    card_name:       { type: String,  default: '' },
+    bank:            { type: String,  default: '' },
+    discount_amount: { type: Number,  default: 0 },   // Actual ₹ savings from card offer
+    final_price:     { type: Number,  default: 0 },   // Price after card discount
   },
+  product_image:  { type: String, default: '' },        // Product thumbnail from crawler
+  raw_offers:     { type: [String], default: [] },      // All bank offer strings from product page
+  merchant:       { type: String, default: '' },        // 'amazon' | 'flipkart'
 }, { timestamps: true });
 
 const OfferSchema = new mongoose.Schema({
