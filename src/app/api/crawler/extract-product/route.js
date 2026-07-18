@@ -539,7 +539,7 @@ async function getOrScrapeProduct(productUrl) {
     console.warn('[Crawler] Cache lookup failed (scraping fresh):', e.message);
   }
 
-  const scraped = await scrapeProduct(normalizedUrl, merchant);
+  const scraped = await scrapeProduct(productUrl, merchant);
 
   if (!scraped.title) throw new Error('Could not extract product title. The link may be invalid or access was blocked.');
   if (!scraped.price) throw new Error('Could not extract product price. The product may be unavailable or access was blocked.');
