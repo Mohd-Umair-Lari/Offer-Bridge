@@ -24,7 +24,7 @@ async function getModel() {
   if (mongoose.models.ScrapedProduct) return mongoose.models.ScrapedProduct;
   const schema = new mongoose.Schema({
     url:       { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    domain:    { type: String, enum: ['amazon', 'flipkart'], required: true },
+    domain:    { type: String, enum: ['amazon', 'flipkart', 'myntra'], required: true },
     title:     { type: String, required: true },
     price:     { type: Number, required: true },
     asin:      { type: String, default: '' },
@@ -54,6 +54,7 @@ function getMerchant(url) {
     const h = new URL(url).hostname.toLowerCase();
     if (h.includes('amazon')) return 'amazon';
     if (h.includes('flipkart')) return 'flipkart';
+    if (h.includes('myntra')) return 'myntra';
   } catch {}
   return null;
 }
@@ -484,6 +485,87 @@ function parseFlipkart(html) {
   return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), asin: null };
 }
 
+function parseMyntra(html) {
+  const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+  // Try extracting from window.__myx or window.pdpData first
+  let pdpData = null;
+  try {
+    const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    let sm;
+    while ((sm = scriptRe.exec(html)) !== null) {
+      const block = sm[1];
+      if (block.includes('window.__myx') || block.includes('window.pdpData')) {
+        const match = block.match(/(?:window\.__myx\s*=\s*|window\.pdpData\s*=\s*)({[\s\S]*?})(?:;|$)/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[1]);
+            pdpData = parsed.pdpData || parsed;
+            if (pdpData && (pdpData.name || pdpData.title)) break;
+          } catch {}
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Myntra] JSON state parse error:', e.message);
+  }
+
+  let title = '';
+  let price = 0;
+  let image = '';
+
+  if (pdpData) {
+    const brandName = pdpData.brand?.name || '';
+    const prodName = pdpData.name || pdpData.title || '';
+    title = brandName && prodName ? `${brandName} - ${prodName}` : (brandName || prodName || '');
+    
+    if (pdpData.price) {
+      price = parsePrice(pdpData.price.discounted || pdpData.price.mrp || 0);
+    }
+    
+    if (pdpData.media?.albums?.[0]?.images?.[0]?.imageURL) {
+      image = pdpData.media.albums[0].images[0].imageURL;
+    } else if (pdpData.media?.albums?.[0]?.images?.[0]?.src) {
+      image = pdpData.media.albums[0].images[0].src;
+    }
+  }
+
+  // Fallbacks using cheerio/regex
+  if (!title) {
+    const brand = html.match(/<h1[^>]+class=["']pdp-title["'][^>]*>\s*([\s\S]*?)\s*<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim() || '';
+    const name = html.match(/<h1[^>]+class=["']pdp-name["'][^>]*>\s*([\s\S]*?)\s*<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim()
+      || html.match(/<p[^>]+class=["']pdp-name["'][^>]*>\s*([\s\S]*?)\s*<\/p>/i)?.[1]?.replace(/<[^>]+>/g, '').trim() || '';
+    title = brand && name ? `${brand} - ${name}` : (brand || name || extractOG(html, 'title') || '');
+  }
+
+  if (!price) {
+    const m = html.match(/class=["']pdp-price["'][^>]*>([\s\S]*?)<\/span>/i)
+      || html.match(/class=["']pdp-price["'][^>]*>([\s\S]*?)<\/strong>/i);
+    if (m) {
+      const cleanPrice = m[1].replace(/<[^>]+>/g, '').replace(/[,\s]/g, '');
+      const numMatch = cleanPrice.match(/\d+/);
+      if (numMatch) price = parseInt(numMatch[0], 10) || 0;
+    }
+  }
+
+  if (!price) {
+    const m = stripped.match(/(?:Rs\.?|₹)\s*([\d,]+)/i);
+    if (m) price = parsePrice(m[1]);
+  }
+
+  if (price === 0 && /out\s+of\s+stock|sold\s+out/i.test(html)) {
+    throw new Error('Product is currently out of stock on Myntra.');
+  }
+
+  if (!image) {
+    image = extractOG(html, 'image')
+      || html.match(/<img[^>]+class=["']image-grid-image["'][^>]+src=["']([^"']+)["']/i)?.[1]
+      || '';
+  }
+
+  return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), asin: null };
+}
+
 async function scrapeProduct(productUrl, merchant) {
   const asin = merchant === 'amazon' ? extractASIN(productUrl) : null;
 
@@ -506,10 +588,21 @@ async function scrapeProduct(productUrl, merchant) {
     return { ...parsed, domain: 'amazon', lowestEver: 0 };
   }
 
-  const html = await fetchPage(productUrl, 'flipkart');
-  if (isBotWall(html)) throw new Error('Flipkart bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
-  const parsed = parseFlipkart(html);
-  return { ...parsed, domain: 'flipkart', lowestEver: 0 };
+  if (merchant === 'flipkart') {
+    const html = await fetchPage(productUrl, 'flipkart');
+    if (isBotWall(html)) throw new Error('Flipkart bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
+    const parsed = parseFlipkart(html);
+    return { ...parsed, domain: 'flipkart', lowestEver: 0 };
+  }
+
+  if (merchant === 'myntra') {
+    const html = await fetchPage(productUrl, 'myntra');
+    if (isBotWall(html)) throw new Error('Myntra bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
+    const parsed = parseMyntra(html);
+    return { ...parsed, domain: 'myntra', lowestEver: 0 };
+  }
+
+  throw new Error('Unsupported merchant');
 }
 
 async function evaluateOffers(price, rawOffers) {
@@ -525,7 +618,7 @@ async function evaluateOffers(price, rawOffers) {
 
 async function getOrScrapeProduct(productUrl) {
   const merchant = getMerchant(productUrl);
-  if (!merchant) return { success: false, message: 'Unsupported URL. Only Amazon.in and Flipkart.com links are accepted.' };
+  if (!merchant) return { success: false, message: 'Unsupported URL. Only Amazon.in, Flipkart.com, and Myntra.com links are accepted.' };
 
   const normalizedUrl = productUrl.trim().toLowerCase();
   const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);

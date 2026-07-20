@@ -10,7 +10,8 @@ function isValidUrl(url) {
     const domain = new URL(url).hostname.toLowerCase();
     return domain.includes('amazon.in') || 
            domain.includes('amazon.com') || 
-           domain.includes('flipkart.com');
+           domain.includes('flipkart.com') ||
+           domain.includes('myntra.com');
   } catch {
     return false;
   }
@@ -74,7 +75,7 @@ export async function POST(request) {
 
     if (!isValidUrl(productUrl)) {
       return NextResponse.json(
-        { error: 'Unsupported URL. Only Amazon and Flipkart products are supported.' },
+        { error: 'Unsupported URL. Only Amazon, Flipkart, and Myntra products are supported.' },
         { status: 400 }
       );
     }
@@ -149,7 +150,7 @@ export async function GET(request) {
 
     if (!isValidUrl(productUrl)) {
       return NextResponse.json(
-        { error: 'Unsupported URL. Only Amazon and Flipkart products are supported.' },
+        { error: 'Unsupported URL. Only Amazon, Flipkart, and Myntra products are supported.' },
         { status: 400 }
       );
     }

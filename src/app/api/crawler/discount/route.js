@@ -1,20 +1,5 @@
 import { NextResponse } from 'next/server';
 
-/**
- * Crawler Endpoint: Scrape card discounts from product links
- * 
- * Used in: Payment flow to calculate actual earnings
- * Input: productUrl, cardDetails (bank, card_name)
- * Output: Card discount percentage
- * 
- * Note: In production, integrate with:
- * - Amazon Associates API
- * - Flipkart Affiliate API  
- * - CRED API (for credit card details)
- * - MasterCard Priceless Dining (merchant-specific)
- */
-
-// Mock discount database for major merchants
 const MERCHANT_DISCOUNTS = {
   'amazon': { base: 5, max: 20 },
   'flipkart': { base: 5, max: 15 },

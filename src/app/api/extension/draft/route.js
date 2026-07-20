@@ -26,7 +26,7 @@ async function getModel() {
 
   const schema = new mongoose.Schema({
     productUrl: { type: String, required: true },
-    merchant:   { type: String, enum: ['amazon', 'flipkart'], required: true },
+    merchant:   { type: String, enum: ['amazon', 'flipkart', 'myntra'], required: true },
     title:      { type: String, default: '' },
     price:      { type: Number, default: 0 },
     image:      { type: String, default: '' },
@@ -45,7 +45,7 @@ async function getModel() {
   return mongoose.model('ExtDraft', schema);
 }
 
-const GROQ_SYSTEM_PROMPT = `You are a financial offer parser for Indian e-commerce. Given a product price in INR and a list of raw credit/debit card offer strings scraped from Amazon or Flipkart, determine the single best card offer.
+const GROQ_SYSTEM_PROMPT = `You are a financial offer parser for Indian e-commerce. Given a product price in INR and a list of raw credit/debit card offer strings scraped from Amazon, Flipkart, or Myntra, determine the single best card offer.
 
 Rules:
 1. Parse percentage discounts (e.g. "10% off") and calculate INR savings from the product price.

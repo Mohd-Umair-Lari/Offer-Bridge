@@ -6,14 +6,15 @@
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
     "*://*.amazon.in/*",
-    "*://*.flipkart.com/*"
+    "*://*.flipkart.com/*",
+    "*://*.myntra.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.amazon.in/*", "*://*.flipkart.com/*"],
+      "matches": ["*://*.amazon.in/*", "*://*.flipkart.com/*", "*://*.myntra.com/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

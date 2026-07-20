@@ -34,8 +34,10 @@ export async function scrapeProduct(url) {
     type = 'amazon';
   } else if (domain.includes('flipkart.com')) {
     type = 'flipkart';
+  } else if (domain.includes('myntra.com')) {
+    type = 'myntra';
   } else {
-    throw new Error('Unsupported domain. Only Amazon and Flipkart are supported.');
+    throw new Error('Unsupported domain. Only Amazon, Flipkart, and Myntra are supported.');
   }
 
   let browser = null;
@@ -94,8 +96,10 @@ export async function scrapeProduct(url) {
 
     if (type === 'amazon') {
       return await scrapeAmazon(page, url);
-    } else {
+    } else if (type === 'flipkart') {
       return await scrapeFlipkart(page, url);
+    } else {
+      return await scrapeMyntra(page, url);
     }
   } catch (error) {
     console.error(`[Scraper Error] Failed to scrape ${url}:`, error.message);
@@ -371,6 +375,131 @@ async function scrapeFlipkart(page, url) {
     price,
     image,
     rawOffers: rawOffers.slice(0, 15), // Cap offers to prevent LLM prompt bloating
+    url,
+  };
+}
+
+/**
+ * Scrapes Myntra Product Details
+ */
+async function scrapeMyntra(page, url) {
+  // Wait for the title or price element
+  try {
+    await page.waitForSelector('.pdp-title, .pdp-name', { timeout: 10000 });
+  } catch {
+    throw new Error('Myntra page structure did not load. Bot protection or invalid product link.');
+  }
+
+  // Extract Title
+  let brand = await page.locator('.pdp-title').first().innerText().then(t => t.trim()).catch(() => '');
+  let name = await page.locator('.pdp-name').first().innerText().then(t => t.trim()).catch(() => '');
+  let title = brand && name ? `${brand} - ${name}` : (brand || name || '');
+
+  // Extract Price
+  let priceText = '';
+  const priceSelectors = [
+    '.pdp-price',
+    '.pdp-price strong',
+    '.pdp-discount',
+  ];
+
+  for (const selector of priceSelectors) {
+    try {
+      const el = page.locator(selector).first();
+      if (await el.count() > 0 && await el.isVisible()) {
+        priceText = await el.innerText();
+        if (priceText) break;
+      }
+    } catch {}
+  }
+
+  // Extract first numeric value from priceText (like "Rs. 899 Rs. 1499(40% OFF)")
+  let price = 0;
+  if (priceText) {
+    const cleanText = priceText.replace(/[,\s]/g, '');
+    const match = cleanText.match(/\d+/);
+    if (match) {
+      price = parseInt(match[0], 10) || 0;
+    }
+  }
+
+  if (price === 0) {
+    // Check if out of stock
+    const outOfStockEl = page.locator('.pdp-outOfStock, div:has-text("Out of Stock"), span:has-text("Out of Stock")').first();
+    if (await outOfStockEl.count() > 0 && await outOfStockEl.isVisible()) {
+      throw new Error('Product is currently out of stock on Myntra.');
+    }
+    throw new Error('Failed to extract price. The product might be unavailable.');
+  }
+
+  // Extract Main Image
+  let image = '';
+  // Try OpenGraph meta image tag first since it's the high res image URL
+  try {
+    image = await page.locator('meta[property="og:image"]').getAttribute('content').catch(() => '');
+  } catch {}
+
+  if (!image) {
+    const imageSelectors = [
+      'img.image-grid-image',
+      '.image-grid-col img',
+    ];
+    for (const selector of imageSelectors) {
+      try {
+        const el = page.locator(selector).first();
+        if (await el.count() > 0) {
+          image = await el.getAttribute('src');
+          if (image) break;
+        }
+      } catch {}
+    }
+  }
+
+  // Extract Bank Offers
+  const rawOffers = [];
+  const offerSelectors = [
+    '.pdp-offers li',
+    '.pdp-offers-container li',
+    '.offer-item',
+  ];
+
+  for (const selector of offerSelectors) {
+    try {
+      const locators = page.locator(selector);
+      const count = await locators.count();
+      for (let i = 0; i < count; i++) {
+        const text = await locators.nth(i).innerText().then(t => t.trim());
+        if (text && text.length > 5) {
+          const cleanText = text.replace(/^[T&C\s•*]+/i, '').trim();
+          if (cleanText && !rawOffers.includes(cleanText)) {
+            rawOffers.push(cleanText);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback scan if list items are empty
+  if (rawOffers.length === 0) {
+    try {
+      const bodyText = await page.innerText('body');
+      const matches = bodyText.match(/(?:Bank Offer|Instant Discount)[^\n]+/gi) || [];
+      matches.forEach(m => {
+        const trimStr = m.trim();
+        if (trimStr && !rawOffers.includes(trimStr)) {
+          rawOffers.push(trimStr);
+        }
+      });
+    } catch {}
+  }
+
+  return {
+    success: true,
+    domain: 'myntra',
+    title,
+    price,
+    image,
+    rawOffers: rawOffers.slice(0, 15),
     url,
   };
 }

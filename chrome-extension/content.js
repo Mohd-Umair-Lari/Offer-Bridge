@@ -7,6 +7,7 @@
     const h = location.hostname;
     if (h.includes('amazon')) return 'amazon';
     if (h.includes('flipkart')) return 'flipkart';
+    if (h.includes('myntra')) return 'myntra';
     return null;
   }
 
@@ -107,6 +108,50 @@
     return { title, price, image, rawOffers: rawOffers.slice(0, 15) };
   }
 
+  function extractMyntraData() {
+    const brand = document.querySelector('.pdp-title')?.innerText?.trim() || '';
+    const name = document.querySelector('.pdp-name')?.innerText?.trim() || '';
+    const title = brand && name ? `${brand} - ${name}` : (brand || name || document.title);
+
+    const priceEl = document.querySelector('.pdp-price') || document.querySelector('.pdp-price strong');
+    const rawPrice = priceEl?.innerText || '';
+    // Extract first numeric value from something like "Rs. 899Rs. 1499(40% OFF)"
+    const priceMatch = rawPrice.replace(/[,\s]/g, '').match(/\d+/);
+    const price = priceMatch ? (parseInt(priceMatch[0], 10) || 0) : 0;
+
+    const offerEls = [
+      ...document.querySelectorAll('.pdp-offers li'),
+      ...document.querySelectorAll('.pdp-offers-container li'),
+      ...document.querySelectorAll('.offer-item'),
+    ];
+
+    const rawOffers = [];
+    const seen = new Set();
+    offerEls.forEach(el => {
+      const text = el.innerText?.replace(/\s+/g, ' ').trim();
+      if (text && text.length > 10 && !seen.has(text.slice(0, 40))) {
+        if (/(bank|credit|debit|hdfc|icici|sbi|axis|kotak|rbl|cashback|instant discount|off)/i.test(text)) {
+          seen.add(text.slice(0, 40));
+          rawOffers.push(text.slice(0, 280));
+        }
+      }
+    });
+
+    if (rawOffers.length === 0) {
+      const bodyText = document.body.innerText;
+      const bankMatches = bodyText.match(/(?:Bank Offer|Instant Discount)[^.\n]{20,250}/gi) || [];
+      bankMatches.forEach(m => {
+        const t = m.replace(/\s+/g, ' ').trim();
+        if (!seen.has(t.slice(0, 40))) { seen.add(t.slice(0, 40)); rawOffers.push(t.slice(0, 280)); }
+      });
+    }
+
+    const image = document.querySelector('meta[property="og:image"]')?.content ||
+      document.querySelector('img.image-grid-image')?.src || '';
+
+    return { title, price, image, rawOffers: rawOffers.slice(0, 15) };
+  }
+
   function injectButton() {
     const merchant = getMerchant();
     if (!merchant) return;
@@ -190,7 +235,13 @@
 
       let data;
       try {
-        data = merchant === 'amazon' ? extractAmazonData() : extractFlipkartData();
+        if (merchant === 'amazon') {
+          data = extractAmazonData();
+        } else if (merchant === 'flipkart') {
+          data = extractFlipkartData();
+        } else if (merchant === 'myntra') {
+          data = extractMyntraData();
+        }
       } catch (e) {
         mainBtn.disabled = false;
         mainBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Send to Offer-Bridge';

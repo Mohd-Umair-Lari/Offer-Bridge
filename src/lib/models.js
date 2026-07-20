@@ -34,7 +34,7 @@ const RequestSchema = new mongoose.Schema({
   },
   product_image:  { type: String, default: '' },        // Product thumbnail from crawler
   raw_offers:     { type: [String], default: [] },      // All bank offer strings from product page
-  merchant:       { type: String, default: '' },        // 'amazon' | 'flipkart'
+  merchant:       { type: String, default: '' },        // 'amazon' | 'flipkart' | 'myntra'
 }, { timestamps: true });
 
 const OfferSchema = new mongoose.Schema({

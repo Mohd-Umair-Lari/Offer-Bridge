@@ -62,14 +62,39 @@ function Field({ label, icon: Icon, error, children, autoFilled = false }) {
 function MerchantBadge({ merchant }) {
   if (!merchant) return null;
   const isAmz = merchant === 'amazon';
+  const isFlip = merchant === 'flipkart';
+  const isMyntra = merchant === 'myntra';
+  
+  let bg = 'rgba(124,58,237,0.15)';
+  let color = '#7c3aed';
+  let border = 'rgba(124,58,237,0.3)';
+  let label = '🔗 Merchant';
+
+  if (isAmz) {
+    bg = 'rgba(255,153,0,0.15)';
+    color = '#ff9900';
+    border = 'rgba(255,153,0,0.3)';
+    label = '🛒 Amazon';
+  } else if (isFlip) {
+    bg = 'rgba(40,166,228,0.15)';
+    color = '#28a6e4';
+    border = 'rgba(40,166,228,0.3)';
+    label = '🔵 Flipkart';
+  } else if (isMyntra) {
+    bg = 'rgba(255,63,108,0.15)';
+    color = '#ff3f6c';
+    border = 'rgba(255,63,108,0.3)';
+    label = '🛍️ Myntra';
+  }
+
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
       style={{
-        background: isAmz ? 'rgba(255,153,0,0.15)' : 'rgba(40,166,228,0.15)',
-        color: isAmz ? '#ff9900' : '#28a6e4',
-        border: `1px solid ${isAmz ? 'rgba(255,153,0,0.3)' : 'rgba(40,166,228,0.3)'}`,
+        background: bg,
+        color: color,
+        border: `1px solid ${border}`,
       }}>
-      {isAmz ? '🛒 Amazon' : '🔵 Flipkart'}
+      {label}
     </span>
   );
 }
@@ -263,7 +288,11 @@ export default function NewRequest({ onCreated }) {
       const msg = err.message || 'Could not fetch product. Try again.';
       // Friendly message for known block scenarios
       if (msg.toLowerCase().includes('blocking') || msg.toLowerCase().includes('bot') || msg.includes('503')) {
-        setFetchError(`${msg.includes('Amazon') ? 'Amazon' : 'The site'} is blocking automated access from this server. Try using the Chrome Extension instead, or paste a Flipkart link.`);
+        let site = 'The site';
+        if (msg.toLowerCase().includes('amazon')) site = 'Amazon';
+        else if (msg.toLowerCase().includes('flipkart')) site = 'Flipkart';
+        else if (msg.toLowerCase().includes('myntra')) site = 'Myntra';
+        setFetchError(`${site} is blocking automated access from this server. Try using the Chrome Extension instead.`);
       } else {
         setFetchError(msg);
       }
@@ -396,7 +425,7 @@ export default function NewRequest({ onCreated }) {
                 type="url"
                 value={form.productLink}
                 onChange={set('productLink')}
-                placeholder="https://amazon.in/laptop... or https://flipkart.com/..."
+                placeholder="https://amazon.in/laptop... or https://flipkart.com/... or https://myntra.com/..."
                 disabled={!!crawlStep && crawlStep !== 'done'}
                 className={`flex-1 ${inputCls('productLink')}`}
               />

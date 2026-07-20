@@ -19,13 +19,13 @@ export default function ProductScraperDemo() {
     }
 
     const timer = setTimeout(() => {
-      // Basic validation for Amazon or Flipkart before setting
+      // Basic validation for Amazon, Flipkart or Myntra before setting
       const lower = inputUrl.toLowerCase();
-      if (lower.includes('amazon.in') || lower.includes('amazon.com') || lower.includes('flipkart.com')) {
+      if (lower.includes('amazon.in') || lower.includes('amazon.com') || lower.includes('flipkart.com') || lower.includes('myntra.com')) {
         setDebouncedUrl(inputUrl);
         setError(null);
       } else {
-        setError('Please enter a valid Amazon India or Flipkart product URL');
+        setError('Please enter a valid Amazon, Flipkart, or Myntra product URL');
       }
     }, 1000); // 1-second debounce timeout
 
@@ -81,7 +81,7 @@ export default function ProductScraperDemo() {
           Offer-Bridge Smart Crawler
         </h2>
         <p className="mt-2 text-slate-400 text-sm">
-          Paste any Amazon or Flipkart product URL to extract live credit card discounts instantly.
+          Paste any Amazon, Flipkart, or Myntra product URL to extract live credit card discounts instantly.
         </p>
       </div>
 
@@ -97,7 +97,7 @@ export default function ProductScraperDemo() {
         <input
           type="url"
           className="block w-full pl-10 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-500 text-slate-200 transition duration-200 text-sm"
-          placeholder="Paste Amazon or Flipkart product link (e.g. https://www.amazon.in/dp/...)"
+          placeholder="Paste Amazon, Flipkart, or Myntra product link (e.g. https://www.myntra.com/...)"
           value={inputUrl}
           onChange={(e) => setInputUrl(e.target.value)}
         />
