@@ -110,12 +110,17 @@ function extractOG(html, prop) {
 
 function isBotWall(html) {
   if (!html) return false;
-  // Strip <script> and <style> blocks first — Flipkart/Amazon embed JS config vars
-  // that contain words like "captcha" or "automated" causing false-positive bot-wall detection
+  // Strip <script>, <style>, and data-* attribute values before checking —
+  // Amazon/Flipkart embed words like "captcha" or "automated" inside JS config
+  // vars and data attributes which cause false-positive bot-wall detection.
   const cleanHtml = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '');
-  return /robot\s*check|verify\s+you\s+are\s+human|captcha|automated\s+access|unusual\s+traffic/i.test(cleanHtml);
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/data-[a-z-]+=["'][^"']*["']/gi, '')   // strip data-* attr values
+    .replace(/data-[a-z-]+=[`][^`]*[`]/gi, '');      // strip template-literal data attrs
+  // Must match the FULL page-level bot-wall phrases, not just isolated words
+  return /robot\s*check|verify\s+you\s+are\s+human|automated\s+access|unusual\s+traffic/i.test(cleanHtml)
+    || (/captcha/i.test(cleanHtml) && /<form/i.test(cleanHtml)); // captcha only if there's also a form
 }
 
 function extractBankOffers(text) {
@@ -255,7 +260,7 @@ async function fetchViaAllOrigins(url) {
 async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
 
-  // 1. ScraperAPI (if key configured)
+  // 1. ScraperAPI (if key configured) — most reliable, bypasses bot detection
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {
       console.warn('[ScraperAPI] Failed:', e.message, '— trying next method');
@@ -263,17 +268,25 @@ async function fetchPage(url, merchant) {
   }
 
   // 2. Direct fetch with browser-profile spoofing
-  const urls = merchant === 'flipkart'
-    ? [url, toMobileFlipkartUrl(url)]
-    : [url];
+  // For Amazon: also try the clean ASIN-based dp URL (strips tracking params that trigger bot checks)
+  let directUrls = [url];
+  if (merchant === 'flipkart') {
+    directUrls = [url, toMobileFlipkartUrl(url)];
+  } else if (merchant === 'amazon') {
+    const asin = extractASIN(url);
+    if (asin) {
+      const cleanUrl = `https://www.amazon.in/dp/${asin}?th=1&psc=1`;
+      if (cleanUrl !== url) directUrls = [cleanUrl, url]; // try clean URL first
+    }
+  }
 
   let lastErr;
-  for (const targetUrl of urls) {
+  for (const targetUrl of directUrls) {
     for (const profile of BROWSER_PROFILES) {
       try {
         const html = await tryFetch(targetUrl, profile);
         if (!isBotWall(html)) return html;
-        throw new Error('Bot wall detected');
+        throw new Error('Bot wall detected on direct fetch');
       } catch (e) {
         lastErr = e;
         await new Promise(r => setTimeout(r, 400));
@@ -281,34 +294,27 @@ async function fetchPage(url, merchant) {
     }
   }
 
-  // 3. Jina AI Reader → AllOrigins waterfall (both free, work from Vercel IPs)
-  const isBlocked = lastErr?.message?.includes('403') || lastErr?.message?.includes('503')
-    || lastErr?.message?.includes('529') || lastErr?.message?.includes('blocked')
-    || lastErr?.message?.includes('bot') || lastErr?.message?.includes('too small');
-
-  if (isBlocked) {
-    // 3a. Try Jina AI Reader (markdown mode)
-    console.log(`[Crawler] Direct fetch blocked. Trying Jina AI Reader for: ${url}`);
-    try {
-      return await fetchViaJina(url);
-    } catch (jinaErr) {
-      console.warn('[Jina] Failed:', jinaErr.message, '— trying AllOrigins');
-    }
-
-    // 3b. Try AllOrigins as second free proxy
-    console.log(`[Crawler] Jina failed. Trying AllOrigins for: ${url}`);
-    try {
-      return await fetchViaAllOrigins(url);
-    } catch (originsErr) {
-      console.warn('[AllOrigins] Failed:', originsErr.message);
-      throw new Error(
-        `${merchant === 'flipkart' ? 'Flipkart' : 'Amazon'} blocked all proxy attempts. ` +
-        `Add a SCRAPER_API_KEY to your environment for reliable bypass, or use the Chrome Extension instead.`
-      );
-    }
+  // 3. Proxy waterfall: Jina AI Reader → AllOrigins (both free, work from Vercel IPs)
+  console.log(`[Crawler] Direct fetch failed (${lastErr?.message}). Trying Jina AI Reader for: ${url}`);
+  try {
+    return await fetchViaJina(url);
+  } catch (jinaErr) {
+    console.warn('[Jina] Failed:', jinaErr.message, '— trying AllOrigins');
   }
 
-  throw lastErr || new Error(`Could not fetch ${merchant} page`);
+  console.log(`[Crawler] Jina failed. Trying AllOrigins for: ${url}`);
+  try {
+    return await fetchViaAllOrigins(url);
+  } catch (originsErr) {
+    console.warn('[AllOrigins] Failed:', originsErr.message);
+    // IMPORTANT: error message must contain "blocked" so backend maps to 503
+    // and frontend shows the correct "site is blocking" message (not a generic 500)
+    const siteName = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
+    throw new Error(
+      `${siteName} is blocking automated access from this server. ` +
+      `Add a SCRAPER_API_KEY to your environment for reliable bypass, or use the Chrome Extension instead.`
+    );
+  }
 }
 
 
@@ -583,21 +589,21 @@ async function scrapeProduct(productUrl, merchant) {
 
     const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : productUrl;
     const html = await fetchPage(targetUrl, 'amazon');
-    if (isBotWall(html)) throw new Error('Amazon bot-detection wall encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
+    if (isBotWall(html)) throw new Error('Amazon is blocking automated access from this server. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
     const parsed = parseAmazon(html, asin);
     return { ...parsed, domain: 'amazon', lowestEver: 0 };
   }
 
   if (merchant === 'flipkart') {
     const html = await fetchPage(productUrl, 'flipkart');
-    if (isBotWall(html)) throw new Error('Flipkart bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
+    if (isBotWall(html)) throw new Error('Flipkart is blocking automated access from this server. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
     const parsed = parseFlipkart(html);
     return { ...parsed, domain: 'flipkart', lowestEver: 0 };
   }
 
   if (merchant === 'myntra') {
     const html = await fetchPage(productUrl, 'myntra');
-    if (isBotWall(html)) throw new Error('Myntra bot-detection encountered. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
+    if (isBotWall(html)) throw new Error('Myntra is blocking automated access from this server. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
     const parsed = parseMyntra(html);
     return { ...parsed, domain: 'myntra', lowestEver: 0 };
   }
@@ -687,7 +693,7 @@ export async function POST(request) {
   } catch (err) {
     console.error('[extract-product POST ERROR]', err.message, err.stack);
     const status = err.message?.includes('out of stock') ? 422
-      : (err.message?.includes('bot') || err.message?.includes('blocked') || err.message?.includes('blocking')) ? 503
+      : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
       : err.message?.includes('MONGODB_URI') ? 503
       : 500;
     return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
@@ -703,7 +709,7 @@ export async function GET(request) {
   } catch (err) {
     console.error('[extract-product GET ERROR]', err.message, err.stack);
     const status = err.message?.includes('out of stock') ? 422
-      : (err.message?.includes('bot') || err.message?.includes('blocked')) ? 503
+      : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
       : 500;
     return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
   }

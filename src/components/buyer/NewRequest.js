@@ -287,11 +287,22 @@ export default function NewRequest({ onCreated }) {
       setCrawlStep(null);
       const msg = err.message || 'Could not fetch product. Try again.';
       // Friendly message for known block scenarios
-      if (msg.toLowerCase().includes('blocking') || msg.toLowerCase().includes('bot') || msg.includes('503')) {
+      const isBlockMsg = msg.toLowerCase().includes('blocking')
+        || msg.toLowerCase().includes('blocked')
+        || msg.toLowerCase().includes('bot')
+        || msg.includes('503')
+        || msg.includes('500')
+        || msg.includes('403')
+        || msg.includes('404');
+      if (isBlockMsg) {
+        // Detect site name from the error message first, then from the URL
         let site = 'The site';
         if (msg.toLowerCase().includes('amazon')) site = 'Amazon';
         else if (msg.toLowerCase().includes('flipkart')) site = 'Flipkart';
         else if (msg.toLowerCase().includes('myntra')) site = 'Myntra';
+        else if (form.productLink?.toLowerCase().includes('amazon')) site = 'Amazon';
+        else if (form.productLink?.toLowerCase().includes('flipkart')) site = 'Flipkart';
+        else if (form.productLink?.toLowerCase().includes('myntra')) site = 'Myntra';
         setFetchError(`${site} is blocking automated access from this server. Try using the Chrome Extension instead.`);
       } else {
         setFetchError(msg);
