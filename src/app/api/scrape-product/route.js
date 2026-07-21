@@ -25,7 +25,7 @@ async function processScrape(productUrl) {
   
   // 1. Scraping execution
   console.log(`[API Route] Cache miss. Initiating browser scraper for: ${normalizedUrl}`);
-  const scrapedData = await scrapeProduct(productUrl);
+  const scrapedData = await scrapeProduct(normalizedUrl);
   
   if (!scrapedData.success) {
     throw new Error('Failed to scrape the product webpage.');
