@@ -7,7 +7,7 @@ import {
   Send, CheckCircle2, Calendar, Tag, AlignLeft,
   Globe, Zap, Loader, ChevronDown, ChevronUp,
   ShoppingBag, CreditCard, AlertCircle, RefreshCw,
-  Edit3, PenLine,
+  Edit3, PenLine, Plus, X as XIcon,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -17,18 +17,26 @@ const CATEGORIES = [
   'Accessories', 'Gaming', 'Mobile & Tablets', 'Appliances', 'Other',
 ];
 
+const BANKS = [
+  'Any', 'HDFC Bank', 'ICICI Bank', 'SBI Card', 'Axis Bank',
+  'Kotak Mahindra', 'Federal Bank', 'RBL Bank', 'HSBC', 'BOB', 'IDFC FIRST', 'Other',
+];
+
 const INITIAL = {
-  productLink: '',
-  title: '',
-  amount: '',
-  category: '',
-  deadline: '',
-  description: '',
-  bestCardInfo: null,
-  productImage: '',
-  rawOffers: [],
-  merchant: '',
-  isPublic: true,
+  productLink:        '',
+  title:              '',
+  amount:             '',
+  category:           '',
+  deadline:           '',
+  description:        '',
+  bestCardInfo:       null,   // { bank, discount_amount, final_price, card_name }
+  productImage:       '',
+  rawOffers:          [],
+  merchant:           '',
+  isPublic:           true,
+  requiredCard:       'Any',  // preferred bank for the offer (saved as required_card)
+  manualCardBank:     '',     // manual card entry — bank
+  manualCardDiscount: '',     // manual card entry — ₹ discount amount
 };
 
 /* ─── Field wrapper ─── */
@@ -143,6 +151,85 @@ function RawOffersList({ offers }) {
   );
 }
 
+/* ─── Manual Card Discount Entry ─── */
+function ManualCardEntry({ bank, discount, amount, onBankChange, onDiscountChange, compact = false }) {
+  const [open, setOpen] = useState(false);
+  const hasEntry = bank && bank !== 'Any' && Number(discount) > 0;
+
+  return (
+    <div className="mt-3">
+      {!hasEntry ? (
+        <button
+          type="button"
+          onClick={() => setOpen(p => !p)}
+          className="flex items-center gap-1.5 text-xs font-semibold hover:opacity-80 transition-opacity"
+          style={{ color: 'var(--primary)' }}>
+          {open ? <XIcon size={11} /> : <Plus size={11} />}
+          {open ? 'Cancel' : 'Add card discount manually'}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+            style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+            <CreditCard size={12} style={{ color: '#10b981' }} />
+            <span style={{ color: '#10b981' }} className="font-semibold">{bank}</span>
+            <span style={{ color: 'var(--text-dim)' }}>·</span>
+            <span style={{ color: 'var(--text)' }}>₹{Number(discount).toLocaleString('en-IN')} off</span>
+            {amount > 0 && (
+              <>
+                <span style={{ color: 'var(--text-dim)' }}>·</span>
+                <span style={{ color: 'var(--text-dim)' }}>Final ₹{Math.max(0, Number(amount) - Number(discount)).toLocaleString('en-IN')}</span>
+              </>
+            )}
+          </div>
+          <button type="button" onClick={() => { onBankChange('Any'); onDiscountChange(''); }}
+            className="p-1.5 rounded-lg hover:opacity-80 transition"
+            style={{ color: 'var(--text-dim)', background: 'var(--surface2)' }}
+            title="Remove">
+            <XIcon size={12} />
+          </button>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {(open && !hasEntry) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden mt-2">
+            <div className={`grid gap-3 p-3 rounded-xl ${compact ? 'grid-cols-1' : 'grid-cols-2'}`}
+              style={{ background: 'var(--surface)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Bank / Card</label>
+                <select
+                  value={bank || 'Any'}
+                  onChange={e => onBankChange(e.target.value)}
+                  className="input-dark text-xs w-full">
+                  {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Discount Amount (₹)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
+                    style={{ color: 'var(--text-muted)' }}>₹</span>
+                  <input
+                    type="number" min="1"
+                    value={discount}
+                    onChange={e => onDiscountChange(e.target.value)}
+                    placeholder="0"
+                    className="input-dark text-xs w-full pl-7"
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 /* ─── Main component ─── */
 export default function NewRequest({ onCreated }) {
   const { user } = useAuth();
@@ -191,6 +278,44 @@ export default function NewRequest({ onCreated }) {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+  };
+
+  const handleManualCardBankChange = (bank) => {
+    setForm(prev => {
+      const disc = Number(prev.manualCardDiscount) || 0;
+      const price = Number(prev.amount) || 0;
+      const hasDisc = bank && bank !== 'Any' && disc > 0;
+      return {
+        ...prev,
+        manualCardBank: bank,
+        requiredCard: bank !== 'Any' ? bank : prev.requiredCard,
+        bestCardInfo: hasDisc ? {
+          bank,
+          discount_amount: disc,
+          final_price: Math.max(0, price - disc),
+          card_name: `Manual ${bank} Offer`,
+        } : (prev.bestCardInfo?.card_name?.startsWith('Manual') ? null : prev.bestCardInfo),
+      };
+    });
+  };
+
+  const handleManualCardDiscountChange = (discVal) => {
+    setForm(prev => {
+      const disc = Number(discVal) || 0;
+      const bank = (prev.manualCardBank && prev.manualCardBank !== 'Any') ? prev.manualCardBank : (prev.requiredCard !== 'Any' ? prev.requiredCard : 'HDFC Bank');
+      const price = Number(prev.amount) || 0;
+      const hasDisc = disc > 0;
+      return {
+        ...prev,
+        manualCardDiscount: discVal,
+        bestCardInfo: hasDisc ? {
+          bank,
+          discount_amount: disc,
+          final_price: Math.max(0, price - disc),
+          card_name: `Manual ${bank} Offer`,
+        } : (prev.bestCardInfo?.card_name?.startsWith('Manual') ? null : prev.bestCardInfo),
+      };
+    });
   };
 
   /* Simulate step progression */
@@ -329,23 +454,24 @@ export default function NewRequest({ onCreated }) {
 
     try {
       await api.create('requests', {
-        user_id: user?.id,
-        title: form.title.trim(),
-        amount: Number(form.amount),
-        category: form.category,
-        deadline: form.deadline,
-        description: form.description.trim(),
-        product_link: form.productLink,
+        user_id:       user?.id,
+        title:         form.title.trim(),
+        amount:        Number(form.amount),
+        category:      form.category,
+        deadline:      form.deadline,
+        description:   form.description.trim(),
+        product_link:  form.productLink,
         product_image: form.productImage,
-        raw_offers: form.rawOffers,
-        merchant: form.merchant,
-        is_public: form.isPublic,
+        raw_offers:    form.rawOffers,
+        merchant:      form.merchant,
+        is_public:     form.isPublic,
+        required_card: form.requiredCard || 'Any',
         status: 'pending',
         best_card_info: form.bestCardInfo ? {
-          card_name: form.bestCardInfo.card_name,
-          bank: form.bestCardInfo.bank,
+          card_name:       form.bestCardInfo.card_name,
+          bank:            form.bestCardInfo.bank,
           discount_amount: form.bestCardInfo.discount_amount,
-          final_price: form.bestCardInfo.final_price,
+          final_price:     form.bestCardInfo.final_price,
         } : null,
       });
 
@@ -680,6 +806,13 @@ export default function NewRequest({ onCreated }) {
                     )}
                   </div>
                 )}
+                <ManualCardEntry
+                  bank={form.manualCardBank || form.bestCardInfo?.bank || 'Any'}
+                  discount={form.manualCardDiscount || form.bestCardInfo?.discount_amount || ''}
+                  amount={form.amount}
+                  onBankChange={handleManualCardBankChange}
+                  onDiscountChange={handleManualCardDiscountChange}
+                />
               </div>
             </motion.div>
           )}
@@ -775,6 +908,15 @@ export default function NewRequest({ onCreated }) {
                     className="input-dark"
                   />
                 </Field>
+
+                {/* Manual Card Discount */}
+                <ManualCardEntry
+                  bank={form.manualCardBank || 'Any'}
+                  discount={form.manualCardDiscount || ''}
+                  amount={form.amount}
+                  onBankChange={handleManualCardBankChange}
+                  onDiscountChange={handleManualCardDiscountChange}
+                />
               </div>
             </motion.div>
           )}
@@ -808,11 +950,27 @@ export default function NewRequest({ onCreated }) {
               </div>
             )}
 
-            <Field label="Description" icon={AlignLeft} error={errors.description}>
-              <textarea id="req-description" value={form.description} onChange={set('description')} rows={3}
-                placeholder="Any special requirements? Color, brand preference, urgency..."
-                className={inputCls('description')} style={{ resize: 'none' }} />
-            </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Preferred Card Requirement" icon={CreditCard} hint="Which bank card is needed?">
+                <select
+                  id="req-required-card"
+                  value={form.requiredCard}
+                  onChange={set('requiredCard')}
+                  className={inputCls('requiredCard')}>
+                  {BANKS.map(b => (
+                    <option key={b} value={b}>
+                      {b === 'Any' ? 'Any Bank Card' : b}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Description" icon={AlignLeft} error={errors.description}>
+                <textarea id="req-description" value={form.description} onChange={set('description')} rows={1}
+                  placeholder="Any special requirements? Color, brand preference, urgency..."
+                  className={inputCls('description')} style={{ resize: 'none' }} />
+              </Field>
+            </div>
           </div>
         </div>
 

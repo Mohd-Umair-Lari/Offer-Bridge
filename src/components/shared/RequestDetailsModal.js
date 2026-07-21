@@ -255,6 +255,54 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                   <InfoTile icon={req.is_public ? Globe : ShieldCheck} label="Visibility" value={req.is_public ? 'Marketplace' : 'Private Direct'} />
                 </div>
 
+                {/* Best Card Discount if present */}
+                {req.best_card_info?.discount_amount > 0 && (
+                  <div className="rounded-xl p-4"
+                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: 'rgba(139,92,246,0.15)' }}>
+                        <CreditCard size={18} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--primary)' }}>
+                            💳 Best Card Offer
+                          </span>
+                          {req.best_card_info.bank && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                              {req.best_card_info.bank}
+                            </span>
+                          )}
+                        </div>
+                        {req.best_card_info.card_name && (
+                          <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--text-muted)' }}>
+                            {req.best_card_info.card_name}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Discount / Savings</p>
+                            <p className="text-lg font-extrabold" style={{ color: '#10b981' }}>
+                              ₹{Number(req.best_card_info.discount_amount).toLocaleString('en-IN')}
+                            </p>
+                          </div>
+                          {req.best_card_info.final_price > 0 && (
+                            <div>
+                              <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Price After Discount</p>
+                              <p className="text-base font-bold" style={{ color: 'var(--text)' }}>
+                                ₹{Number(req.best_card_info.final_price).toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Description */}
                 {req.description && (
                   <div>
