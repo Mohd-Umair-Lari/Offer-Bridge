@@ -7,6 +7,7 @@ import {
   Send, CheckCircle2, Calendar, Tag, AlignLeft,
   Globe, Zap, Loader, ChevronDown, ChevronUp,
   ShoppingBag, CreditCard, AlertCircle, RefreshCw,
+  Edit3, PenLine,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -17,21 +18,21 @@ const CATEGORIES = [
 ];
 
 const INITIAL = {
-  productLink:  '',
-  title:        '',
-  amount:       '',
-  category:     '',
-  deadline:     '',
-  description:  '',
-  bestCardInfo: null,   // { bank, discount_amount, final_price, card_name }
+  productLink: '',
+  title: '',
+  amount: '',
+  category: '',
+  deadline: '',
+  description: '',
+  bestCardInfo: null,
   productImage: '',
-  rawOffers:    [],
-  merchant:     '',
-  isPublic:     true,
+  rawOffers: [],
+  merchant: '',
+  isPublic: true,
 };
 
-/* ─── tiny helpers ─── */
-function Field({ label, icon: Icon, error, children, autoFilled = false }) {
+/* ─── Field wrapper ─── */
+function Field({ label, icon: Icon, error, children, autoFilled = false, hint = '' }) {
   return (
     <div>
       <label className="block text-xs font-semibold mb-1.5 flex items-center gap-1.5"
@@ -42,6 +43,11 @@ function Field({ label, icon: Icon, error, children, autoFilled = false }) {
           <span className="text-[10px] px-1.5 py-0.5 rounded"
             style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>
             Auto-filled
+          </span>
+        )}
+        {hint && (
+          <span className="text-[10px] ml-auto opacity-70" style={{ color: 'var(--text-dim)' }}>
+            {hint}
           </span>
         )}
       </label>
@@ -64,36 +70,15 @@ function MerchantBadge({ merchant }) {
   const isAmz = merchant === 'amazon';
   const isFlip = merchant === 'flipkart';
   const isMyntra = merchant === 'myntra';
-  
-  let bg = 'rgba(124,58,237,0.15)';
-  let color = '#7c3aed';
-  let border = 'rgba(124,58,237,0.3)';
-  let label = '🔗 Merchant';
 
-  if (isAmz) {
-    bg = 'rgba(255,153,0,0.15)';
-    color = '#ff9900';
-    border = 'rgba(255,153,0,0.3)';
-    label = '🛒 Amazon';
-  } else if (isFlip) {
-    bg = 'rgba(40,166,228,0.15)';
-    color = '#28a6e4';
-    border = 'rgba(40,166,228,0.3)';
-    label = '🔵 Flipkart';
-  } else if (isMyntra) {
-    bg = 'rgba(255,63,108,0.15)';
-    color = '#ff3f6c';
-    border = 'rgba(255,63,108,0.3)';
-    label = '🛍️ Myntra';
-  }
+  let bg = 'rgba(124,58,237,0.15)', color = '#7c3aed', border = 'rgba(124,58,237,0.3)', label = '🔗 Merchant';
+  if (isAmz) { bg = 'rgba(255,153,0,0.15)'; color = '#ff9900'; border = 'rgba(255,153,0,0.3)'; label = '🛒 Amazon'; }
+  if (isFlip) { bg = 'rgba(40,166,228,0.15)'; color = '#28a6e4'; border = 'rgba(40,166,228,0.3)'; label = '🔵 Flipkart'; }
+  if (isMyntra) { bg = 'rgba(255,63,108,0.15)'; color = '#ff3f6c'; border = 'rgba(255,63,108,0.3)'; label = '🛍️ Myntra'; }
 
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-      style={{
-        background: bg,
-        color: color,
-        border: `1px solid ${border}`,
-      }}>
+      style={{ background: bg, color, border: `1px solid ${border}` }}>
       {label}
     </span>
   );
@@ -101,10 +86,10 @@ function MerchantBadge({ merchant }) {
 
 /* Crawl status stepper */
 const STEPS = [
-  { key: 'fetch',   label: 'Fetching product page…' },
-  { key: 'parse',   label: 'Extracting product details…' },
-  { key: 'offers',  label: 'Analysing bank & card offers…' },
-  { key: 'done',    label: 'Done!' },
+  { key: 'fetch', label: 'Fetching product page…' },
+  { key: 'parse', label: 'Extracting product details…' },
+  { key: 'offers', label: 'Analysing bank & card offers…' },
+  { key: 'done', label: 'Done!' },
 ];
 
 function CrawlStatus({ step }) {
@@ -161,19 +146,21 @@ function RawOffersList({ offers }) {
 /* ─── Main component ─── */
 export default function NewRequest({ onCreated }) {
   const { user } = useAuth();
-  const [form, setForm]                   = useState(INITIAL);
-  const [errors, setErrors]               = useState({});
-  const [loading, setLoading]             = useState(false);
-  const [crawlStep, setCrawlStep]         = useState(null);   // 'fetch' | 'parse' | 'offers' | 'done' | null
-  const [fetchError, setFetchError]       = useState(null);
-  const [success, setSuccess]             = useState(false);
-  const [dbError, setDbError]             = useState(null);
+  const [form, setForm] = useState(INITIAL);
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [crawlStep, setCrawlStep] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
+  const [success, setSuccess] = useState(false);
+  const [dbError, setDbError] = useState(null);
   const [fromExtension, setFromExtension] = useState(false);
-  const stepTimerRef                      = useRef(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [crawlerFilled, setCrawlerFilled] = useState(false);
+  const stepTimerRef = useRef(null);
 
   /* Load from Chrome extension draft */
   useEffect(() => {
-    const params  = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(window.location.search);
     const draftId = params.get('draftId');
     if (!draftId) return;
 
@@ -183,20 +170,21 @@ export default function NewRequest({ onCreated }) {
         if (!data.success) return;
         setForm(prev => ({
           ...prev,
-          productLink:  data.productUrl || '',
-          title:        data.title || '',
-          amount:       data.price ? data.price.toString() : '',
+          productLink: data.productUrl || '',
+          title: data.title || '',
+          amount: data.price ? data.price.toString() : '',
           bestCardInfo: data.bestOffer?.discountAmount > 0 ? {
-            bank:            data.bestOffer.bestOfferBank,
+            bank: data.bestOffer.bestOfferBank,
             discount_amount: data.bestOffer.discountAmount,
-            final_price:     data.bestOffer.finalPriceAfterDiscount,
-            card_name:       data.bestOffer.offerDescription,
+            final_price: data.bestOffer.finalPriceAfterDiscount,
+            card_name: data.bestOffer.offerDescription,
           } : null,
         }));
         setFromExtension(true);
+        setCrawlerFilled(true);
         window.history.replaceState({}, '', window.location.pathname);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const set = field => e => {
@@ -205,18 +193,15 @@ export default function NewRequest({ onCreated }) {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
   };
 
-  /* Simulate step progression so user sees meaningful progress */
+  /* Simulate step progression */
   function startStepTimer() {
     let idx = 0;
     const sequence = ['fetch', 'parse', 'offers'];
     setCrawlStep(sequence[0]);
     stepTimerRef.current = setInterval(() => {
       idx++;
-      if (idx < sequence.length) {
-        setCrawlStep(sequence[idx]);
-      } else {
-        clearInterval(stepTimerRef.current);
-      }
+      if (idx < sequence.length) setCrawlStep(sequence[idx]);
+      else clearInterval(stepTimerRef.current);
     }, 1800);
   }
 
@@ -227,26 +212,45 @@ export default function NewRequest({ onCreated }) {
     }
   }
 
+  /* Manual mode toggles */
+  const enterManualMode = () => {
+    setManualMode(true);
+    setCrawlerFilled(false);
+    setFetchError(null);
+    setForm(prev => ({
+      ...prev,
+      title: '', amount: '', bestCardInfo: null,
+      productImage: '', rawOffers: [], merchant: '',
+    }));
+  };
+
+  const exitManualMode = () => {
+    setManualMode(false);
+    setFetchError(null);
+  };
+
   /* ── Auto-fill handler ── */
   const handleFetchProduct = async () => {
-    if (!form.productLink.trim()) {
-      setFetchError('Please enter a product URL');
-      return;
-    }
+    if (!form.productLink.trim()) { setFetchError('Please enter a product URL'); return; }
     if (!/^https?:\/\/.+/.test(form.productLink)) {
       setFetchError('Must be a valid URL starting with https://');
       return;
     }
 
     setFetchError(null);
-    setForm(prev => ({ ...prev, title: '', amount: '', bestCardInfo: null, productImage: '', rawOffers: [], merchant: '' }));
+    setCrawlerFilled(false);
+    setForm(prev => ({
+      ...prev,
+      title: '', amount: '', bestCardInfo: null,
+      productImage: '', rawOffers: [], merchant: '',
+    }));
     startStepTimer();
 
     try {
       const res = await fetch('/api/crawler/extract-product', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ productUrl: form.productLink }),
+        body: JSON.stringify({ productUrl: form.productLink }),
       });
 
       clearStepTimer();
@@ -259,8 +263,6 @@ export default function NewRequest({ onCreated }) {
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Extraction failed');
 
-      /* Crawler response shape:
-         { success, product: { title, price, image, asin }, best_card: { bank, discount_amount, final_price, card_name }, raw_offers, merchant } */
       const { product, best_card, raw_offers, merchant } = data;
 
       setCrawlStep('done');
@@ -268,34 +270,31 @@ export default function NewRequest({ onCreated }) {
 
       setForm(prev => ({
         ...prev,
-        title:        product.title   || '',
-        amount:       product.price   ? product.price.toString() : '',
-        productImage: product.image   || '',
-        merchant:     merchant        || '',
-        rawOffers:    raw_offers      || [],
+        title: product.title || '',
+        amount: product.price ? product.price.toString() : '',
+        productImage: product.image || '',
+        merchant: merchant || '',
+        rawOffers: raw_offers || [],
         bestCardInfo: best_card?.discount_amount > 0 ? {
-          bank:            best_card.bank            || '',
+          bank: best_card.bank || '',
           discount_amount: best_card.discount_amount || 0,
-          final_price:     best_card.final_price     || (product.price - best_card.discount_amount),
-          card_name:       best_card.card_name       || '',
+          final_price: best_card.final_price || (product.price - best_card.discount_amount),
+          card_name: best_card.card_name || '',
         } : null,
       }));
 
+      setCrawlerFilled(true);
       setFetchError(null);
     } catch (err) {
       clearStepTimer();
       setCrawlStep(null);
       const msg = err.message || 'Could not fetch product. Try again.';
-      // Friendly message for known block scenarios
       const isBlockMsg = msg.toLowerCase().includes('blocking')
         || msg.toLowerCase().includes('blocked')
         || msg.toLowerCase().includes('bot')
-        || msg.includes('503')
-        || msg.includes('500')
-        || msg.includes('403')
-        || msg.includes('404');
+        || msg.includes('503') || msg.includes('500')
+        || msg.includes('403') || msg.includes('404');
       if (isBlockMsg) {
-        // Detect site name from the error message first, then from the URL
         let site = 'The site';
         if (msg.toLowerCase().includes('amazon')) site = 'Amazon';
         else if (msg.toLowerCase().includes('flipkart')) site = 'Flipkart';
@@ -313,11 +312,11 @@ export default function NewRequest({ onCreated }) {
   /* ── Validation ── */
   const validate = () => {
     const errs = {};
-    if (!form.title.trim())                                          errs.title       = 'Product name is required';
+    if (!form.title.trim()) errs.title = 'Product name is required';
     if (!form.amount || isNaN(Number(form.amount)) || +form.amount <= 0) errs.amount = 'Enter a valid amount';
-    if (!form.category)                                              errs.category    = 'Select a category';
-    if (!form.deadline)                                              errs.deadline    = 'Set a deadline';
-    if (!form.description.trim())                                    errs.description = 'Add a brief description';
+    if (!form.category) errs.category = 'Select a category';
+    if (!form.deadline) errs.deadline = 'Set a deadline';
+    if (!form.description.trim()) errs.description = 'Add a brief description';
     return errs;
   };
 
@@ -330,29 +329,30 @@ export default function NewRequest({ onCreated }) {
 
     try {
       await api.create('requests', {
-        user_id:       user?.id,
-        title:         form.title.trim(),
-        amount:        Number(form.amount),
-        category:      form.category,
-        deadline:      form.deadline,
-        description:   form.description.trim(),
-        product_link:  form.productLink,
+        user_id: user?.id,
+        title: form.title.trim(),
+        amount: Number(form.amount),
+        category: form.category,
+        deadline: form.deadline,
+        description: form.description.trim(),
+        product_link: form.productLink,
         product_image: form.productImage,
-        raw_offers:    form.rawOffers,
-        merchant:      form.merchant,
-        is_public:     form.isPublic,
-        status:        'pending',
-        /* Properly mapped card discount (₹ rupees) */
+        raw_offers: form.rawOffers,
+        merchant: form.merchant,
+        is_public: form.isPublic,
+        status: 'pending',
         best_card_info: form.bestCardInfo ? {
-          card_name:       form.bestCardInfo.card_name,
-          bank:            form.bestCardInfo.bank,
+          card_name: form.bestCardInfo.card_name,
+          bank: form.bestCardInfo.bank,
           discount_amount: form.bestCardInfo.discount_amount,
-          final_price:     form.bestCardInfo.final_price,
+          final_price: form.bestCardInfo.final_price,
         } : null,
       });
 
       setSuccess(true);
       setForm(INITIAL);
+      setManualMode(false);
+      setCrawlerFilled(false);
       if (onCreated) onCreated();
     } catch {
       setDbError('Unexpected error. Please try again.');
@@ -362,6 +362,7 @@ export default function NewRequest({ onCreated }) {
   };
 
   const inputCls = field => `input-dark${errors[field] ? ' error' : ''}`;
+  const today = new Date().toISOString().split('T')[0];
 
   /* ── Success screen ── */
   if (success) {
@@ -390,10 +391,14 @@ export default function NewRequest({ onCreated }) {
   /* ── Main form ── */
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl">
+
+      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>New Purchase Request</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          Paste a product link — we'll auto-fill details and find the best card discount.
+          {manualMode
+            ? 'Enter your product details manually to create a request for any store.'
+            : "Paste a product link — we'll auto-fill details and find the best card discount."}
         </p>
       </div>
 
@@ -404,7 +409,7 @@ export default function NewRequest({ onCreated }) {
             className="mb-5 rounded-xl px-4 py-3 text-sm flex items-center gap-2"
             style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', color: '#a78bfa' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+              <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
             </svg>
             <span><strong>Loaded from Chrome Extension</strong> — price &amp; card offer pre-filled. Review and submit.</span>
           </motion.div>
@@ -423,103 +428,160 @@ export default function NewRequest({ onCreated }) {
       </AnimatePresence>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* ── STEP 1: Product Link ── */}
-        <div className="rounded-xl p-4" style={{ background: 'var(--surface2)', border: '2px solid rgba(139,92,246,0.3)' }}>
-          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
-            📌 Step 1: Paste Product Link
-          </p>
 
-          <Field label="Product Link" icon={Globe} error={errors.productLink || fetchError}>
-            <div className="flex gap-2">
-              <input
-                id="req-link"
-                type="url"
-                value={form.productLink}
-                onChange={set('productLink')}
-                placeholder="https://amazon.in/laptop... or https://flipkart.com/... or https://myntra.com/..."
-                disabled={!!crawlStep && crawlStep !== 'done'}
-                className={`flex-1 ${inputCls('productLink')}`}
-              />
-              <motion.button
-                type="button"
-                id="req-autofill"
-                onClick={handleFetchProduct}
-                disabled={(!!crawlStep && crawlStep !== 'done') || !form.productLink.trim()}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition whitespace-nowrap"
-                style={{
-                  background: 'var(--primary)',
-                  color: 'white',
-                  opacity: (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 0.5 : 1,
-                  cursor:  (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 'not-allowed' : 'pointer',
-                }}>
-                {(crawlStep && crawlStep !== 'done')
-                  ? <><Loader size={15} className="animate-spin" /> Fetching…</>
-                  : <><Zap size={15} /> Auto-fill</>}
-              </motion.button>
-            </div>
-          </Field>
-
-          {/* Live crawl status stepper */}
-          <AnimatePresence>
-            {crawlStep && (
-              <motion.div className="mt-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <CrawlStatus step={crawlStep} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Fetch error with retry hint */}
-          <AnimatePresence>
-            {fetchError && (
-              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs"
-                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-                <span className="flex-1">{fetchError}</span>
-                <button type="button" onClick={handleFetchProduct}
-                  className="flex items-center gap-1 font-semibold flex-shrink-0 hover:opacity-80"
-                  style={{ color: '#ef4444' }}>
-                  <RefreshCw size={11} /> Retry
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ── STEP 2: Auto-filled Product Details ── */}
-        <AnimatePresence>
-          {form.title && (
+        {/* ══════════════════════════════════════════
+            STEP 1 — Auto-fill via URL  /  Manual banner
+        ══════════════════════════════════════════ */}
+        <AnimatePresence mode="wait">
+          {!manualMode ? (
             <motion.div
+              key="autofill-step1"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="rounded-xl p-4"
+              style={{ background: 'var(--surface2)', border: '2px solid rgba(139,92,246,0.3)' }}>
+
+              <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
+                📌 Step 1: Paste Product Link
+              </p>
+
+              <Field label="Product Link" icon={Globe} error={errors.productLink || fetchError}>
+                <div className="flex gap-2">
+                  <input
+                    id="req-link"
+                    type="url"
+                    value={form.productLink}
+                    onChange={set('productLink')}
+                    placeholder="https://amazon.in/... or flipkart.com/... or myntra.com/..."
+                    disabled={!!crawlStep && crawlStep !== 'done'}
+                    className={`flex-1 ${inputCls('productLink')}`}
+                  />
+                  <motion.button
+                    type="button"
+                    id="req-autofill"
+                    onClick={handleFetchProduct}
+                    disabled={(!!crawlStep && crawlStep !== 'done') || !form.productLink.trim()}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition whitespace-nowrap"
+                    style={{
+                      background: 'var(--primary)',
+                      color: 'white',
+                      opacity: (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 0.5 : 1,
+                      cursor: (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 'not-allowed' : 'pointer',
+                    }}>
+                    {(crawlStep && crawlStep !== 'done')
+                      ? <><Loader size={15} className="animate-spin" /> Fetching…</>
+                      : <><Zap size={15} /> Auto-fill</>}
+                  </motion.button>
+                </div>
+              </Field>
+
+              {/* Crawl status stepper */}
+              <AnimatePresence>
+                {crawlStep && (
+                  <motion.div className="mt-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <CrawlStatus step={crawlStep} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Fetch error with retry */}
+              <AnimatePresence>
+                {fetchError && (
+                  <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                    <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+                    <span className="flex-1">{fetchError}</span>
+                    <button type="button" onClick={handleFetchProduct}
+                      className="flex items-center gap-1 font-semibold flex-shrink-0 hover:opacity-80"
+                      style={{ color: '#ef4444' }}>
+                      <RefreshCw size={11} /> Retry
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Manual mode trigger */}
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-[11px]" style={{ color: 'var(--text-dim)' }}>
+                  Supports Amazon, Flipkart &amp; Myntra
+                </span>
+                <button
+                  type="button"
+                  id="req-manual-toggle"
+                  onClick={enterManualMode}
+                  className="text-xs flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--text-dim)' }}>
+                  <Edit3 size={11} />
+                  Fill manually instead
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            /* ── Manual mode active banner ── */
+            <motion.div
+              key="manual-step1-banner"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="rounded-xl px-4 py-3 flex items-center justify-between"
+              style={{ background: 'rgba(139,92,246,0.08)', border: '1px dashed rgba(139,92,246,0.4)' }}>
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--primary)' }}>
+                <Edit3 size={13} />
+                <span className="font-semibold">Manual Entry Mode</span>
+                <span style={{ color: 'var(--text-dim)' }}>— works with any store or offline purchase</span>
+              </div>
+              <button
+                type="button"
+                id="req-autofill-toggle"
+                onClick={exitManualMode}
+                className="text-xs flex items-center gap-1.5 hover:opacity-80 transition-opacity font-medium"
+                style={{ color: 'var(--text-dim)' }}>
+                <Zap size={11} />
+                Switch to Auto-fill
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ══════════════════════════════════════════
+            STEP 2a — Auto-filled product details (editable)
+        ══════════════════════════════════════════ */}
+        <AnimatePresence>
+          {crawlerFilled && !manualMode && (
+            <motion.div
+              key="step2-crawled"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid rgba(16,185,129,0.25)', background: 'rgba(16,185,129,0.05)' }}>
+              style={{ border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.04)' }}>
 
               {/* Header */}
               <div className="px-4 pt-4 pb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: '#10b981' }}>
                   <CheckCircle2 size={13} />
                   Step 2: Auto-filled Details
+                  <span className="font-normal text-[10px]" style={{ color: 'var(--text-dim)' }}>
+                    — edit if needed
+                  </span>
                 </p>
                 <MerchantBadge merchant={form.merchant} />
               </div>
 
-              {/* Product card — image + title + price */}
+              {/* Editable product card */}
               <div className="px-4 pb-3">
                 <div className="flex gap-3 p-3 rounded-xl" style={{ background: 'var(--surface)' }}>
                   {/* Thumbnail */}
                   {form.productImage ? (
                     <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden"
                       style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                      <img
-                        src={form.productImage}
-                        alt={form.title}
+                      <img src={form.productImage} alt={form.title}
                         className="w-full h-full object-contain"
-                        onError={e => { e.target.style.display = 'none'; }}
-                      />
+                        onError={e => { e.target.style.display = 'none'; }} />
                     </div>
                   ) : (
                     <div className="w-20 h-20 flex-shrink-0 rounded-lg flex items-center justify-center"
@@ -528,37 +590,45 @@ export default function NewRequest({ onCreated }) {
                     </div>
                   )}
 
-                  {/* Product info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold leading-snug line-clamp-2 mb-2"
-                      style={{ color: 'var(--text)' }}>
-                      {form.title}
-                    </p>
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <div>
-                        <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Detected price</p>
-                        <p className="text-xl font-bold" style={{ color: 'var(--text)' }}>
-                          ₹{Number(form.amount).toLocaleString('en-IN')}
-                        </p>
+                  {/* Editable fields */}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <Field label="Product Name" icon={PenLine} error={errors.title} autoFilled>
+                      <input
+                        id="req-title-edit"
+                        type="text"
+                        value={form.title}
+                        onChange={set('title')}
+                        placeholder="Product name"
+                        className={inputCls('title')}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                    </Field>
+                    <Field label="Listed Price (₹)" icon={Tag} error={errors.amount} autoFilled
+                      hint="Full MRP before discounts">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
+                          style={{ color: 'var(--text-muted)' }}>₹</span>
+                        <input
+                          id="req-amount-edit"
+                          type="number"
+                          min="1"
+                          value={form.amount}
+                          onChange={set('amount')}
+                          placeholder="0"
+                          className={`${inputCls('amount')} pl-7`}
+                          style={{ fontSize: '0.8rem' }}
+                        />
                       </div>
-                      {form.bestCardInfo?.discount_amount > 0 && (
-                        <div>
-                          <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>After card discount</p>
-                          <p className="text-xl font-bold" style={{ color: '#10b981' }}>
-                            ₹{Number(form.bestCardInfo.final_price).toLocaleString('en-IN')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                    </Field>
                   </div>
                 </div>
               </div>
 
-              {/* Card Discount section */}
+              {/* Best card offer panel */}
               <div className="px-4 pb-4">
                 {form.bestCardInfo?.discount_amount > 0 ? (
                   <div className="rounded-xl p-3.5"
-                    style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ background: 'rgba(139,92,246,0.15)' }}>
@@ -596,18 +666,16 @@ export default function NewRequest({ onCreated }) {
                         </div>
                       </div>
                     </div>
-                    {/* All raw offers collapsible */}
                     <RawOffersList offers={form.rawOffers} />
                   </div>
                 ) : (
-                  /* No discount found state */
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"
                     style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
                     <CreditCard size={13} style={{ color: 'var(--text-dim)' }} />
                     No card discount detected for this product
                     {form.rawOffers?.length > 0 && (
                       <span style={{ color: 'var(--text-dim)' }}>
-                        &nbsp;· {form.rawOffers.length} offer string{form.rawOffers.length !== 1 ? 's' : ''} found (none matched known banks)
+                        &nbsp;· {form.rawOffers.length} offer string{form.rawOffers.length !== 1 ? 's' : ''} found
                       </span>
                     )}
                   </div>
@@ -617,23 +685,128 @@ export default function NewRequest({ onCreated }) {
           )}
         </AnimatePresence>
 
-        {/* ── STEP 3: Manual user inputs ── */}
-        <div>
-          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>📝 Step 3: Your Details</p>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Category" icon={Tag} error={errors.category}>
-                <select id="req-category" value={form.category} onChange={set('category')} className={inputCls('category')}>
-                  <option value="">Select category</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </Field>
+        {/* ══════════════════════════════════════════
+            STEP 2b — Manual entry panel
+        ══════════════════════════════════════════ */}
+        <AnimatePresence>
+          {manualMode && (
+            <motion.div
+              key="step2-manual"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="rounded-xl overflow-hidden"
+              style={{ border: '1px solid rgba(139,92,246,0.3)', background: 'var(--surface2)' }}>
 
-              <Field label="Deadline" icon={Calendar} error={errors.deadline}>
-                <input id="req-deadline" type="date" value={form.deadline} onChange={set('deadline')}
-                  min={new Date().toISOString().split('T')[0]} className={inputCls('deadline')} />
-              </Field>
-            </div>
+              {/* Header */}
+              <div className="px-4 pt-4 pb-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--text)' }}>
+                  <Edit3 size={13} style={{ color: 'var(--primary)' }} />
+                  Step 2: Product Details
+                </p>
+                <p className="text-[11px] mt-0.5 mb-4" style={{ color: 'var(--text-dim)' }}>
+                  Works with any e-commerce site, offline purchase, or custom listing.
+                </p>
+              </div>
+
+              <div className="px-4 pb-4 space-y-4">
+
+                {/* Product name */}
+                <Field label="Product Name" icon={ShoppingBag} error={errors.title}>
+                  <input
+                    id="req-manual-title"
+                    type="text"
+                    value={form.title}
+                    onChange={set('title')}
+                    placeholder="e.g. Samsung Galaxy S24 256GB Phantom Black"
+                    className={inputCls('title')}
+                  />
+                </Field>
+
+                {/* Listed price */}
+                <Field label="Listed Price (₹)" icon={Tag} error={errors.amount}
+                  hint="Full MRP — before any card discount">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
+                      style={{ color: 'var(--text-muted)' }}>₹</span>
+                    <input
+                      id="req-manual-amount"
+                      type="number"
+                      min="1"
+                      value={form.amount}
+                      onChange={set('amount')}
+                      placeholder="0"
+                      className={`${inputCls('amount')} pl-7`}
+                    />
+                  </div>
+                </Field>
+
+                {/* Category + Offer expiry — 2-col grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Category" icon={Tag} error={errors.category}>
+                    <select id="req-manual-category" value={form.category} onChange={set('category')}
+                      className={inputCls('category')}>
+                      <option value="">Select category</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Field>
+
+                  <Field label="Offer Expiry Date" icon={Calendar} error={errors.deadline}
+                    hint="When does the offer expire?">
+                    <input
+                      id="req-manual-deadline"
+                      type="date"
+                      value={form.deadline}
+                      onChange={set('deadline')}
+                      min={today}
+                      className={inputCls('deadline')}
+                    />
+                  </Field>
+                </div>
+
+                {/* Optional product link for reference */}
+                <Field label="Product Link (optional)" icon={Globe}>
+                  <input
+                    id="req-manual-link"
+                    type="url"
+                    value={form.productLink}
+                    onChange={set('productLink')}
+                    placeholder="https://any-site.com/product/... (for reference only)"
+                    className="input-dark"
+                  />
+                </Field>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ══════════════════════════════════════════
+            STEP 3 — Description + toggles
+        ══════════════════════════════════════════ */}
+        <div>
+          <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
+            📝 Step 3: Your Details
+          </p>
+          <div className="space-y-4">
+
+            {/* Category + Deadline shown here ONLY in auto-fill mode
+                (manual mode has them in Step 2b instead) */}
+            {!manualMode && (
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Category" icon={Tag} error={errors.category}>
+                  <select id="req-category" value={form.category} onChange={set('category')}
+                    className={inputCls('category')}>
+                    <option value="">Select category</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+
+                <Field label="Deadline" icon={Calendar} error={errors.deadline}>
+                  <input id="req-deadline" type="date" value={form.deadline} onChange={set('deadline')}
+                    min={today} className={inputCls('deadline')} />
+                </Field>
+              </div>
+            )}
 
             <Field label="Description" icon={AlignLeft} error={errors.description}>
               <textarea id="req-description" value={form.description} onChange={set('description')} rows={3}
@@ -658,7 +831,7 @@ export default function NewRequest({ onCreated }) {
           </div>
         </label>
 
-        {/* Info box */}
+        {/* How it works */}
         <div className="rounded-xl p-4 text-xs" style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}>
           <p className="font-semibold mb-2" style={{ color: 'var(--primary)' }}>💡 How it works</p>
           <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--text-muted)' }}>

@@ -17,15 +17,16 @@ export async function GET(request) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // requests | offers | escrow | disputes | all
+    const type   = searchParams.get('type');   // requests | offers | transactions | all
+    const userId = searchParams.get('userId'); // optional — filter by owner
 
     if (type === 'all') {
       const [requests, offers, transactions] = await Promise.all([
-        Request.find().sort({ createdAt: -1 }).limit(50).lean(),
-        Offer.find().sort({ createdAt: -1 }).limit(50).lean(),
-        Transaction.find().sort({ createdAt: -1 }).limit(50).lean(),
+        Request.find().sort({ createdAt: -1 }).limit(100).lean(),
+        Offer.find().sort({ createdAt: -1 }).limit(100).lean(),
+        Transaction.find().sort({ createdAt: -1 }).limit(100).lean(),
       ]);
-      // Map _id to id for frontend compatibility
+      // Map _id → id for frontend compatibility
       const mapId = arr => arr.map(d => ({ ...d, id: d._id.toString(), _id: undefined }));
       return NextResponse.json({ requests: mapId(requests), offers: mapId(offers), transactions: mapId(transactions) });
     }
@@ -33,7 +34,9 @@ export async function GET(request) {
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
-    const data = await Model.find().sort({ createdAt: -1 }).limit(50).lean();
+    // Scope to a single user when userId is supplied
+    const filter = userId ? { user_id: userId } : {};
+    const data   = await Model.find(filter).sort({ createdAt: -1 }).limit(100).lean();
     const mapped = data.map(d => ({ ...d, id: d._id.toString(), _id: undefined }));
     return NextResponse.json({ data: mapped });
   } catch (err) {
@@ -92,12 +95,23 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   try {
     await connectDB();
+    const user = getUser(request);
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
-    const id = searchParams.get('id');
+    const id   = searchParams.get('id');
 
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+
+    // Ownership check for requests — only the owner may delete
+    if (type === 'requests' && user) {
+      const existing = await Request.findById(id).lean();
+      if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (existing.user_id.toString() !== user.id)
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      if (existing.status === 'completed')
+        return NextResponse.json({ error: 'Cannot delete completed requests' }, { status: 400 });
+    }
 
     await Model.findByIdAndDelete(id);
     return NextResponse.json({ success: true });

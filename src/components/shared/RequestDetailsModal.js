@@ -77,22 +77,22 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
     
     setLoading(true);
     try {
-      await api.update('requests', req.id || req._id, {
-        title: form.title.trim(),
-        amount: Number(form.amount),
-        category: form.category,
-        deadline: form.deadline,
-        description: form.description.trim(),
-        product_link: form.productLink,
+      const res = await api.update('requests', req.id || req._id, {
+        title:         form.title.trim(),
+        amount:        Number(form.amount),
+        category:      form.category,
+        deadline:      form.deadline,
+        description:   form.description.trim(),
+        product_link:  form.productLink,
         required_card: form.requiredCard,
-        is_public: form.isPublic,
+        is_public:     form.isPublic,
       });
       setSaveSuccess(true);
       setTimeout(() => {
         setIsEditing(false);
         setSaveSuccess(false);
-        if (onUpdated) onUpdated();
-      }, 1500);
+        if (onUpdated) onUpdated(res?.data ?? null); // pass updated doc back
+      }, 1200);
     } catch (err) {
       setErrors({ submit: err.message || 'Failed to save' });
     } finally {

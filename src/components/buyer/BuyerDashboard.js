@@ -203,7 +203,7 @@ function RequestRow({ req, index, onViewDetails, onEdit }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────
-export default function BuyerDashboard({ requests = [], onPaymentAction, refreshKey = 0 }) {
+export default function BuyerDashboard({ requests = [], onPaymentAction, onRefresh, refreshKey = 0 }) {
   const { user } = useAuth();
   const [selectedReq, setSelectedReq] = useState(null);
   const [editingReq, setEditingReq] = useState(null);
@@ -246,14 +246,14 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
     }
   };
 
-  const handleRequestUpdated = useCallback(async () => {
-    if (!selectedReq) return;
-    try {
-      const res = await api.getRequests();
-      const updated = (res.data || []).find(r => (r.id || r._id) === (selectedReq.id || selectedReq._id));
-      if (updated) setSelectedReq(updated);
-    } catch { /* ignore */ }
-  }, [selectedReq]);
+  const handleRequestUpdated = useCallback(async (updatedDoc) => {
+    // If the caller passes the updated document directly, no extra fetch needed
+    // Otherwise fall back to a targeted GET for this user's requests
+    if (updatedDoc) {
+      // The parent will re-fetch via onRefresh; just close the modal
+    }
+    if (onRefresh) onRefresh();
+  }, [onRefresh]);
 
   // ── Computed stats ──────────────────────────────────────────────
   const pending      = requests.filter(r => r.status === 'pending').length;
@@ -279,7 +279,16 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
   return (
     <div className="space-y-7 max-w-5xl">
       {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} onUpdated={handleRequestUpdated} />}
-      {editingReq && <EditRequestModal req={editingReq} onClose={() => setEditingReq(null)} onUpdated={() => { setEditingReq(null); window.location.reload(); }} />}
+      {editingReq && (
+        <EditRequestModal
+          req={editingReq}
+          onClose={() => setEditingReq(null)}
+          onUpdated={(updatedDoc) => {
+            setEditingReq(null);
+            if (onRefresh) onRefresh();      // re-fetch all from DB — updates the requests[] prop
+          }}
+        />
+      )}
 
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
@@ -386,7 +395,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, refresh
         ) : (
           <motion.div variants={container} initial="hidden" animate="visible">
             {requests.slice(0, 8).map((req, i) => (
-              <RequestRow key={req.id} req={req} index={i} onViewDetails={handleViewRequestDetails} onEdit={setEditingReq} />
+              <RequestRow key={req.id || req._id} req={req} index={i} onViewDetails={handleViewRequestDetails} onEdit={setEditingReq} />
             ))}
           </motion.div>
         )}

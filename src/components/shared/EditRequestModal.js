@@ -83,21 +83,21 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
     
     setErrors({}); setDbError(null); setLoading(true);
     try {
-      await api.update('requests', req.id || req._id, {
-        title: form.title.trim(),
-        amount: Number(form.amount),
-        category: form.category,
-        deadline: form.deadline,
-        description: form.description.trim(),
-        product_link: form.productLink,
+      const res = await api.update('requests', req.id || req._id, {
+        title:         form.title.trim(),
+        amount:        Number(form.amount),
+        category:      form.category,
+        deadline:      form.deadline,
+        description:   form.description.trim(),
+        product_link:  form.productLink,
         required_card: form.requiredCard,
-        is_public: form.isPublic,
+        is_public:     form.isPublic,
       });
       setSuccess(true);
       setTimeout(() => {
-        if (onUpdated) onUpdated();
+        if (onUpdated) onUpdated(res?.data ?? null); // pass updated doc back
         onClose();
-      }, 1000);
+      }, 900);
     } catch (err) {
       setDbError(err.message || 'Unexpected error. Please try again.');
     } finally {

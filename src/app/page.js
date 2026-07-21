@@ -67,7 +67,7 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
     if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} transactions={db.transactions} />;
     if (role === 'provider')          return <CardholderDashboard offers={myOffers} transactions={myTransactions} requests={db.requests} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} onPaymentAction={onPaymentAction} onTrackingAction={onTrackingAction} refreshKey={refreshKey} />;
-    return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} refreshKey={refreshKey} />;
+    return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} onRefresh={onRefresh} refreshKey={refreshKey} />;
   }
   if (activeTab === 'marketplace')  return <Marketplace requests={publicRequests} />;
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;

@@ -28,11 +28,16 @@ export const api = {
   me:       ()                                => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'me' }), headers: { Authorization: `Bearer ${getToken()}` } }),
 
   // Data
-  fetchAll:  ()                => request('/api/data?type=all'),
-  fetch:     (type)            => request(`/api/data?type=${type}`),
-  create:    (type, data)      => request('/api/data', { method: 'POST', body: JSON.stringify({ type, ...data }) }),
-  update:    (type, id, data)  => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type, id, ...data }) }),
-  remove:    (type, id)        => request(`/api/data?type=${type}&id=${id}`, { method: 'DELETE' }),
+  fetchAll:      ()                => request('/api/data?type=all'),
+  fetch:         (type)            => request(`/api/data?type=${type}`),
+  create:        (type, data)      => request('/api/data', { method: 'POST', body: JSON.stringify({ type, ...data }) }),
+  update:        (type, id, data)  => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type, id, ...data }) }),
+  remove:        (type, id)        => request(`/api/data?type=${type}&id=${id}`, { method: 'DELETE' }),
+
+  // Convenience: fetch only the current user's requests (userId optional — server filters when provided)
+  getRequests:   (userId)          => request(`/api/data?type=requests${userId ? `&userId=${userId}` : ''}`),
+  // Convenience: delete a request by id (server enforces ownership)
+  deleteRequest: (id)              => request(`/api/data?type=requests&id=${id}`, { method: 'DELETE' }),
 
   // Payment portal
   initiatePayment: (request_id, offer_id)       => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),
