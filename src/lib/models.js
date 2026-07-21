@@ -36,6 +36,7 @@ const RequestSchema = new mongoose.Schema({
   raw_offers:     { type: [String], default: [] },      // All bank offer strings from product page
   merchant:       { type: String, default: '' },        // 'amazon' | 'flipkart' | 'myntra'
   required_card:  { type: String, default: 'Any' },     // Preferred bank/card the buyer wants provider to use
+  pushed_at:      { type: Date,   default: Date.now },  // Creation or last 48h repush timestamp
 }, { timestamps: true });
 
 const OfferSchema = new mongoose.Schema({

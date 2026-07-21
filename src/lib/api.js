@@ -38,6 +38,8 @@ export const api = {
   getRequests:   (userId)          => request(`/api/data?type=requests${userId ? `&userId=${userId}` : ''}`),
   // Convenience: delete a request by id (server enforces ownership)
   deleteRequest: (id)              => request(`/api/data?type=requests&id=${id}`, { method: 'DELETE' }),
+  // Convenience: repush an unmatched request for another 48 hours
+  repushRequest: (id)              => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type: 'requests', id, pushed_at: new Date().toISOString() }) }),
 
   // Payment portal
   initiatePayment: (request_id, offer_id)       => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),

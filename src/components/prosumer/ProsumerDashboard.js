@@ -89,8 +89,62 @@ function TrackingBanner({ tx, onSubmit }) {
   );
 }
 
+// ── 48h Unmatched Expired Alert Banner ────────────────────────────
+function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleRepushClick = async () => {
+    setLoading(true);
+    await onRepush(req);
+    setLoading(false);
+  };
+
+  const handleRevokeClick = async () => {
+    setLoading(true);
+    await onRevoke(req);
+    setLoading(false);
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="relative rounded-2xl p-4 flex items-center gap-4 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(245,158,11,0.08) 100%)', border: '1px solid rgba(239,68,68,0.35)' }}>
+
+      <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}>
+        <Clock size={16} className="text-white" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold uppercase" style={{ color: '#ef4444' }}>Unmatched Request Expired (48h)</p>
+        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{req.title}</p>
+        <p className="text-xs" style={{ color: 'var(--text-dim)' }}>₹{Number(req.amount).toLocaleString('en-IN')}</p>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <motion.button onClick={handleRepushClick} disabled={loading}
+          whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+          className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} /> Repush 48h
+        </motion.button>
+        <motion.button onClick={handleRevokeClick} disabled={loading}
+          whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+          className="text-xs px-3 py-1.5 rounded-xl font-semibold transition"
+          style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+          Revoke
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────
-export default function ProsumerDashboard({ requests=[], offers:offersProp=[], onPaymentAction, onTrackingAction, refreshKey=0 }) {
+export default function ProsumerDashboard({ requests=[], offers:offersProp=[], onPaymentAction, onTrackingAction, onRefresh, refreshKey=0 }) {
   const { user } = useAuth();
   const [editingReq, setEditingReq] = useState(null);
   const [pendingTxs, setPendingTxs]   = useState([]);
@@ -136,9 +190,44 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
     { label:'Provider Earned', value:`₹${Math.round(totalEarned).toLocaleString('en-IN')}`, sub:'2% commission',    icon:Banknote,     iconClass:'stat-purple',  delay:0.21 },
   ];
 
+  const handleRepushRequest = useCallback(async (req) => {
+    try {
+      await api.repushRequest(req.id || req._id);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Repush Error]', e);
+    }
+  }, [onRefresh]);
+
+  const handleRevokeRequest = useCallback(async (req) => {
+    try {
+      await api.deleteRequest(req.id || req._id);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Revoke Error]', e);
+    }
+  }, [onRefresh]);
+
+  // Pending requests unmatched for >= 48 hours
+  const expiredRequests = requests.filter(r => {
+    if (r.status !== 'pending') return false;
+    const startTime = new Date(r.pushed_at || r.createdAt || r.updatedAt).getTime();
+    if (isNaN(startTime)) return false;
+    return (Date.now() - startTime) >= 48 * 60 * 60 * 1000;
+  });
+
   return (
     <div className="space-y-7 max-w-5xl">
-      {editingReq && <EditRequestModal req={editingReq} onClose={() => setEditingReq(null)} onUpdated={() => { setEditingReq(null); window.location.reload(); }} />}
+      {editingReq && (
+        <EditRequestModal
+          req={editingReq}
+          onClose={() => setEditingReq(null)}
+          onUpdated={(doc) => {
+            setEditingReq(null);
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
 
       {/* Header */}
       <motion.div initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }}
@@ -161,6 +250,22 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
           <RefreshCw size={13} /> Refresh
         </motion.button>
       </motion.div>
+
+      {/* ── 48h Unmatched Expired Banners ── */}
+      <AnimatePresence mode="popLayout">
+        {expiredRequests.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+            {expiredRequests.map(req => (
+              <UnmatchedExpireBanner
+                key={req.id || req._id}
+                req={req}
+                onRepush={handleRepushRequest}
+                onRevoke={handleRevokeRequest}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Action banners */}
       <AnimatePresence mode="popLayout">

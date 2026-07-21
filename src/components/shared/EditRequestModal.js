@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, Tag, AlignLeft, Globe, CreditCard, Save, DollarSign } from 'lucide-react';
+import { X, Calendar, Tag, AlignLeft, Globe, CreditCard, Save, DollarSign, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const CATEGORIES = ['Electronics','Fashion & Clothing','Beauty & Skincare','Home & Kitchen','Books & Stationery','Sports & Fitness','Toys & Games','Groceries','Health & Wellness','Footwear','Accessories','Gaming','Mobile & Tablets','Appliances','Other'];
@@ -40,6 +40,8 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [dbError, setDbError] = useState(null);
   const [success, setSuccess] = useState(false);
 
@@ -105,6 +107,24 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    setDbError(null);
+    try {
+      await api.deleteRequest(req.id || req._id);
+      if (onUpdated) onUpdated(null);
+      onClose();
+    } catch (err) {
+      setDbError(err.message || 'Failed to delete request.');
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   const inputCls = (field) => `input-dark${errors[field] ? ' error' : ''}`;
 
   if (!req) return null;
@@ -118,7 +138,7 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
           initial={{ opacity: 0 }} animate={{ opacity: 0.75 }} exit={{ opacity: 0 }}
           className="absolute inset-0 cursor-pointer"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
-          onClick={() => !loading && onClose()} />
+          onClick={() => !loading && !deleting && onClose()} />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.93, y: 20 }}
@@ -134,7 +154,7 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
               <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Edit Request</h2>
               <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Update your purchase request details</p>
             </div>
-            <button onClick={() => !loading && onClose()} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-dim)' }}
+            <button onClick={() => !loading && !deleting && onClose()} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-dim)' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--surface3)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <X size={18} />
@@ -157,9 +177,9 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
                 <AnimatePresence>
                   {dbError && (
                     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="rounded-xl px-4 py-3 text-sm"
+                      className="rounded-xl px-4 py-3 text-sm flex items-center justify-between"
                       style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                      {dbError}
+                      <span>{dbError}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -223,20 +243,36 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
 
           {/* Footer */}
           {!success && (
-            <div className="px-6 py-4 flex items-center gap-3" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
-              <button onClick={() => !loading && onClose()} disabled={loading}
-                className="btn-secondary flex-1 py-2.5 text-sm">
-                Cancel
+            <div className="px-6 py-4 flex items-center justify-between gap-3" style={{ borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading || deleting}
+                className="px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                style={{
+                  color: '#ef4444',
+                  background: confirmDelete ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                }}>
+                <Trash2 size={14} />
+                {deleting ? 'Deleting...' : confirmDelete ? 'Click to Confirm Delete' : 'Delete'}
               </button>
-              <motion.button id="edit-req-save" type="submit" form="edit-req-form" disabled={loading} onClick={handleSubmit}
-                whileHover={{ scale: loading ? 1 : 1.01 }} whileTap={{ scale: loading ? 1 : 0.97 }}
-                className="btn-primary flex-1 py-2.5 text-sm justify-center">
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <><Save size={14} /> Save Changes</>
-                )}
-              </motion.button>
+
+              <div className="flex items-center gap-3 flex-1 justify-end">
+                <button onClick={() => !loading && !deleting && onClose()} disabled={loading || deleting}
+                  className="btn-secondary py-2.5 text-sm px-4">
+                  Cancel
+                </button>
+                <motion.button id="edit-req-save" type="submit" form="edit-req-form" disabled={loading || deleting} onClick={handleSubmit}
+                  whileHover={{ scale: (loading || deleting) ? 1 : 1.01 }} whileTap={{ scale: (loading || deleting) ? 1 : 0.97 }}
+                  className="btn-primary py-2.5 text-sm px-5 justify-center">
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <><Save size={14} /> Save Changes</>
+                  )}
+                </motion.button>
+              </div>
             </div>
           )}
         </motion.div>

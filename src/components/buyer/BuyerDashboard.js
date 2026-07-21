@@ -126,6 +126,75 @@ function TrackingBanner({ tx, onViewTracking }) {
   );
 }
 
+// ── 48h Unmatched Expired Alert Banner ────────────────────────────
+function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleRepushClick = async () => {
+    setLoading(true);
+    await onRepush(req);
+    setLoading(false);
+  };
+
+  const handleRevokeClick = async () => {
+    setLoading(true);
+    await onRevoke(req);
+    setLoading(false);
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(245,158,11,0.08) 100%)', border: '1px solid rgba(239,68,68,0.35)' }}>
+
+      <motion.div
+        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+        className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)', boxShadow: '0 6px 20px rgba(239,68,68,0.3)' }}>
+        <Clock size={18} className="text-white" />
+      </motion.div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="live-dot-amber" />
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Unmatched Request Expired (48h)</p>
+        </div>
+        <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
+          Request unmatched for 48 hours — Repush for 48h or Revoke to drop
+        </p>
+        <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-semibold" style={{ color: 'var(--text)' }}>{req.title}</span>
+          {' · '}₹{Number(req.amount).toLocaleString('en-IN')}
+          {' · '}Category: {req.category || 'General'}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <motion.button
+          onClick={handleRepushClick}
+          disabled={loading}
+          whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+          className="btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5">
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Repush 48h
+        </motion.button>
+        <motion.button
+          onClick={handleRevokeClick}
+          disabled={loading}
+          whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+          className="text-xs px-3.5 py-2 rounded-xl font-semibold transition"
+          style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+          Revoke &amp; Drop
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Request row ────────────────────────────────────────────────────
 function RequestRow({ req, index, onViewDetails, onEdit }) {
   const color = CATEGORY_COLORS[req.category] || '#8b5cf6';
@@ -276,6 +345,32 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
       : `${Math.floor((Date.now() - lastUpdated) / 60000)}m ago`
     : '—';
 
+  const handleRepushRequest = useCallback(async (req) => {
+    try {
+      await api.repushRequest(req.id || req._id);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Repush Error]', e);
+    }
+  }, [onRefresh]);
+
+  const handleRevokeRequest = useCallback(async (req) => {
+    try {
+      await api.deleteRequest(req.id || req._id);
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Revoke Error]', e);
+    }
+  }, [onRefresh]);
+
+  // Pending requests unmatched for >= 48 hours
+  const expiredRequests = requests.filter(r => {
+    if (r.status !== 'pending') return false;
+    const startTime = new Date(r.pushed_at || r.createdAt || r.updatedAt).getTime();
+    if (isNaN(startTime)) return false;
+    return (Date.now() - startTime) >= 48 * 60 * 60 * 1000;
+  });
+
   return (
     <div className="space-y-7 max-w-5xl">
       {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} onUpdated={handleRequestUpdated} />}
@@ -312,6 +407,22 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
           <RefreshCw size={13} /> Refresh
         </motion.button>
       </motion.div>
+
+      {/* ── 48h Unmatched Expired Banners ── */}
+      <AnimatePresence mode="popLayout">
+        {expiredRequests.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+            {expiredRequests.map(req => (
+              <UnmatchedExpireBanner
+                key={req.id || req._id}
+                req={req}
+                onRepush={handleRepushRequest}
+                onRevoke={handleRevokeRequest}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Pending Payment Banners ── */}
       <AnimatePresence mode="popLayout">
