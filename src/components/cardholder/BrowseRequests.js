@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Tag, Calendar, Zap, CheckCircle2, Globe, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Filter, Tag, Calendar, Zap, CheckCircle2, Globe, ShieldCheck, Loader2, AlertCircle, CreditCard } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const CATEGORY_COLORS = {
@@ -35,11 +35,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
   const pendingReqs = allRequests.filter(r => {
     if (r.status !== 'pending') return false;
     if (requestsWithOffer.has(r.id?.toString?.() || r._id?.toString?.() || r.id)) return false;
-    // Check if ANY provider card has sufficient limit (no specific card required)
-    return myOffers.some(o => {
-      const sufficientLimit = Number(o.max_amount || o.limit || 0) >= Number(r.amount);
-      return sufficientLimit;
-    });
+    return true;
   });
 
   const displayReqs = pendingReqs.filter(r =>
@@ -62,14 +58,28 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
       setErrorMsg('You have no active cards listed. Go to My Cards to add one.');
       return;
     }
-    // Find any matching offer with sufficient limit
-    const matchingOffer = myOffers.find(o => {
+    const requiredBank = req.required_card || req.best_card_info?.bank;
+    
+    // 1. Try finding card matching exact bank & sufficient limit
+    let matchingOffer = myOffers.find(o => {
+      const bankMatch = requiredBank && requiredBank !== 'Any' && o.bank?.toLowerCase() === requiredBank.toLowerCase();
       const sufficientLimit = Number(o.max_amount || o.limit || 0) >= Number(req.amount);
-      return sufficientLimit;
+      return bankMatch && sufficientLimit;
     });
+
+    // 2. Fall back to any card matching bank
+    if (!matchingOffer && requiredBank && requiredBank !== 'Any') {
+      matchingOffer = myOffers.find(o => o.bank?.toLowerCase() === requiredBank.toLowerCase());
+    }
+
+    // 3. Fall back to any card with sufficient limit
     if (!matchingOffer) {
-      setErrorMsg('No card with sufficient limit found for this request.');
-      return;
+      matchingOffer = myOffers.find(o => Number(o.max_amount || o.limit || 0) >= Number(req.amount));
+    }
+
+    // 4. Fall back to first available card
+    if (!matchingOffer) {
+      matchingOffer = myOffers[0];
     }
 
     setOfferState(req.id, 'loading');
@@ -184,6 +194,44 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                       <p className="text-xl font-bold" style={{ color: 'var(--text)' }}>₹{req.amount.toLocaleString('en-IN')}</p>
                       <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>budget</p>
                     </div>
+                  </div>
+
+                  {/* Required Card Badge & Product Link */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold"
+                      style={{
+                        background: (req.required_card && req.required_card !== 'Any') ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)',
+                        color: (req.required_card && req.required_card !== 'Any') ? '#f59e0b' : 'var(--primary)',
+                        border: `1px solid ${(req.required_card && req.required_card !== 'Any') ? 'rgba(245,158,11,0.25)' : 'rgba(139,92,246,0.25)'}`,
+                      }}>
+                      <CreditCard size={12} />
+                      Required Card: <strong>{req.required_card || req.best_card_info?.bank || 'Any Card'}</strong>
+                    </span>
+
+                    {/* Show if the provider owns a matching card */}
+                    {(() => {
+                      const requiredBank = req.required_card || req.best_card_info?.bank;
+                      const hasMatchingCard = requiredBank && requiredBank !== 'Any' && myOffers.some(o => o.bank?.toLowerCase() === requiredBank.toLowerCase());
+                      if (hasMatchingCard) {
+                        return (
+                          <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                            style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                            <CheckCircle2 size={11} /> Matching Card
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {req.product_link && (
+                      <a href={req.product_link} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition ml-auto"
+                        style={{ background: 'var(--surface2)', color: 'var(--primary)', border: '1px solid var(--border)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface3)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'var(--surface2)'}>
+                        <Globe size={11} /> View Product
+                      </a>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--text-dim)' }}>
