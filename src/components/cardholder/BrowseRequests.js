@@ -19,6 +19,33 @@ function useOfferState() {
   return [states, set];
 }
 
+function isEligibleForRequest(req, myOffers) {
+  if (!myOffers?.length) return false;
+  const requiredBank = req.required_card || req.best_card_info?.bank;
+  if (!requiredBank || requiredBank === 'Any') return true;
+  
+  return myOffers.some(o => {
+    if (!o.bank) return false;
+    const b1 = o.bank.toLowerCase().trim();
+    const b2 = requiredBank.toLowerCase().trim();
+    return b1.includes(b2) || b2.includes(b1);
+  });
+}
+
+function getMatchingOffer(req, myOffers) {
+  const requiredBank = req.required_card || req.best_card_info?.bank;
+  if (requiredBank && requiredBank !== 'Any') {
+    const bankMatch = myOffers.find(o => {
+      if (!o.bank) return false;
+      const b1 = o.bank.toLowerCase().trim();
+      const b2 = requiredBank.toLowerCase().trim();
+      return b1.includes(b2) || b2.includes(b1);
+    });
+    if (bankMatch) return bankMatch;
+  }
+  return myOffers[0] || null;
+}
+
 export default function BrowseRequests({ requests: reqsProp, offers: offersProp, transactions: txsProp = [] }) {
   const [search, setSearch]       = useState('');
   const [category, setCategory]   = useState('All');
@@ -59,27 +86,17 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
       return;
     }
     const requiredBank = req.required_card || req.best_card_info?.bank;
-    
-    // 1. Try finding card matching exact bank & sufficient limit
-    let matchingOffer = myOffers.find(o => {
-      const bankMatch = requiredBank && requiredBank !== 'Any' && o.bank?.toLowerCase() === requiredBank.toLowerCase();
-      const sufficientLimit = Number(o.max_amount || o.limit || 0) >= Number(req.amount);
-      return bankMatch && sufficientLimit;
-    });
+    const eligible = isEligibleForRequest(req, myOffers);
 
-    // 2. Fall back to any card matching bank
-    if (!matchingOffer && requiredBank && requiredBank !== 'Any') {
-      matchingOffer = myOffers.find(o => o.bank?.toLowerCase() === requiredBank.toLowerCase());
+    if (!eligible) {
+      setErrorMsg(`Ineligible: This request specifically requires a ${requiredBank} card. Add a ${requiredBank} card under 'My Cards' to make an offer.`);
+      return;
     }
 
-    // 3. Fall back to any card with sufficient limit
+    const matchingOffer = getMatchingOffer(req, myOffers);
     if (!matchingOffer) {
-      matchingOffer = myOffers.find(o => Number(o.max_amount || o.limit || 0) >= Number(req.amount));
-    }
-
-    // 4. Fall back to first available card
-    if (!matchingOffer) {
-      matchingOffer = myOffers[0];
+      setErrorMsg('No matching card found for this request.');
+      return;
     }
 
     setOfferState(req.id, 'loading');
@@ -173,6 +190,9 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
             className="grid md:grid-cols-2 gap-4">
             {filtered.map(req => {
               const offerState = offerStates[req.id] || 'idle';
+              const requiredBank = req.required_card || req.best_card_info?.bank;
+              const isEligible = isEligibleForRequest(req, myOffers);
+
               return (
                 <motion.div key={req.id} variants={card}
                   whileHover={{ y: -3, transition: { duration: 0.2 } }}
@@ -200,28 +220,26 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                   <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold"
                       style={{
-                        background: (req.required_card && req.required_card !== 'Any') ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)',
-                        color: (req.required_card && req.required_card !== 'Any') ? '#f59e0b' : 'var(--primary)',
-                        border: `1px solid ${(req.required_card && req.required_card !== 'Any') ? 'rgba(245,158,11,0.25)' : 'rgba(139,92,246,0.25)'}`,
+                        background: (requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)',
+                        color: (requiredBank && requiredBank !== 'Any') ? '#f59e0b' : 'var(--primary)',
+                        border: `1px solid ${(requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.25)' : 'rgba(139,92,246,0.25)'}`,
                       }}>
                       <CreditCard size={12} />
-                      Required Card: <strong>{req.required_card || req.best_card_info?.bank || 'Any Card'}</strong>
+                      Required Card: <strong>{requiredBank || 'Any Card'}</strong>
                     </span>
 
-                    {/* Show if the provider owns a matching card */}
-                    {(() => {
-                      const requiredBank = req.required_card || req.best_card_info?.bank;
-                      const hasMatchingCard = requiredBank && requiredBank !== 'Any' && myOffers.some(o => o.bank?.toLowerCase() === requiredBank.toLowerCase());
-                      if (hasMatchingCard) {
-                        return (
-                          <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                            style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
-                            <CheckCircle2 size={11} /> Matching Card
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
+                    {/* Show if the provider owns an eligible card */}
+                    {isEligible ? (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                        style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                        <CheckCircle2 size={11} /> Eligible Card
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                        style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+                        <AlertCircle size={11} /> Ineligible ({requiredBank} Required)
+                      </span>
+                    )}
 
                     {req.product_link && (
                       <a href={req.product_link} target="_blank" rel="noopener noreferrer"
@@ -270,14 +288,22 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
 
                   <motion.button
                     id={`offer-match-${req.id}`}
-                    onClick={() => offerState === 'idle' && handleMakeOffer(req)}
-                    disabled={offerState !== 'idle'}
-                    whileHover={{ scale: offerState === 'idle' ? 1.02 : 1 }}
-                    whileTap={{ scale: offerState === 'idle' ? 0.97 : 1 }}
+                    onClick={() => {
+                      if (!isEligible) {
+                        setErrorMsg(`Ineligible: This request specifically requires a ${requiredBank} card. Please add a ${requiredBank} card under 'My Cards' to make an offer.`);
+                        return;
+                      }
+                      if (offerState === 'idle') handleMakeOffer(req);
+                    }}
+                    disabled={!isEligible || offerState === 'loading' || offerState === 'sent'}
+                    whileHover={{ scale: (isEligible && offerState === 'idle') ? 1.02 : 1 }}
+                    whileTap={{ scale: (isEligible && offerState === 'idle') ? 0.97 : 1 }}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition"
                     style={
                       offerState === 'sent'
                         ? { background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)', cursor: 'default' }
+                        : !isEligible
+                        ? { background: 'rgba(239,68,68,0.06)', color: 'var(--text-dim)', border: '1px solid rgba(239,68,68,0.2)', cursor: 'not-allowed' }
                         : offerState === 'loading'
                         ? { background: 'var(--surface2)', color: 'var(--text-dim)', cursor: 'wait', border: '1px solid var(--border)' }
                         : offerState === 'error'
@@ -286,8 +312,9 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                     }>
                     {offerState === 'sent'    && <><CheckCircle2 size={14} />Offer Sent — Awaiting Payment</>}
                     {offerState === 'loading' && <><Loader2 size={14} className="animate-spin" />Sending Offer…</>}
-                    {offerState === 'error'   && <><AlertCircle size={14} />Retry Offer</>}
-                    {offerState === 'idle'    && <><Zap size={14} />Make an Offer</>}
+                    {!isEligible              && <><AlertCircle size={14} />Ineligible ({requiredBank} Card Required)</>}
+                    {isEligible && offerState === 'error'   && <><AlertCircle size={14} />Retry Offer</>}
+                    {isEligible && offerState === 'idle'    && <><Zap size={14} />Make an Offer</>}
                   </motion.button>
 
                   {offerState === 'sent' && (
