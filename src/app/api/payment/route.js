@@ -1,18 +1,7 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { User, Request, Offer, Transaction, Notification } from '@/lib/models';
-import { config } from '@/lib/config';
-
-const JWT_SECRET = config.jwt.secret;
-const PLATFORM_FEE_RATE = config.payment.platformFeeRate;
-
-function getUser(req) {
-  const auth = req.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  try { return jwt.verify(auth.split(' ')[1], JWT_SECRET); }
-  catch { return null; }
-}
+import { getUser } from '@/lib/auth';
 
 export async function GET(req) {
   try {
@@ -50,16 +39,15 @@ export async function POST(req) {
     if (!offerDoc)   return NextResponse.json({ error: 'Offer not found'   }, { status: 404 });
 
     const buyerDoc = await User.findById(requestDoc.user_id).lean();
-
     const amount = Number(requestDoc.amount);
     
-    // Scrape REAL card discounts from product page (in rupees, not percentages)
-    let actualDiscountAmount = Math.round(amount * 0.05); // ₹ fallback (5%)
-    let bestCardForDiscount = null;
-    
-    if (requestDoc.product_link && amount) {
+    // Check if card discount is already stored on the request
+    let actualDiscountAmount = requestDoc.best_card_info?.discount_amount || 0;
+    let bestCardForDiscount = requestDoc.best_card_info || null;
+
+    // Fall back to lightweight crawler if discount not yet populated
+    if (!actualDiscountAmount && requestDoc.product_link && amount) {
       try {
-        // Use lightweight extract-product crawler (works on Vercel)
         const crawlerRes = await fetch(new URL('/api/crawler/extract-product', req.url).toString(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -69,7 +57,7 @@ export async function POST(req) {
         if (crawlerRes.ok) {
           const crawlerData = await crawlerRes.json();
           if (crawlerData.success && crawlerData.best_card) {
-            actualDiscountAmount = crawlerData.best_card.discount_amount || actualDiscountAmount;
+            actualDiscountAmount = crawlerData.best_card.discount_amount || Math.round(amount * 0.05);
             bestCardForDiscount = {
               bank: crawlerData.best_card.bank,
               card_name: crawlerData.best_card.card_name || crawlerData.best_card.cardName || null,
@@ -77,7 +65,6 @@ export async function POST(req) {
               source: crawlerData.best_card.source || 'estimated',
             };
 
-            // Persist best card recommendation on the request
             await Request.findByIdAndUpdate(request_id, {
               best_card_info: bestCardForDiscount,
             });
@@ -88,8 +75,11 @@ export async function POST(req) {
       }
     }
 
-    // Calculate earnings using new 50/35/15 split model
-    // NOW: actualDiscountAmount is in RUPEES (not percentage)
+    if (!actualDiscountAmount) {
+      actualDiscountAmount = Math.round(amount * 0.05); // 5% default fallback
+    }
+
+    // Calculate earnings using 50/35/15 split model
     const customerSavings = Math.round(actualDiscountAmount * 0.50);
     const providerEarning = Math.round(actualDiscountAmount * 0.35);
     const platformCommission = Math.round(actualDiscountAmount * 0.15);

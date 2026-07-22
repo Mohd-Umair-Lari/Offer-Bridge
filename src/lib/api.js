@@ -25,7 +25,7 @@ export const api = {
   // Auth
   login:    (email, password)                 => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'login', email, password }) }),
   register: (email, password, fullName, role) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'register', email, password, fullName, role }) }),
-  me:       ()                                => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'me' }), headers: { Authorization: `Bearer ${getToken()}` } }),
+  me:       ()                                => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'me' }) }),
 
   // Data
   fetchAll:      ()                => request('/api/data?type=all'),

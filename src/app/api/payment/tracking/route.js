@@ -1,17 +1,7 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { Request, Transaction, Notification } from '@/lib/models';
-import { config } from '@/lib/config';
-
-const JWT_SECRET = config.jwt.secret;
-
-function getUser(req) {
-  const auth = req.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  try { return jwt.verify(auth.split(' ')[1], JWT_SECRET); }
-  catch { return null; }
-}
+import { getUser } from '@/lib/auth';
 
 export async function POST(req) {
   try {
@@ -49,11 +39,12 @@ export async function POST(req) {
       tx_id:   tx._id.toString(),
     });
 
+    const releasedAmount = tx.amount - (tx.platform_commission || 0);
     await Notification.create({
       user_id: tx.provider_id,
       type:    'info',
       title:   '💸 Payment Released',
-      message: `Escrow payment of ₹${(tx.amount - tx.platform_fee).toLocaleString('en-IN')} for "${tx.product_title}" has been released to your account.`,
+      message: `Escrow payment of ₹${releasedAmount.toLocaleString('en-IN')} for "${tx.product_title}" has been released to your account.`,
       tx_id:   tx._id.toString(),
     });
 
@@ -63,3 +54,4 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
+

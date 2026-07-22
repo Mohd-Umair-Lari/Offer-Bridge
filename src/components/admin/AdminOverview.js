@@ -32,7 +32,7 @@ export default function AdminOverview({ requests, offers, transactions }) {
   const txs   = transactions || [];
 
   const totalVolume  = reqs.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const totalFees    = txs.reduce((s, t) => s + Number(t.platform_fee || 0), 0);
+  const totalFees    = txs.reduce((s, t) => s + Number(t.platform_commission || t.platform_fee || 0), 0);
   const openDisputes = 0; // Disputes feature has been sunset
   const heldEscrow   = txs.filter(t => t.status === 'tracking_pending' || t.status === 'payment_received').reduce((s, t) => s + Number(t.amount || 0), 0);
 

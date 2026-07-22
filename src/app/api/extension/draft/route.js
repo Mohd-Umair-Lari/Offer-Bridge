@@ -1,27 +1,11 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
+import { connectDB } from '@/lib/mongodb';
 
-const DB_NAME = 'offerbridge';
 const env = (k) => process.env[k] || '';
 
-
-async function getDB() {
-  if (!global._mongooseCache) global._mongooseCache = { conn: null, promise: null };
-  const cache = global._mongooseCache;
-  if (cache.conn) return cache.conn;
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error('MONGODB_URI not configured.');
-  if (!cache.promise) {
-    cache.promise = mongoose.connect(uri, { dbName: DB_NAME, bufferCommands: false, maxPoolSize: 10 })
-      .then(m => m)
-      .catch(e => { cache.promise = null; throw e; });
-  }
-  cache.conn = await cache.promise;
-  return cache.conn;
-}
-
 async function getModel() {
-  await getDB();
+  await connectDB();
   if (mongoose.models.ExtDraft) return mongoose.models.ExtDraft;
 
   const schema = new mongoose.Schema({

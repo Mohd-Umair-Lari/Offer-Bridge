@@ -67,7 +67,8 @@ export const config = {
       secretKey: optionalEnvVars.STRIPE_SECRET_KEY,
     },
     webhookSecret: optionalEnvVars.PAYMENT_WEBHOOK_SECRET,
-    platformFeeRate: 0.02,
+    // 50% Buyer Savings / 35% Provider Earning / 15% Platform Commission split
+    feeSplit: { customer: 0.50, provider: 0.35, platform: 0.15 },
   },
   email: {
     sendgridApiKey: optionalEnvVars.SENDGRID_API_KEY,

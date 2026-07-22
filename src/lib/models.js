@@ -110,9 +110,19 @@ const NotificationSchema = new mongoose.Schema({
 
 
 
+// Production Query Indexes
+RequestSchema.index({ user_id: 1, status: 1 });
+RequestSchema.index({ status: 1, is_public: 1 });
+OfferSchema.index({ user_id: 1, status: 1 });
+TransactionSchema.index({ buyer_id: 1, createdAt: -1 });
+TransactionSchema.index({ provider_id: 1, createdAt: -1 });
+TransactionSchema.index({ status: 1, tracking_due_at: 1 });
+NotificationSchema.index({ user_id: 1, read: 1, createdAt: -1 });
+
 export const User         = mongoose.models.User         || mongoose.model('User', UserSchema);
 export const Request      = mongoose.models.Request      || mongoose.model('Request', RequestSchema);
 export const Offer        = mongoose.models.Offer        || mongoose.model('Offer', OfferSchema);
 
 export const Transaction  = mongoose.models.Transaction  || mongoose.model('Transaction', TransactionSchema);
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
+

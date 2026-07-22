@@ -1,17 +1,7 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { connectDB } from '@/lib/mongodb';
 import { Notification } from '@/lib/models';
-import { config } from '@/lib/config';
-
-const JWT_SECRET = config.jwt.secret;
-
-function getUser(req) {
-  const auth = req.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return null;
-  try { return jwt.verify(auth.split(' ')[1], JWT_SECRET); }
-  catch { return null; }
-}
+import { getUser } from '@/lib/auth';
 
 // GET /api/notifications?limit=20   → fetch user's notifications
 export async function GET(req) {
