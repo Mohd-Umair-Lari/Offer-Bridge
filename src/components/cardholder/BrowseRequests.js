@@ -113,7 +113,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
   return (
     <div className="space-y-6 max-w-5xl">
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Browse Requests</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Marketplace</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
           Matched to your active cards {myBanks.length > 0 ? `(${myBanks.join(', ')})` : ''}
         </p>

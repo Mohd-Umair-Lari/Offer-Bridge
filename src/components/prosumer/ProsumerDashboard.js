@@ -443,7 +443,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
           <p className="text-xs leading-relaxed" style={{ color:'var(--text-muted)' }}>
             As a prosumer, you can <strong style={{ color:'var(--primary)' }}>buy with card discounts</strong> and
             <strong style={{ color:'#10b981' }}> earn 2% commission</strong> as a provider — all from one account.
-            Use the sidebar to access My Cards, Browse Requests, and New Request.
+            Use the sidebar to access My Cards, Marketplace, and New Request.
           </p>
         </div>
       </motion.div>

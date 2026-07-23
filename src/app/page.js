@@ -15,7 +15,6 @@ import LandingPage from '@/components/landing/LandingPage';
 import AuthScreen from '@/components/auth/AuthScreen';
 import OnboardingWizard from '@/components/auth/OnboardingWizard';
 import BuyerDashboard from '@/components/buyer/BuyerDashboard';
-import Marketplace from '@/components/buyer/Marketplace';
 import NewRequest from '@/components/buyer/NewRequest';
 import CardholderDashboard from '@/components/cardholder/CardholderDashboard';
 import BrowseRequests from '@/components/cardholder/BrowseRequests';
@@ -28,13 +27,13 @@ import TrackingModal from '@/components/shared/TrackingModal';
 
 const BUYER_NAV = [
   { id: 'dashboard',   label: 'Dashboard',   icon: LayoutGrid },
-  { id: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
+  { id: 'browse',      label: 'Marketplace', icon: ShoppingBag },
   { id: 'new-request', label: 'New Request', icon: PlusCircle },
 ];
 const PROVIDER_NAV = [
-  { id: 'dashboard', label: 'Dashboard',       icon: LayoutGrid },
-  { id: 'browse',    label: 'Browse Requests', icon: ShoppingBag },
-  { id: 'my-cards',  label: 'My Cards',        icon: CreditCard },
+  { id: 'dashboard', label: 'Dashboard',   icon: LayoutGrid },
+  { id: 'browse',    label: 'Marketplace', icon: ShoppingBag },
+  { id: 'my-cards',  label: 'My Cards',    icon: CreditCard },
 ];
 const ADMIN_NAV = [
   { id: 'dashboard', label: 'Overview',  icon: LayoutGrid },
@@ -46,9 +45,12 @@ function getNavSections(role) {
     case 'customer': return [{ label: 'Buyer',    items: BUYER_NAV }];
     case 'provider': return [{ label: 'Provider', items: PROVIDER_NAV }];
     case 'customer_provider': return [
-      { label: 'Buyer',    items: BUYER_NAV },
+      { label: 'Buyer',    items: [
+        { id: 'dashboard',   label: 'Dashboard',   icon: LayoutGrid },
+        { id: 'new-request', label: 'New Request', icon: PlusCircle },
+      ]},
       { label: 'Provider', items: [
-        { id: 'browse',   label: 'Browse Requests', icon: ShoppingBag },
+        { id: 'browse',   label: 'Marketplace', icon: ShoppingBag },
         { id: 'my-cards', label: 'My Cards',        icon: CreditCard },
       ]},
     ];
@@ -59,7 +61,6 @@ function getNavSections(role) {
 function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction, refreshKey) {
   const myRequests     = db.requests.filter(r => r.user_id === user?.id);
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
-  const publicRequests = db.requests.filter(r => r.is_public !== false && r.status === 'pending');
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
   const myTransactions = db.transactions.filter(t => t.provider_id === user?.id);
 
@@ -69,9 +70,8 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
     if (role === 'customer_provider') return <ProsumerDashboard requests={myRequests} offers={myOffers} onPaymentAction={onPaymentAction} onTrackingAction={onTrackingAction} onRefresh={onRefresh} refreshKey={refreshKey} />;
     return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} onRefresh={onRefresh} refreshKey={refreshKey} />;
   }
-  if (activeTab === 'marketplace')  return <Marketplace requests={publicRequests} />;
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
-  if (activeTab === 'browse')       return <BrowseRequests requests={marketRequests} offers={myOffers} transactions={myTransactions} />;
+  if (activeTab === 'browse' || activeTab === 'marketplace') return <BrowseRequests requests={marketRequests} offers={myOffers} transactions={myTransactions} />;
   if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
   return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }
