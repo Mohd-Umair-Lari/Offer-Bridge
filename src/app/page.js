@@ -20,6 +20,7 @@ import BrowseRequests from '@/components/cardholder/BrowseRequests';
 import MyCards from '@/components/cardholder/MyCards';
 import AdminOverview from '@/components/admin/AdminOverview';
 import ProsumerDashboard from '@/components/prosumer/ProsumerDashboard';
+import SettingsPage from '@/components/settings/SettingsPage';
 import NotificationBell from '@/components/shared/NotificationBell';
 import PaymentModal from '@/components/shared/PaymentModal';
 import TrackingModal from '@/components/shared/TrackingModal';
@@ -58,6 +59,8 @@ function getNavSections(role) {
 }
 
 function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, onTrackingAction, refreshKey) {
+  if (activeTab === 'settings') return <SettingsPage />;
+
   const myRequests     = db.requests.filter(r => r.user_id === user?.id);
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
@@ -106,7 +109,7 @@ function ThemeToggle() {
             <Sun size={15} />
           </motion.span>
         ) : (
-          <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
+          <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
             <Moon size={15} />
           </motion.span>
         )}
@@ -115,12 +118,12 @@ function ThemeToggle() {
   );
 }
 
-function UserMenu({ displayName, role, onSignOut }) {
+function UserMenu({ displayName, role, onSignOut, onOpenSettings }) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const initial = displayName?.[0]?.toUpperCase() ?? 'U';
 
-  const handleClick = useCallback(async () => {
+  const handleSignOut = useCallback(async () => {
     setSigningOut(true);
     try { await onSignOut(); setOpen(false); }
     catch { setSigningOut(false); }
@@ -164,8 +167,19 @@ function UserMenu({ displayName, role, onSignOut }) {
                 <span className="text-[10px] mt-0.5 block" style={{ color: 'var(--text-dim)' }}>{ROLE_LABELS[role] ?? role}</span>
               </div>
               <button
+                id="user-menu-settings"
+                onClick={() => { setOpen(false); if (onOpenSettings) onOpenSettings(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition mb-0.5"
+                style={{ color: 'var(--text)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Settings size={14} style={{ color: 'var(--text-dim)' }} />
+                Account Settings
+              </button>
+              <button
                 id="user-menu-signout"
-                onClick={handleClick}
+                onClick={handleSignOut}
                 disabled={signingOut}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition disabled:opacity-50"
                 style={{ color: '#ef4444' }}
@@ -260,12 +274,16 @@ export default function OfferBridges() {
     return () => clearInterval(id);
   }, [user?.id]);
 
-  // Keyboard shortcut ⌘K / Ctrl+K listener for Search
+  // Keyboard shortcut listeners (⌘K for search, ⌘, for settings)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(prev => !prev);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setActiveTab('settings');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -295,6 +313,7 @@ export default function OfferBridges() {
 
   const navSections = getNavSections(role);
   const activeTabTitle = 
+    activeTab === 'settings' ? 'Settings' :
     activeTab === 'dashboard' ? (role === 'admin' ? 'Overview' : 'Home') :
     activeTab === 'browse' || activeTab === 'marketplace' ? 'Marketplace' :
     activeTab === 'new-request' ? 'New Request' :
@@ -452,14 +471,29 @@ export default function OfferBridges() {
           <div className="mt-auto pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--border)' }}>
             {!desktopCollapsed && (
               <div
-                onClick={() => setIsSearchOpen(true)}
-                className="group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                onClick={() => handleTab('settings')}
+                className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
+                  activeTab === 'settings' ? 'font-semibold' : ''
+                }`}
+                style={{
+                  background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
+                  color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)'
+                }}
+                onMouseEnter={e => {
+                  if (activeTab !== 'settings') {
+                    e.currentTarget.style.background = 'var(--surface2)';
+                    e.currentTarget.style.color = 'var(--text)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeTab !== 'settings') {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                  }
+                }}
               >
                 <div className="flex items-center gap-2.5">
-                  <Settings className="w-[16px] h-[16px]" style={{ color: 'var(--text-dim)' }} strokeWidth={1.5} />
+                  <Settings className="w-[16px] h-[16px]" style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} strokeWidth={1.5} />
                   <span className="text-[13px]">Settings</span>
                 </div>
                 <kbd className="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-mono rounded-[4px]"
@@ -529,14 +563,14 @@ export default function OfferBridges() {
 
               <NotificationBell onPaymentAction={openPaymentModal} onTrackingAction={openTrackingModal} />
               <ThemeToggle />
-              <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} />
+              <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} onOpenSettings={() => setActiveTab('settings')} />
             </div>
           </header>
 
           {/* Main Content Scroll Area */}
           <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
             <div className="max-w-6xl mx-auto">
-              {dbLoading && !db.requests.length ? (
+              {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
                 <SkeletonDashboard />
               ) : (
                 <AnimatePresence mode="wait">

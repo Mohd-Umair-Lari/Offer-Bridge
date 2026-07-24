@@ -593,7 +593,7 @@ export default function NewRequest({ onCreated }) {
                     className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition whitespace-nowrap"
                     style={{
                       background: 'var(--primary)',
-                      color: 'white',
+                      color: 'var(--bg)',
                       opacity: (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 0.5 : 1,
                       cursor: (!!crawlStep && crawlStep !== 'done') || !form.productLink.trim() ? 'not-allowed' : 'pointer',
                     }}>

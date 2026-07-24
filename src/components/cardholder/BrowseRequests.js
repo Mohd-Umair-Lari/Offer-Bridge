@@ -143,12 +143,12 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
               className="flex items-center gap-1.5 px-4 py-2 text-sm rounded-xl font-medium transition"
               style={isActive
-                ? { background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', color: 'white', boxShadow: '0 4px 14px var(--primary-glow)' }
+                ? { background: 'var(--primary)', color: 'var(--bg)' }
                 : { background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
               <Icon size={14} />
               {t.label}
               <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                style={{ background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--surface3)', color: isActive ? 'white' : 'var(--text-dim)' }}>
+                style={{ background: isActive ? 'var(--surface3)' : 'var(--surface3)', color: isActive ? 'var(--text)' : 'var(--text-dim)' }}>
                 {t.count}
               </span>
             </motion.button>
@@ -169,7 +169,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
             <button key={cat} onClick={() => setCategory(cat)}
               className="text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 font-medium transition"
               style={category === cat
-                ? { background: 'var(--primary)', color: 'white' }
+                ? { background: 'var(--primary)', color: 'var(--bg)' }
                 : { background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
               {cat}
             </button>
@@ -308,7 +308,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                         ? { background: 'var(--surface2)', color: 'var(--text-dim)', cursor: 'wait', border: '1px solid var(--border)' }
                         : offerState === 'error'
                         ? { background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }
-                        : { background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', color: 'white', boxShadow: '0 4px 14px var(--primary-glow)' }
+                        : { background: 'var(--primary)', color: 'var(--bg)' }
                     }>
                     {offerState === 'sent'    && <><CheckCircle2 size={14} />Offer Sent — Awaiting Payment</>}
                     {offerState === 'loading' && <><Loader2 size={14} className="animate-spin" />Sending Offer…</>}

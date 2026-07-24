@@ -145,7 +145,7 @@ export default function TrackingModal({ tx, onClose, onSuccess }) {
                       <button key={c} onClick={() => { setCourier(c); setError(''); }}
                         className="py-2 px-1 rounded-xl text-[11px] font-medium text-center transition"
                         style={courier === c
-                          ? { background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%)', color: 'white' }
+                          ? { background: 'var(--primary)', color: 'var(--bg)' }
                           : { background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
                         {c}
                       </button>

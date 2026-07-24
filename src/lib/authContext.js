@@ -117,6 +117,17 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const updateUser = useCallback(async (updatedFields) => {
+    setUser(prev => {
+      const next = { ...prev, ...updatedFields };
+      if (typeof window !== 'undefined') {
+        try { localStorage.setItem('ob_saved_user', JSON.stringify(next)); } catch {}
+      }
+      return next;
+    });
+    return { success: true };
+  }, []);
+
   const role        = user?.role ?? 'customer';
   const displayName = user?.fullName || user?.email || 'User';
   const needsOnboarding = user && user.onboarding_complete === false;
@@ -125,7 +136,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, role, displayName, loading,
       needsOnboarding,
-      signIn, signUp, signInWithOAuth, signOut, completeOnboarding,
+      signIn, signUp, signInWithOAuth, signOut, completeOnboarding, updateUser,
     }}>
       {children}
     </AuthContext.Provider>

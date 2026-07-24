@@ -180,7 +180,7 @@ export default function Marketplace({ requests: requestsProp }) {
               whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
               className="text-xs px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0 font-medium transition"
               style={category === cat
-                ? { background: 'var(--primary)', color: 'white', boxShadow: '0 2px 10px var(--primary-glow)' }
+                ? { background: 'var(--primary)', color: 'var(--bg)' }
                 : { background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
               {cat}
             </motion.button>

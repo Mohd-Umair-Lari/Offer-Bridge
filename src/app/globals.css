@@ -391,8 +391,8 @@ body {
 
 /* ── Buttons ────────────────────────────────────────────────── */
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-h) 100%);
-  color: white;
+  background: var(--primary);
+  color: var(--bg);
   border: none;
   border-radius: 14px;
   padding: 0.7rem 1.5rem;
