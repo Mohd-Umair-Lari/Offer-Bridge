@@ -23,19 +23,19 @@ const BANKS = [
 ];
 
 const INITIAL = {
-  productLink:        '',
-  title:              '',
-  amount:             '',
-  category:           '',
-  deadline:           '',
-  description:        '',
-  bestCardInfo:       null,   // { bank, discount_amount, final_price, card_name }
-  productImage:       '',
-  rawOffers:          [],
-  merchant:           '',
-  isPublic:           true,
-  requiredCard:       'Any',  // preferred bank for the offer (saved as required_card)
-  manualCardBank:     '',     // manual card entry — bank
+  productLink: '',
+  title: '',
+  amount: '',
+  category: '',
+  deadline: '',
+  description: '',
+  bestCardInfo: null,   // { bank, discount_amount, final_price, card_name }
+  productImage: '',
+  rawOffers: [],
+  merchant: '',
+  isPublic: true,
+  requiredCard: 'Any',  // preferred bank for the offer (saved as required_card)
+  manualCardBank: '',     // manual card entry — bank
   manualCardDiscount: '',     // manual card entry — ₹ discount amount
 };
 
@@ -454,24 +454,24 @@ export default function NewRequest({ onCreated }) {
 
     try {
       await api.create('requests', {
-        user_id:       user?.id,
-        title:         form.title.trim(),
-        amount:        Number(form.amount),
-        category:      form.category,
-        deadline:      form.deadline,
-        description:   form.description.trim(),
-        product_link:  form.productLink,
+        user_id: user?.id,
+        title: form.title.trim(),
+        amount: Number(form.amount),
+        category: form.category,
+        deadline: form.deadline,
+        description: form.description.trim(),
+        product_link: form.productLink,
         product_image: form.productImage,
-        raw_offers:    form.rawOffers,
-        merchant:      form.merchant,
-        is_public:     form.isPublic,
+        raw_offers: form.rawOffers,
+        merchant: form.merchant,
+        is_public: form.isPublic,
         required_card: form.requiredCard || 'Any',
         status: 'pending',
         best_card_info: form.bestCardInfo ? {
-          card_name:       form.bestCardInfo.card_name,
-          bank:            form.bestCardInfo.bank,
+          card_name: form.bestCardInfo.card_name,
+          bank: form.bestCardInfo.bank,
           discount_amount: form.bestCardInfo.discount_amount,
-          final_price:     form.bestCardInfo.final_price,
+          final_price: form.bestCardInfo.final_price,
         } : null,
       });
 
@@ -967,7 +967,7 @@ export default function NewRequest({ onCreated }) {
 
               <Field label="Description" icon={AlignLeft} error={errors.description}>
                 <textarea id="req-description" value={form.description} onChange={set('description')} rows={1}
-                  placeholder="Any special requirements? Color, brand preference, urgency..."
+                  placeholder="Any special requirements?"
                   className={inputCls('description')} style={{ resize: 'none' }} />
               </Field>
             </div>
