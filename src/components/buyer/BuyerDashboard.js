@@ -58,7 +58,6 @@ function PayBanner({ tx, onPay, onDismiss }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="live-dot-amber" />
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#f59e0b' }}>Action Required</p>
         </div>
         <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
@@ -92,18 +91,17 @@ function TrackingBanner({ tx, onViewTracking }) {
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.14) 0%,rgba(6,182,212,0.06) 100%)', border: '1px solid rgba(16,185,129,0.35)' }}>
+      style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
       <motion.div
         animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
         className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', boxShadow: '0 6px 20px rgba(16,185,129,0.4)' }}>
-        <Truck size={18} className="text-white" />
+        style={{ background: 'var(--surface3)' }}>
+        <Truck size={18} style={{ color: 'var(--text)' }} />
       </motion.div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="live-dot-green" />
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#10b981' }}>Order Placed</p>
         </div>
         <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
@@ -119,7 +117,7 @@ function TrackingBanner({ tx, onViewTracking }) {
         onClick={() => onViewTracking(tx)}
         whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
         className="shrink-0 text-white text-sm px-5 py-2.5 rounded-xl font-semibold transition"
-        style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', border: '1px solid rgba(16,185,129,0.3)' }}>
+        style={{ background: 'var(--surface3)', border: '1px solid var(--border)' }}>
         <LinkIcon size={14} className="inline mr-1" /> View Tracking
       </motion.button>
     </motion.div>
@@ -150,18 +148,17 @@ function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.12) 0%,rgba(245,158,11,0.08) 100%)', border: '1px solid rgba(239,68,68,0.35)' }}>
+      style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
       <motion.div
         animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
         className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)', boxShadow: '0 6px 20px rgba(239,68,68,0.3)' }}>
-        <Clock size={18} className="text-white" />
+        style={{ background: 'var(--surface3)' }}>
+        <Clock size={18} style={{ color: 'var(--text)' }} />
       </motion.div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="live-dot-amber" />
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Unmatched Request Expired (48h)</p>
         </div>
         <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
@@ -389,10 +386,6 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="live-dot" />
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#10b981' }}>Live</span>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
             Buyer <span className="gradient-text">Dashboard</span>
           </h1>
@@ -469,15 +462,15 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Requests Table ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
-          className="card overflow-hidden lg:col-span-2">
+          className="card overflow-hidden lg:col-span-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
 
           {/* Table header */}
         <div className="px-6 py-5 flex items-center justify-between"
-          style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(139,92,246,0.04) 0%,transparent 100%)' }}>
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}>
-              <ShoppingBag size={16} style={{ color: 'var(--primary)' }} />
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <ShoppingBag size={16} style={{ color: 'var(--text)' }} />
             </div>
             <div>
               <h2 className="font-bold" style={{ color: 'var(--text)' }}>My Requests</h2>
@@ -485,10 +478,6 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
                 {requests.length} total · {pending} pending
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="live-dot" />
-            <span className="text-[10px] font-semibold" style={{ color: '#10b981' }}>Live sync</span>
           </div>
         </div>
 

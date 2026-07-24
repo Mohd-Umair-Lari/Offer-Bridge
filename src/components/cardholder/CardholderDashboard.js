@@ -65,7 +65,6 @@ function TrackingBanner({ tx, onSubmit }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          {urgent ? <span className="live-dot-amber" /> : <span className="live-dot" />}
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: urgent ? '#ef4444' : '#10b981' }}>
             {urgent ? '⚠ Urgent — < 6h remaining' : 'Order Ready to Ship'}
           </p>
@@ -199,10 +198,6 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
       <motion.div initial={{ opacity: 0, y: -14 }} animate={{ opacity: 1, y: 0 }}
         className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="live-dot" />
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#10b981' }}>Live</span>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>
             Provider <span className="gradient-text">Dashboard</span>
           </h1>
@@ -245,13 +240,13 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Active Offers ── */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="card overflow-hidden lg:col-span-2">
+          className="card overflow-hidden lg:col-span-2" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="px-6 py-5 flex items-center justify-between"
-          style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(139,92,246,0.04) 0%,transparent 100%)' }}>
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}>
-              <CreditCard size={16} style={{ color: 'var(--primary)' }} />
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <CreditCard size={16} style={{ color: 'var(--text)' }} />
             </div>
             <div>
               <h2 className="font-bold" style={{ color: 'var(--text)' }}>My Active Cards</h2>
@@ -259,10 +254,6 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
                 {myOffers.length} cards · visible to buyers
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="live-dot" />
-            <span className="text-[10px] font-semibold" style={{ color: '#10b981' }}>Live sync</span>
           </div>
         </div>
 

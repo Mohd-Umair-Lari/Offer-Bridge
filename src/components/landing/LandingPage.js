@@ -19,7 +19,7 @@ const FEATURES = [
   { icon: Zap, title: 'Instant Matching', desc: 'Our smart algorithm pairs buyers with the best available card offers in seconds.', color: '#8b5cf6' },
   { icon: TrendingUp, title: 'Real Earnings', desc: 'Cardholders earn commissions on every successful deal. Your unused offers make money.', color: '#f59e0b' },
   { icon: Lock, title: 'Verified Providers', desc: 'Every cardholder is verified. Browse with confidence knowing offers are genuine.', color: '#3b82f6' },
-  { icon: BarChart2, title: 'Live Analytics', desc: 'Track volume, earnings, and deal performance with real-time dashboards.', color: '#ec4899' },
+  { icon: BarChart2, title: 'Real-time Analytics', desc: 'Track volume, earnings, and deal performance with real-time dashboards.', color: '#ec4899' },
   { icon: Globe, title: 'Open Marketplace', desc: 'Browse hundreds of card offers across all major banks and categories.', color: '#06b6d4' },
 ];
 
@@ -79,7 +79,7 @@ export default function LandingPage({ onGetStarted }) {
             <motion.div variants={fadeUp} transition={{ duration: 0.5 }}
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-xs font-semibold"
               style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.25)', color: 'var(--primary)' }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#10b981' }} /> Now Live — Join 10,000+ users
+              Join 10,000+ users
             </motion.div>
 
             <motion.h1 variants={fadeUp} transition={{ duration: 0.6 }}

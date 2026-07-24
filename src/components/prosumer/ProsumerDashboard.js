@@ -233,10 +233,6 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
       <motion.div initial={{ opacity:0, y:-14 }} animate={{ opacity:1, y:0 }}
         className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="live-dot" />
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color:'#10b981' }}>Live</span>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight" style={{ color:'var(--text)' }}>
             Prosumer <span className="gradient-text">Dashboard</span>
           </h1>
