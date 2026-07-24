@@ -352,7 +352,7 @@ export default function OfferBridges() {
         {/* ── Dashboard Sidebar ──────────────── */}
         <aside
           className={`
-            hidden md:flex flex-col flex-shrink-0
+            hidden md:flex flex-col flex-shrink-0 h-full overflow-hidden
             transition-all duration-300 ease-in-out
             p-3 z-40 select-none
             ${desktopCollapsed ? 'w-20' : 'w-[260px]'}
@@ -386,10 +386,8 @@ export default function OfferBridges() {
             </div>
           </div>
 
-
-
-          {/* Navigation Groups */}
-          <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden flex flex-col gap-4 mt-1">
+          {/* Navigation Groups (Static non-scrollable) */}
+          <div className="flex-1 flex flex-col gap-4 mt-1 overflow-hidden">
             {navSections.map(({ label, items }) => (
               <div key={label} className="flex flex-col gap-0.5">
                 {!desktopCollapsed && (
@@ -451,39 +449,41 @@ export default function OfferBridges() {
 
           {/* Bottom Items */}
           <div className="mt-auto pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--border)' }}>
-            {!desktopCollapsed && (
-              <div
-                onClick={() => handleTab('settings')}
-                className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
-                  activeTab === 'settings' ? 'font-semibold' : ''
-                }`}
-                style={{
-                  background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
-                  color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)'
-                }}
-                onMouseEnter={e => {
-                  if (activeTab !== 'settings') {
-                    e.currentTarget.style.background = 'var(--surface2)';
-                    e.currentTarget.style.color = 'var(--text)';
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (activeTab !== 'settings') {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--text-muted)';
-                  }
-                }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Settings className="w-[16px] h-[16px]" style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} strokeWidth={1.5} />
-                  <span className="text-[13px]">Settings</span>
-                </div>
+            <div
+              onClick={() => handleTab('settings')}
+              className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
+                desktopCollapsed ? 'justify-center px-0' : ''
+              } ${activeTab === 'settings' ? 'font-semibold' : ''}`}
+              style={{
+                background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
+                color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)'
+              }}
+              onMouseEnter={e => {
+                if (activeTab !== 'settings') {
+                  e.currentTarget.style.background = 'var(--surface2)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }
+              }}
+              onMouseLeave={e => {
+                if (activeTab !== 'settings') {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }
+              }}
+              title={desktopCollapsed ? 'Settings' : undefined}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-[16px] h-[16px]" style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} strokeWidth={1.5} />
+                {!desktopCollapsed && <span className="text-[13px]">Settings</span>}
+              </div>
+              {!desktopCollapsed && (
                 <kbd className="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-mono rounded-[4px]"
                   style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>
                   ⌘,
                 </kbd>
-              </div>
-            )}
+              )}
+            </div>
+
             <div
               onClick={handleSignOut}
               className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
