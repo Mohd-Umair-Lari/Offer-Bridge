@@ -226,7 +226,7 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
 
                 <label className="flex items-center gap-3 p-3 rounded-lg cursor-pointer transition"
                   style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
                   <input type="checkbox" checked={form.isPublic} onChange={set('isPublic')}
                     className="w-4 h-4 rounded" style={{ accentColor: 'var(--primary)' }} />
@@ -236,14 +236,14 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
             ) : (
               <div className="space-y-5">
                 {/* Amount hero */}
-                <div className="rounded-2xl p-5 flex items-center justify-between text-white"
-                  style={{ background: 'linear-gradient(135deg, #0d0d1e 0%, #1a0a2e 50%, #2d1060 100%)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 4px 24px rgba(139,92,246,0.2)' }}>
+                <div className="rounded-2xl p-5 flex items-center justify-between"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>Budget Amount</p>
-                    <p className="text-3xl font-bold tabular-nums mt-0.5">₹{req.amount.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: 'var(--text-dim)' }}>Budget Amount</p>
+                    <p className="text-3xl font-bold tabular-nums mt-0.5" style={{ color: 'var(--text)' }}>₹{req.amount.toLocaleString('en-IN')}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                    <DollarSign size={22} style={{ color: '#a78bfa' }} />
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                    <DollarSign size={22} />
                   </div>
                 </div>
 
@@ -257,17 +257,17 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
 
                 {/* Best Card Discount if present */}
                 {req.best_card_info?.discount_amount > 0 && (
-                  <div className="rounded-xl p-4"
-                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                    <div className="rounded-xl p-4"
+                      style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(139,92,246,0.15)' }}>
+                        style={{ background: 'var(--primary-dim)' }}>
                         <CreditCard size={18} style={{ color: 'var(--primary)' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                            style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--primary)' }}>
+                            style={{ background: 'var(--surface3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                             💳 Best Card Offer
                           </span>
                           {req.best_card_info.bank && (
@@ -324,10 +324,10 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                     </div>
                     <a href={req.product_link} target="_blank" rel="noopener noreferrer"
                       className="text-sm block truncate rounded-xl p-3 transition"
-                      style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--primary)' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.2)'}
+                      style={{ background: 'var(--primary-dim)', border: '1px solid var(--border)', color: 'var(--primary)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'var(--primary-dim)'}>
-                      {req.product_link}
+                       {req.product_link}
                     </a>
                   </div>
                 )}
@@ -373,9 +373,9 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                   <RotateCcw size={14} className="inline mr-1" /> Cancel
                 </motion.button>
                 <motion.button onClick={handleSave} disabled={loading} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition text-white"
-                  style={{ background: loading ? 'rgba(139,92,246,0.5)' : 'var(--primary)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                  {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" /> : <><Save size={14} className="inline mr-1" /> Save Changes</>}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition"
+                  style={{ background: loading ? 'var(--surface3)' : 'var(--primary)', color: loading ? 'var(--text-muted)' : 'var(--bg)', border: '1px solid var(--border)' }}>
+                  {loading ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto" /> : <><Save size={14} className="inline mr-1" /> Save Changes</>}
                 </motion.button>
               </>
             ) : (
@@ -389,8 +389,8 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
                   <motion.button 
                     onClick={() => setIsEditing(true)}
                     whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition text-white"
-                    style={{ background: 'var(--primary)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition"
+                    style={{ background: 'var(--primary)', color: 'var(--bg)', border: '1px solid var(--border)' }}>
                     <Edit size={14} className="inline mr-1" /> Edit Request
                   </motion.button>
                 )}

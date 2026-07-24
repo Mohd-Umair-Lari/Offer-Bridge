@@ -14,7 +14,7 @@ const ALL_CATEGORIES = [
 ];
 
 const CATEGORY_COLORS = {
-  Electronics: '#8b5cf6', 'Mobile & Tablets': '#3b82f6', Travel: '#06b6d4',
+  Electronics: '#3b82f6', 'Mobile & Tablets': '#0ea5e9', Travel: '#06b6d4',
   Hotels: '#14b8a6', Dining: '#f97316', 'Fashion & Clothing': '#ec4899',
   Gaming: '#6366f1', 'Sports & Fitness': '#10b981', Appliances: '#0ea5e9',
 };
@@ -107,8 +107,8 @@ function RequestCard({ req }) {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs font-medium transition rounded-lg px-3 py-1.5"
-            style={{ background: 'var(--primary-dim)', color: 'var(--primary)', border: '1px solid rgba(139,92,246,0.2)' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.18)'}
+            style={{ background: 'var(--primary-dim)', color: 'var(--primary)', border: '1px solid var(--border)' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--primary-dim)'}>
             <ExternalLink size={11} /> View Product
           </a>

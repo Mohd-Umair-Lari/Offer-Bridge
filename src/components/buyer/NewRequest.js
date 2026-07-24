@@ -79,7 +79,7 @@ function MerchantBadge({ merchant }) {
   const isFlip = merchant === 'flipkart';
   const isMyntra = merchant === 'myntra';
 
-  let bg = 'rgba(124,58,237,0.15)', color = '#7c3aed', border = 'rgba(124,58,237,0.3)', label = '🔗 Merchant';
+  let bg = 'rgba(113,113,122,0.15)', color = '#71717a', border = 'rgba(113,113,122,0.3)', label = '🔗 Merchant';
   if (isAmz) { bg = 'rgba(255,153,0,0.15)'; color = '#ff9900'; border = 'rgba(255,153,0,0.3)'; label = '🛒 Amazon'; }
   if (isFlip) { bg = 'rgba(40,166,228,0.15)'; color = '#28a6e4'; border = 'rgba(40,166,228,0.3)'; label = '🔵 Flipkart'; }
   if (isMyntra) { bg = 'rgba(255,63,108,0.15)'; color = '#ff3f6c'; border = 'rgba(255,63,108,0.3)'; label = '🛍️ Myntra'; }
@@ -106,7 +106,7 @@ function CrawlStatus({ step }) {
   return (
     <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-      style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--primary)' }}>
+      style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--primary)' }}>
       {step !== 'done'
         ? <Loader size={12} className="animate-spin flex-shrink-0" />
         : <CheckCircle2 size={12} className="flex-shrink-0" style={{ color: '#10b981' }} />}
@@ -140,7 +140,7 @@ function RawOffersList({ offers }) {
             exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2 space-y-1.5">
             {offers.map((o, i) => (
               <li key={i} className="text-xs px-3 py-1.5 rounded"
-                style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderLeft: '2px solid rgba(139,92,246,0.3)' }}>
+                style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderLeft: '2px solid var(--border)' }}>
                 {o}
               </li>
             ))}
@@ -198,7 +198,7 @@ function ManualCardEntry({ bank, discount, amount, onBankChange, onDiscountChang
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden mt-2">
             <div className={`grid gap-3 p-3 rounded-xl ${compact ? 'grid-cols-1' : 'grid-cols-2'}`}
-              style={{ background: 'var(--surface)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div>
                 <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Bank / Card</label>
                 <select
@@ -566,7 +566,7 @@ export default function NewRequest({ onCreated }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               className="rounded-xl p-4"
-              style={{ background: 'var(--surface2)', border: '2px solid rgba(139,92,246,0.3)' }}>
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
               <p className="text-xs font-semibold mb-3" style={{ color: 'var(--text)' }}>
                 📌 Step 1: Paste Product Link
@@ -654,7 +654,7 @@ export default function NewRequest({ onCreated }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               className="rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ background: 'rgba(139,92,246,0.08)', border: '1px dashed rgba(139,92,246,0.4)' }}>
+              style={{ background: 'var(--surface2)', border: '1px dashed var(--border)' }}>
               <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--primary)' }}>
                 <Edit3 size={13} />
                 <span className="font-semibold">Manual Entry Mode</span>
@@ -754,16 +754,16 @@ export default function NewRequest({ onCreated }) {
               <div className="px-4 pb-4">
                 {form.bestCardInfo?.discount_amount > 0 ? (
                   <div className="rounded-xl p-3.5"
-                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.1) 0%,rgba(139,92,246,0.1) 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'rgba(139,92,246,0.15)' }}>
+                        style={{ background: 'var(--primary-dim)' }}>
                         <CreditCard size={18} style={{ color: 'var(--primary)' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                            style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--primary)' }}>
+                            style={{ background: 'var(--surface3)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                             💳 Best Card Offer
                           </span>
                           {form.bestCardInfo.bank && (
@@ -829,7 +829,7 @@ export default function NewRequest({ onCreated }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid rgba(139,92,246,0.3)', background: 'var(--surface2)' }}>
+              style={{ border: '1px solid var(--border)', background: 'var(--surface2)' }}>
 
               {/* Header */}
               <div className="px-4 pt-4 pb-1">
@@ -977,7 +977,7 @@ export default function NewRequest({ onCreated }) {
         {/* Marketplace toggle */}
         <label className="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition"
           style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
           onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
           <input type="checkbox" checked={form.isPublic} onChange={set('isPublic')}
             className="mt-1 w-4 h-4 rounded" style={{ accentColor: 'var(--primary)' }} />
@@ -990,7 +990,7 @@ export default function NewRequest({ onCreated }) {
         </label>
 
         {/* How it works */}
-        <div className="rounded-xl p-4 text-xs" style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.2)' }}>
+        <div className="rounded-xl p-4 text-xs" style={{ background: 'var(--primary-dim)', border: '1px solid var(--border)' }}>
           <p className="font-semibold mb-2" style={{ color: 'var(--primary)' }}>💡 How it works</p>
           <ol className="list-decimal list-inside space-y-1" style={{ color: 'var(--text-muted)' }}>
             <li>Paste product link → We auto-extract price &amp; best card discount</li>

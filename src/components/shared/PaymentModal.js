@@ -77,11 +77,11 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
 
           {/* Header */}
           <div className="px-6 py-5 flex items-center justify-between"
-            style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(139,92,246,0.12) 0%,rgba(59,130,246,0.08) 100%)' }}>
+            style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,var(--primary) 0%,var(--primary-h) 100%)', boxShadow: '0 4px 16px var(--primary-glow)' }}>
-                <ShieldCheck size={18} className="text-white" />
+                style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                <ShieldCheck size={18} />
               </div>
               <div>
                 <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>Secure Escrow Payment</p>
@@ -106,33 +106,33 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
 
                 {/* Product hero */}
                 <div className="rounded-2xl p-5"
-                  style={{ background: 'linear-gradient(135deg,#0d0d1e 0%,#1a0a2e 50%,#2d1060 100%)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
-                      style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                      <Package size={18} style={{ color: '#a78bfa' }} />
+                      style={{ background: 'var(--surface3)', border: '1px solid var(--border)' }}>
+                      <Package size={18} style={{ color: 'var(--text)' }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-sm leading-tight">{tx.product_title}</p>
+                      <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{tx.product_title}</p>
                       {tx.category && (
                         <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: 'rgba(139,92,246,0.2)', color: '#c4b5fd' }}>
+                          style={{ background: 'var(--surface3)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
                           <Tag size={9} /> {tx.category}
                         </span>
                       )}
                       {tx.product_link && (
                         <a href={tx.product_link} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 mt-1.5 text-[10px] underline" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          className="flex items-center gap-1 mt-1.5 text-[10px] underline" style={{ color: 'var(--primary)' }}>
                           <ExternalLink size={9} /> View product
                         </a>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(139,92,246,0.2)' }}>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.4)' }}>Amount to Pay</p>
-                    <p className="text-3xl font-bold text-white tabular-nums mt-0.5">₹{total.toLocaleString('en-IN')}</p>
-                    <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>Held in escrow until order is confirmed</p>
+                  <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                    <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Amount to Pay</p>
+                    <p className="text-3xl font-bold tabular-nums mt-0.5" style={{ color: 'var(--text)' }}>₹{total.toLocaleString('en-IN')}</p>
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>Held in escrow until order is confirmed</p>
                   </div>
                 </div>
 
@@ -198,8 +198,8 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
                 {/* CTA: simulates tapping "Pay" in a UPI app */}
                 <motion.button id="payment-proceed-btn" onClick={startSimulation}
                   whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg,var(--primary) 0%,var(--primary-h) 100%)', boxShadow: '0 6px 20px var(--primary-glow)' }}>
+                  className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                  style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
                   <Zap size={16} /> Pay ₹{total.toLocaleString('en-IN')} via UPI
                 </motion.button>
 
@@ -220,7 +220,7 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
                     className="w-20 h-20 rounded-full border-4 border-transparent"
-                    style={{ borderTopColor: 'var(--primary)', borderRightColor: 'rgba(139,92,246,0.3)' }} />
+                    style={{ borderTopColor: 'var(--primary)', borderRightColor: 'var(--border)' }} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Smartphone size={28} style={{ color: 'var(--primary)' }} />
                   </div>
@@ -237,7 +237,7 @@ export default function PaymentModal({ tx, onClose, onSuccess }) {
                 </div>
 
                 <div className="w-full rounded-xl p-3"
-                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Paying to <strong style={{ color: 'var(--primary)' }}>{ESCROW_UPI}</strong> · Secured in escrow
                   </p>

@@ -29,7 +29,7 @@ const ROLES = [
     title: 'Both',
     sub: 'I want to buy and earn',
     icon: LayoutGrid,
-    gradFrom: '#8b5cf6', gradTo: '#7c3aed',
+    gradFrom: '#6366f1', gradTo: '#4f46e5',
     perks: ['Full marketplace access', 'Buy & earn simultaneously', 'Best of both worlds'],
   },
 ];
@@ -49,10 +49,10 @@ function StepBar({ step }) {
                 background: i < step
                   ? 'linear-gradient(135deg,#10b981,#059669)'
                   : i === step
-                    ? 'linear-gradient(135deg,#8b5cf6,#7c3aed)'
+                    ? 'var(--primary)'
                     : 'var(--surface2)',
-                color: i <= step ? 'white' : 'var(--text-dim)',
-                boxShadow: i === step ? '0 4px 14px rgba(139,92,246,0.4)' : 'none',
+                color: i <= step ? 'var(--bg)' : 'var(--text-dim)',
+                boxShadow: 'none',
               }}>
               {i < step ? <Check size={12} /> : i + 1}
             </div>
@@ -95,10 +95,10 @@ export default function OnboardingWizard() {
       style={{ background: 'var(--bg)' }}>
 
       {/* Background orbs */}
-      <div className="absolute w-[500px] h-[500px] -top-32 -left-32 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle,rgba(139,92,246,0.12) 0%,transparent 70%)', filter: 'blur(60px)' }} />
-      <div className="absolute w-[400px] h-[400px] -bottom-20 -right-20 rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle,rgba(6,182,212,0.10) 0%,transparent 70%)', filter: 'blur(60px)' }} />
+      <div className="absolute w-[400px] h-[400px] -top-32 -left-32 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle,rgba(255,255,255,0.04) 0%,transparent 70%)', filter: 'blur(80px)' }} />
+      <div className="absolute w-[300px] h-[300px] -bottom-20 -right-20 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle,rgba(6,182,212,0.06) 0%,transparent 70%)', filter: 'blur(60px)' }} />
 
       <motion.div
         initial={{ opacity: 0, y: 32, scale: 0.95 }}
@@ -120,8 +120,8 @@ export default function OnboardingWizard() {
               <motion.div
                 animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 2.5, repeat: Infinity }}
                 className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', boxShadow: '0 16px 40px rgba(139,92,246,0.4)' }}>
-                <Sparkles size={32} className="text-white" />
+                style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                <Sparkles size={32} />
               </motion.div>
 
               <div>
@@ -140,7 +140,7 @@ export default function OnboardingWizard() {
                   { v: '99%',  l: 'Deal Success' },
                 ].map(s => (
                   <div key={s.l} className="rounded-2xl p-3"
-                    style={{ background: 'var(--primary-dim)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                     <p className="text-xl font-bold gradient-text">{s.v}</p>
                     <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-dim)' }}>{s.l}</p>
                   </div>

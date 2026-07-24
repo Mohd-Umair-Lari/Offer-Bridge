@@ -23,11 +23,11 @@ const STATUS_META = {
 };
 
 const CATEGORY_COLORS = {
-  Electronics: '#8b5cf6', 'Fashion & Clothing': '#ec4899', 'Beauty & Skincare': '#f43f5e',
+  Electronics: '#3b82f6', 'Fashion & Clothing': '#ec4899', 'Beauty & Skincare': '#f43f5e',
   'Home & Kitchen': '#f97316', 'Books & Stationery': '#eab308', 'Sports & Fitness': '#22c55e',
   Groceries: '#84cc16', 'Health & Wellness': '#14b8a6', Footwear: '#f59e0b',
   Accessories: '#06b6d4', Gaming: '#6366f1', 'Mobile & Tablets': '#3b82f6', Appliances: '#0ea5e9',
-  Other: '#8b5cf6',
+  Other: '#71717a',
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -43,17 +43,17 @@ function PayBanner({ tx, onPay, onDismiss }) {
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
-      style={{ background: 'linear-gradient(135deg,rgba(139,92,246,0.14) 0%,rgba(6,182,212,0.06) 100%)', border: '1px solid rgba(139,92,246,0.35)' }}>
+      style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
       {/* Animated shimmer */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.03) 50%,transparent 60%)', backgroundSize: '200% 100%', animation: 'shimmer 3s infinite' }} />
 
       <motion.div
-        animate={{ scale: [1, 1.12, 1] }} transition={{ duration: 2, repeat: Infinity }}
+        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.2, repeat: Infinity }}
         className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)', boxShadow: '0 6px 20px rgba(139,92,246,0.4)' }}>
-        <CreditCard size={18} className="text-white" />
+        style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+        <CreditCard size={18} />
       </motion.div>
 
       <div className="flex-1 min-w-0">
@@ -194,7 +194,7 @@ function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
 
 // ── Request row ────────────────────────────────────────────────────
 function RequestRow({ req, index, onViewDetails, onEdit }) {
-  const color = CATEGORY_COLORS[req.category] || '#8b5cf6';
+  const color = CATEGORY_COLORS[req.category] || '#71717a';
   const meta  = STATUS_META[req.status] || { label: req.status, cls: 'badge-neutral', dot: '#6b7280' };
   return (
     <motion.div
@@ -534,7 +534,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
 
           <div className="p-6 space-y-0">
             {requests.slice(0, 5).map((req, i) => {
-              const color = CATEGORY_COLORS[req.category] || '#8b5cf6';
+              const color = CATEGORY_COLORS[req.category] || '#71717a';
               const meta  = STATUS_META[req.status] || STATUS_META.pending;
               return (
                 <motion.div key={req.id}

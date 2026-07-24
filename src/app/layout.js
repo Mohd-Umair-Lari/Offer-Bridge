@@ -20,7 +20,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#8b5cf6" />
+        <meta name="theme-color" content="#09090b" />
         <link rel="icon" type="image/png" href="/logo.png" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <script

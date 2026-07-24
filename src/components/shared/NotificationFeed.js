@@ -5,11 +5,11 @@ import { Bell, Truck, RefreshCw, Info, CreditCard, AlertCircle, CheckCheck } fro
 import { api } from '@/lib/api';
 
 const TYPE_META = {
-  payment:  { icon: CreditCard,   color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
-  tracking: { icon: Truck,        color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-  refund:   { icon: RefreshCw,    color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
-  action:   { icon: AlertCircle,  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-  info:     { icon: Info,         color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  payment:  { icon: CreditCard,   color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
+  tracking: { icon: Truck,        color: '#06b6d4', bg: 'rgba(6,182,212,0.12)'   },
+  refund:   { icon: RefreshCw,    color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+  action:   { icon: AlertCircle,  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
+  info:     { icon: Info,         color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
 };
 
 function timeAgo(dateStr) {
@@ -115,7 +115,7 @@ export default function NotificationFeed({ onPaymentAction, onTrackingAction, co
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: i * 0.05 }}
                 className={`mb-2 last:mb-0 p-3 rounded-xl transition ${isClickable ? 'cursor-pointer hover:bg-white/5' : ''}`}
-                style={{ background: n.read ? 'transparent' : 'rgba(139,92,246,0.04)', border: `1px solid ${n.read ? 'transparent' : 'rgba(139,92,246,0.1)'}` }}
+                style={{ background: n.read ? 'transparent' : 'var(--surface2)', border: `1px solid ${n.read ? 'transparent' : 'var(--border)'}` }}
                 onClick={() => handleNotifClick(n)}
               >
                 <div className="flex gap-3">

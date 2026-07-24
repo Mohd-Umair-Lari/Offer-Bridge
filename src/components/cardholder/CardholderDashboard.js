@@ -114,8 +114,8 @@ function OfferRow({ offer, index }) {
       onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
 
-      <div className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center text-white font-bold text-sm"
-        style={{ background: 'linear-gradient(135deg,var(--primary) 0%,var(--primary-h) 100%)', boxShadow: '0 4px 14px var(--primary-glow)' }}>
+      <div className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center font-bold text-sm"
+        style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
         {offer.bank?.[0] ?? '?'}
       </div>
 
@@ -298,7 +298,7 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
           {[
             { label: 'Total Earned',    value: `₹${Math.round(totalEarned).toLocaleString('en-IN')}`,   sub: `${completedTxs.length} deals completed`, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)' },
             { label: 'Pending Payout',  value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: `${matchedTxs.length} in progress`, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)' },
-            { label: 'Escrow Protected',value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: 'Dynamic 50/35/15 split', color: 'var(--primary)', bg: 'var(--primary-dim)', border: 'rgba(139,92,246,0.2)' },
+            { label: 'Escrow Protected',value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`, sub: 'Dynamic 50/35/15 split', color: 'var(--text)', bg: 'var(--surface2)', border: 'var(--border)' },
           ].map(({ label, value, sub, color, bg, border }) => (
             <motion.div key={label} whileHover={{ y: -3 }}
               className="rounded-2xl p-5 text-center"
@@ -312,7 +312,7 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
 
         {/* Earnings Model Info */}
         <div className="mx-6 mb-6 rounded-xl p-4 flex items-start gap-3"
-          style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+          style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
           <ShieldCheck size={15} style={{ color: 'var(--primary)' }} className="shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             <strong style={{ color: 'var(--primary)' }}>Dynamic Earnings Model:</strong> You earn <strong>35%</strong> of the card discount per deal.

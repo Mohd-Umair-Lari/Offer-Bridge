@@ -81,18 +81,18 @@ export default function AdminOverview({ requests, offers, transactions }) {
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={trendData}>
               <defs>
-                <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border2)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--text-dim)' }} axisLine={false} tickLine={false}
-                tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                tickFormatter={v => `\u20b9${(v/1000).toFixed(0)}k`} />
               <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="volume" stroke="#8b5cf6" strokeWidth={2.5}
-                fill="url(#purpleGrad)" dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+              <Area type="monotone" dataKey="volume" stroke="#3b82f6" strokeWidth={2.5}
+                fill="url(#blueGrad)" dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
             </AreaChart>
           </ResponsiveContainer>
         </motion.div>

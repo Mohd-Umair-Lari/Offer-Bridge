@@ -170,7 +170,7 @@ export default function TrackingModal({ tx, onClose, onSuccess }) {
 
                 {/* Escrow release note */}
                 <div className="rounded-xl p-3 flex items-start gap-2"
-                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <ShieldCheck size={14} style={{ color: 'var(--primary)' }} className="shrink-0 mt-0.5" />
                   <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     Submitting a tracking ID will release <strong style={{ color: 'var(--primary)' }}>

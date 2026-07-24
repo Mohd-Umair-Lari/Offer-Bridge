@@ -5,8 +5,8 @@ import { Search, Filter, Tag, Calendar, Zap, CheckCircle2, Globe, ShieldCheck, L
 import { api } from '@/lib/api';
 
 const CATEGORY_COLORS = {
-  Electronics: '#8b5cf6', Travel: '#06b6d4', Hotels: '#14b8a6', Dining: '#f97316',
-  'Fashion & Clothing': '#ec4899', 'Mobile & Tablets': '#3b82f6',
+  Electronics: '#3b82f6', Travel: '#06b6d4', Hotels: '#14b8a6', Dining: '#f97316',
+  'Fashion & Clothing': '#ec4899', 'Mobile & Tablets': '#0ea5e9',
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.07 } } };
@@ -220,9 +220,9 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                   <div className="flex items-center gap-2 flex-wrap text-xs">
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold"
                       style={{
-                        background: (requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.12)' : 'rgba(139,92,246,0.12)',
-                        color: (requiredBank && requiredBank !== 'Any') ? '#f59e0b' : 'var(--primary)',
-                        border: `1px solid ${(requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.25)' : 'rgba(139,92,246,0.25)'}`,
+                        background: (requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.12)' : 'var(--surface2)',
+                        color: (requiredBank && requiredBank !== 'Any') ? '#f59e0b' : 'var(--text-muted)',
+                        border: `1px solid ${(requiredBank && requiredBank !== 'Any') ? 'rgba(245,158,11,0.25)' : 'var(--border)'}`,
                       }}>
                       <CreditCard size={12} />
                       Required Card: <strong>{requiredBank || 'Any Card'}</strong>

@@ -411,9 +411,9 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
       <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.4 }}
         className="card overflow-hidden">
         <div className="px-5 py-4 flex items-center gap-3"
-          style={{ borderBottom:'1px solid var(--border)', background:'linear-gradient(135deg,rgba(139,92,246,0.04),transparent)' }}>
+          style={{ borderBottom:'1px solid var(--border)', background:'var(--surface2)' }}>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background:'var(--primary-dim)', border:'1px solid rgba(139,92,246,0.2)' }}>
+            style={{ background:'var(--primary-dim)', border:'1px solid var(--border)' }}>
             <BarChart2 size={14} style={{ color:'var(--primary)' }} />
           </div>
           <h2 className="font-bold text-sm" style={{ color:'var(--text)' }}>Combined Financials</h2>
@@ -422,7 +422,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
           {[
             { label:'Buyer Savings',     value:`₹${Math.round(totalSaved).toLocaleString('en-IN')}`,   sub:`${completed} completed`, color:'#3b82f6', bg:'rgba(59,130,246,0.06)',  border:'rgba(59,130,246,0.15)' },
             { label:'Provider Earned',   value:`₹${Math.round(totalEarned).toLocaleString('en-IN')}`,  sub:'2% commission',         color:'#10b981', bg:'rgba(16,185,129,0.06)', border:'rgba(16,185,129,0.15)' },
-            { label:'Pending Earnings',  value:`₹${Math.round(pendingEarnings).toLocaleString('en-IN')}`, sub:`${matched} active deals`, color:'var(--primary)', bg:'var(--primary-dim)', border:'rgba(139,92,246,0.15)' },
+            { label:'Pending Earnings',  value:`₹${Math.round(pendingEarnings).toLocaleString('en-IN')}`, sub:`${matched} active deals`, color:'var(--text)', bg:'var(--surface2)', border:'var(--border)' },
           ].map(({ label, value, sub, color, bg, border }) => (
             <motion.div key={label} whileHover={{ y:-3 }}
               className="rounded-2xl p-4 text-center"

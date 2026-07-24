@@ -228,7 +228,7 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
                 {/* Marketplace toggle */}
                 <label className="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition"
                   style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
                   onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
                   <input type="checkbox" checked={form.isPublic} onChange={set('isPublic')}
                     className="mt-1 w-4 h-4 rounded" style={{ accentColor: 'var(--primary)' }} />

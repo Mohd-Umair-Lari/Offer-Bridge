@@ -5,8 +5,8 @@ import { Bell, ShieldCheck, Truck, RefreshCw, Info, CreditCard, AlertCircle, Che
 import { api } from '@/lib/api';
 
 const TYPE_META = {
-  payment:  { icon: CreditCard,   color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
-  tracking: { icon: Truck,        color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  payment:  { icon: CreditCard,   color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  tracking: { icon: Truck,        color: '#06b6d4', bg: 'rgba(6,182,212,0.12)'  },
   refund:   { icon: RefreshCw,    color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
   action:   { icon: AlertCircle,  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
   info:     { icon: Info,         color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
