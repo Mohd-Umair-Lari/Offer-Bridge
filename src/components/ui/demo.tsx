@@ -1,419 +1,65 @@
-import React, { useState } from 'react';
-import { 
-  Search, 
-  LayoutDashboard, 
-  FolderKanban, 
-  Users, 
-  Settings, 
-  LogOut,
-  Hash,
-  ChevronDown,
-  ChevronRight,
-  Inbox,
-  Calendar,
-  Activity,
-  CreditCard,
-  Globe,
-  Terminal,
-  Blocks,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Command,
-  X
-} from 'lucide-react';
+import React from "react";
+import { AuthForm } from "@/components/ui/sign-in-1";
 
-export type NavItemData = {
-  id: string;
-  title: string;
-  icon: React.ElementType;
-  badge?: number | string;
-  shortcut?: string;
-  children?: NavItemData[];
+// Helper components for icons to ensure correct styling
+const IconGoogle = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}><title>Google</title><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.386-7.439-7.574s3.344-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.85l3.25-3.138C18.189 1.186 15.479 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c6.885 0 11.954-4.823 11.954-12.015 0-.795-.084-1.588-.239-2.356H12.24z" fill="currentColor"/></svg>
+);
+
+const IconGithub = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}><title>GitHub</title><path d="M12 0C5.373 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.085 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.91 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12Z" fill="currentColor"/></svg>
+);
+
+const IconMail = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" {...props}><title>Mail</title><path d="M22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6zm-2 0-8 5-8-5h16zm0 12H4V8l8 5 8-5v10z" fill="currentColor"/></svg>
+);
+
+/**
+ * A demo page to showcase the AuthForm component.
+ */
+const AuthFormDemo = () => {
+  // Your company logo from the provided base64 string
+  const companyLogoSrc = "data:image/png;base64,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";
+
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
+      <AuthForm
+        logoSrc={companyLogoSrc}
+        logoAlt="21st Company Logo"
+        title="Welcome Back"
+        description="Enter your credentials to access your account."
+        primaryAction={{
+          label: "Continue with Google",
+          icon: <IconGoogle className="mr-2 h-4 w-4" />,
+          onClick: () => alert("Google login clicked"),
+        }}
+        secondaryActions={[
+          {
+            label: "Continue with Email",
+            icon: <IconMail className="mr-2 h-4 w-4" />,
+            onClick: () => alert("Email login clicked"),
+          },
+          {
+            label: "Continue with Github",
+            icon: <IconGithub className="mr-2 h-4 w-4" />,
+            onClick: () => alert("Github login clicked"),
+          },
+        ]}
+        skipAction={{
+          label: "Skip for now",
+          onClick: () => alert("Skip clicked"),
+        }}
+        footerContent={
+          <>
+            By logging in, you agree to our{" "}
+            <u className="cursor-pointer transition-colors hover:text-primary">Terms of Service</u>{" "}
+            and{" "}
+            <u className="cursor-pointer transition-colors hover:text-primary">Privacy Policy</u>.
+          </>
+        }
+      />
+    </div>
+  );
 };
 
-export type NavGroupData = {
-  heading?: string;
-  items: NavItemData[];
-};
-
-const mockNavGroups: NavGroupData[] = [
-  {
-    items: [
-      { id: 'search', title: 'Search', icon: Search, shortcut: '⌘K' },
-      { id: 'home', title: 'Home', icon: LayoutDashboard },
-      { id: 'inbox', title: 'Inbox', icon: Inbox, badge: 12 },
-      { id: 'analytics', title: 'Analytics', icon: Activity },
-    ]
-  },
-  {
-    heading: 'Workspace',
-    items: [
-      { 
-        id: 'projects', 
-        title: 'Projects', 
-        icon: FolderKanban,
-        children: [
-          { id: 'p-active', title: 'Active', icon: Hash },
-          { id: 'p-archived', title: 'Archived', icon: Hash },
-        ]
-      },
-      { id: 'calendar', title: 'Calendar', icon: Calendar },
-      { 
-        id: 'team', 
-        title: 'Team', 
-        icon: Users,
-        children: [
-          { id: 't-design', title: 'Designers', icon: Hash },
-          { id: 't-eng', title: 'Engineering', icon: Hash },
-          { id: 't-product', title: 'Product', icon: Hash },
-        ]
-      },
-      { 
-        id: 'customers', 
-        title: 'Customers', 
-        icon: Globe,
-        children: [
-          { id: 'c-enterprise', title: 'Enterprise', icon: Hash },
-          { id: 'c-smb', title: 'SMB', icon: Hash },
-        ]
-      },
-      { id: 'finance', title: 'Finance', icon: CreditCard },
-    ]
-  },
-  {
-    heading: 'Developers',
-    items: [
-      { id: 'api', title: 'API Keys', icon: Terminal },
-      { id: 'webhooks', title: 'Webhooks', icon: Blocks },
-    ]
-  }
-];
-
-const mockBottomItems: NavItemData[] = [
-  { id: 'settings', title: 'Settings', icon: Settings, shortcut: '⌘,' },
-  { id: 'logout', title: 'Log out', icon: LogOut },
-];
-
-function WorkspaceSwitcher({ selected, onSelect }: { selected?: string, onSelect?: (ws: string) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [internalSelected, setInternalSelected] = useState('Acme Corp');
-  
-  const current = selected || internalSelected;
-  const handleSelect = onSelect || setInternalSelected;
-
-  return (
-    <div className="relative">
-      <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between px-2 py-2 mb-4 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors select-none group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-[6px] bg-primary text-primary-foreground flex items-center justify-center font-semibold text-[13px] shadow-sm">
-            {current.charAt(0)}
-          </div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="text-[13px] font-medium leading-none mb-1 text-foreground truncate max-w-[120px]">{current}</span>
-            <span className="text-[11px] text-muted-foreground leading-none">Pro Plan</span>
-          </div>
-        </div>
-        <ChevronDown className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors shrink-0" strokeWidth={1.5} />
-      </div>
-
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-[52px] left-0 w-full bg-card border border-border/50 rounded-lg shadow-xl z-50 py-1 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100">
-            {['Acme Corp', 'Personal Workspace', 'Client Sandbox'].map(ws => (
-              <div 
-                key={ws}
-                onClick={() => { handleSelect(ws); setIsOpen(false); }}
-                className={`px-3 py-2 mx-1 text-[13px] rounded-md cursor-pointer transition-colors ${current === ws ? 'bg-primary/10 text-primary font-medium' : 'text-foreground/80 hover:bg-black/5 dark:hover:bg-white/5'}`}
-              >
-                {ws}
-              </div>
-            ))}
-            <div className="h-px bg-border/50 my-1 mx-2" />
-            <div className="px-3 py-2 mx-1 text-[13px] text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-md cursor-pointer flex items-center gap-2 transition-colors">
-              <span className="text-[16px] leading-none mb-0.5">+</span> Create Workspace
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function NavItem({ 
-  item, 
-  activeId, 
-  onSelect,
-  level = 0
-}: { 
-  item: NavItemData; 
-  activeId: string; 
-  onSelect: (id: string) => void;
-  level?: number;
-}) {
-  const isActive = activeId === item.id;
-  const hasChildren = !!item.children;
-  const [isOpen, setIsOpen] = useState(false);
-
-  const handleClick = () => {
-    if (hasChildren) {
-      setIsOpen(!isOpen);
-    } else {
-      onSelect(item.id);
-    }
-  };
-
-  return (
-    <div className="flex flex-col w-full">
-      <div 
-        className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-all duration-200 select-none
-          ${isActive 
-            ? 'bg-black/5 dark:bg-white/10 text-foreground font-medium' 
-            : 'text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground/90'
-          }
-        `}
-        style={{ paddingLeft: `${level * 12 + 10}px` }}
-        onClick={handleClick}
-      >
-        <div className="flex items-center gap-2.5">
-          <item.icon 
-            className={`w-[16px] h-[16px] transition-colors
-              ${isActive ? 'text-foreground' : 'text-muted-foreground/70 group-hover:text-foreground/70'}
-            `} 
-            strokeWidth={1.5} 
-          />
-          <span className="text-[13px] tracking-wide truncate">
-            {item.title}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {item.shortcut && (
-             <kbd className="hidden group-hover:inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-medium font-mono text-muted-foreground/60 bg-background/50 border border-border/50 rounded-[4px] shadow-xs">
-               {item.shortcut}
-             </kbd>
-          )}
-          {item.badge && (
-            <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary">
-              {item.badge}
-            </span>
-          )}
-          {hasChildren && (
-            <ChevronRight 
-              className={`w-3.5 h-3.5 text-muted-foreground/50 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} 
-              strokeWidth={2}
-            />
-          )}
-        </div>
-      </div>
-
-      {hasChildren && (
-        <div 
-          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
-            isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-          }`}
-        >
-          <div className="overflow-hidden min-h-0 relative flex flex-col gap-0.5 mt-0.5">
-            <div 
-              className="absolute top-0 bottom-0 border-l border-black/5 dark:border-white/5"
-              style={{ left: `${level * 12 + 17.5}px` }}
-            />
-            {item.children!.map(child => (
-              <NavItem 
-                key={child.id} 
-                item={child} 
-                activeId={activeId} 
-                onSelect={onSelect} 
-                level={level + 1} 
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function SidebarNav({ 
-  className = '',
-  activeId,
-  onSelect,
-  activeWorkspace,
-  onWorkspaceSelect
-}: { 
-  className?: string,
-  activeId?: string,
-  onSelect?: (id: string) => void,
-  activeWorkspace?: string,
-  onWorkspaceSelect?: (ws: string) => void
-}) {
-  const [internalId, setInternalId] = useState('home');
-  const currentId = activeId !== undefined ? activeId : internalId;
-  const handleSelect = onSelect || setInternalId;
-
-  return (
-    <div className={`flex flex-col w-[260px] h-full bg-card/50 border-r border-border/50 p-3 font-sans ${className}`}>
-      <WorkspaceSwitcher selected={activeWorkspace} onSelect={onWorkspaceSelect} />
-
-      <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col gap-4 mt-2">
-        {mockNavGroups.map((group, idx) => (
-          <div key={idx} className="flex flex-col gap-0.5">
-            {group.heading && (
-              <span className="px-2.5 mb-1 text-[11px] font-semibold tracking-wider text-muted-foreground/50 uppercase">
-                {group.heading}
-              </span>
-            )}
-            {group.items.map(item => (
-              <NavItem 
-                key={item.id} 
-                item={item} 
-                activeId={currentId} 
-                onSelect={handleSelect} 
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-auto pt-4 border-t border-border/50 flex flex-col gap-0.5">
-        {mockBottomItems.map(item => (
-          <NavItem 
-            key={item.id} 
-            item={item} 
-            activeId={currentId} 
-            onSelect={handleSelect} 
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const allItems = [...mockNavGroups.flatMap(g => g.items), ...mockBottomItems];
-const flattenItems = (items: NavItemData[]): NavItemData[] => {
-  return items.reduce((acc, item) => {
-    acc.push(item);
-    if (item.children) acc.push(...flattenItems(item.children));
-    return acc;
-  }, [] as NavItemData[]);
-};
-const flatMockData = flattenItems(allItems);
-
-export default function SidebarNavPreview() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [activeId, setActiveId] = useState('home');
-  const [activeWorkspace, setActiveWorkspace] = useState('Acme Corp');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-
-  const activeItem = flatMockData.find(i => i.id === activeId);
-  const activeTitle = activeItem ? activeItem.title : 'Dashboard';
-
-  const handleSelect = (id: string) => {
-    if (id === 'search') {
-      setIsSearchOpen(true);
-      return;
-    }
-    setActiveId(id);
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center w-full min-h-[700px] bg-background p-4 md:p-8">
-      <div className="relative w-full max-w-4xl h-[700px] bg-card rounded-xl border border-border/50 flex overflow-hidden shadow-sm ring-1 ring-black/5 dark:ring-white/5">
-        <div 
-          className={`h-full transition-all duration-300 ease-in-out shrink-0 overflow-hidden bg-card/50 border-r border-border/50 ${
-            isOpen ? 'w-[260px] opacity-100' : 'w-0 opacity-0 border-none'
-          }`}
-        >
-          <SidebarNav 
-            className="w-[260px] border-none bg-transparent" 
-            activeId={activeId}
-            onSelect={handleSelect}
-            activeWorkspace={activeWorkspace}
-            onWorkspaceSelect={setActiveWorkspace}
-          />
-        </div>
-        
-        <div className="flex-1 bg-black/[0.02] dark:bg-white/[0.02] flex flex-col min-w-0 transition-all duration-300">
-           <div className="h-14 border-b border-border/50 flex items-center px-4 justify-between bg-card shrink-0">
-             <div className="flex items-center gap-3">
-               <button 
-                 onClick={() => setIsOpen(!isOpen)}
-                 className="p-1.5 rounded-md text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground transition-colors"
-               >
-                 {isOpen ? <PanelLeftClose className="w-[18px] h-[18px]" strokeWidth={1.5} /> : <PanelLeftOpen className="w-[18px] h-[18px]" strokeWidth={1.5} />}
-               </button>
-               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                 <span className="truncate">{activeWorkspace}</span>
-                 <span>/</span>
-                 <span className="font-medium text-foreground truncate">{activeTitle}</span>
-               </div>
-             </div>
-             
-             <div className="flex items-center gap-3">
-               <div className="w-64 h-8 bg-black/5 dark:bg-white/5 rounded-md hidden md:block" />
-               <div className="w-8 h-8 bg-primary/10 rounded-full border border-primary/20" />
-             </div>
-           </div>
-
-           <div className="p-6 md:p-8 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-             <div className="flex items-center justify-between mb-8">
-               <div className="w-48 h-8 bg-black/5 dark:bg-white/5 rounded-md" />
-             </div>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-               <div className="h-32 bg-card rounded-xl border border-border/50 shadow-sm" />
-               <div className="h-32 bg-card rounded-xl border border-border/50 shadow-sm" />
-             </div>
-
-             <div className="w-full bg-card rounded-xl border border-border/50 shadow-sm p-6">
-                <div className="w-1/3 h-5 bg-black/5 dark:bg-white/5 rounded-md mb-6" />
-                <div className="w-full h-[1px] bg-border/50 mb-6" />
-                
-                <div className="flex flex-col gap-4">
-                  <div className="w-full h-12 bg-black/5 dark:bg-white/5 rounded-lg" />
-                  <div className="w-full h-12 bg-black/5 dark:bg-white/5 rounded-lg" />
-                  <div className="w-full h-12 bg-black/5 dark:bg-white/5 rounded-lg" />
-                  <div className="w-full h-12 bg-black/5 dark:bg-white/5 rounded-lg" />
-                </div>
-             </div>
-           </div>
-        </div>
-
-        {isSearchOpen && (
-          <div className="absolute inset-0 z-50 flex items-start justify-center pt-[15vh] bg-background/40 backdrop-blur-sm px-4">
-            <div className="absolute inset-0" onClick={() => setIsSearchOpen(false)} />
-            <div className="relative w-full max-w-xl bg-card border border-border/50 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center px-4 border-b border-border/50">
-                <Search className="w-[18px] h-[18px] text-muted-foreground/70 mr-3 shrink-0" strokeWidth={1.5} />
-                <input 
-                  autoFocus
-                  className="flex-1 bg-transparent py-4 outline-none text-[14px] text-foreground placeholder:text-muted-foreground/50"
-                  placeholder="Search projects, docs, or actions..."
-                />
-                <kbd 
-                  onClick={() => setIsSearchOpen(false)}
-                  className="hidden sm:inline-flex items-center justify-center h-5 px-1.5 ml-2 text-[10px] font-medium font-mono text-muted-foreground/70 bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 rounded-[4px] cursor-pointer hover:text-foreground hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
-                >
-                  ESC
-                </kbd>
-                <button 
-                  onClick={() => setIsSearchOpen(false)}
-                  className="ml-3 p-1 rounded-md text-muted-foreground/70 hover:bg-black/5 dark:hover:bg-white/10 hover:text-foreground transition-colors"
-                >
-                  <X className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                </button>
-              </div>
-              <div className="p-2 py-8 flex flex-col items-center justify-center">
-                 <Command className="w-6 h-6 text-muted-foreground/30 mb-2" strokeWidth={1.5} />
-                 <p className="text-[13px] text-muted-foreground font-medium">Type a command or search...</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+export default AuthFormDemo;
