@@ -89,8 +89,8 @@ export default function NotificationBell({ onPaymentAction, onTrackingAction }) 
         {unread > 0 && (
           <motion.span
             initial={{ scale: 0 }} animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-            style={{ background: 'var(--primary)' }}>
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white shadow-sm border border-black/30"
+            style={{ background: '#ef4444' }}>
             {unread > 9 ? '9+' : unread}
           </motion.span>
         )}
