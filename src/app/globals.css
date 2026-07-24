@@ -27,7 +27,8 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
   --shadow-p: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.8);
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 [data-theme="light"] {
@@ -53,11 +54,6 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
   --shadow-p: 0 4px 12px rgba(0, 0, 0, 0.08);
   --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.12);
-}
-
-@theme inline {
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
 }
 
 html {
