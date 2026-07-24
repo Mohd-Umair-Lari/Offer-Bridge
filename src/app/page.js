@@ -386,25 +386,7 @@ export default function OfferBridges() {
             </div>
           </div>
 
-          {/* Quick Search Item */}
-          {!desktopCollapsed && (
-            <div
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center justify-between px-2.5 py-[7px] mb-2 rounded-[6px] cursor-pointer transition-colors text-[13px]"
-              style={{ color: 'var(--text-muted)' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-            >
-              <div className="flex items-center gap-2.5">
-                <Search className="w-4 h-4" style={{ color: 'var(--text-dim)' }} strokeWidth={1.5} />
-                <span>Search</span>
-              </div>
-              <kbd className="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-mono rounded-[4px]"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>
-                ⌘K
-              </kbd>
-            </div>
-          )}
+
 
           {/* Navigation Groups */}
           <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden flex flex-col gap-4 mt-1">

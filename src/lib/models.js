@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema({
   avatar:              { type: String, default: '' },
   onboarding_complete: { type: Boolean, default: true },
   phone:               { type: String, default: '' },
+  age:                 { type: String, default: '' },
 }, { timestamps: true });
 
 

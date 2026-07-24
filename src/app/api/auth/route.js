@@ -21,7 +21,10 @@ function safeUser(user) {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    phone: user.phone || '',
+    age: user.age || '',
     avatar: user.avatar || '',
+    provider: user.oauth_provider || null,
     onboarding_complete: user.onboarding_complete ?? true,
   };
 }
@@ -105,6 +108,44 @@ export async function POST(request) {
       );
       if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
       return NextResponse.json({ token: makeToken(user), user: safeUser(user) });
+    }
+
+    if (action === 'update-profile') {
+      const authHeader = request.headers.get('authorization');
+      if (!authHeader?.startsWith('Bearer '))
+        return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+
+      let decoded;
+      try { decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET); }
+      catch { return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 }); }
+
+      const updateData = {};
+      if (body.fullName !== undefined) updateData.fullName = body.fullName;
+      if (body.phone !== undefined) updateData.phone = body.phone;
+      if (body.age !== undefined) updateData.age = body.age;
+
+      const currentUser = await User.findById(decoded.id);
+      if (!currentUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+      // Only allow updating email if NOT an OAuth account
+      if (body.email && body.email.toLowerCase() !== currentUser.email.toLowerCase()) {
+        if (currentUser.oauth_provider || currentUser.oauth_id || currentUser.email.toLowerCase().endsWith('@gmail.com')) {
+          return NextResponse.json({ error: 'Email for OAuth accounts cannot be changed' }, { status: 400 });
+        }
+        const existingEmail = await User.findOne({ email: body.email.toLowerCase(), _id: { $ne: currentUser._id } });
+        if (existingEmail) {
+          return NextResponse.json({ error: 'This email is already in use by another account' }, { status: 409 });
+        }
+        updateData.email = body.email.toLowerCase();
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        decoded.id,
+        { $set: updateData },
+        { new: true }
+      ).select('-password');
+
+      return NextResponse.json({ token: makeToken(updatedUser), user: safeUser(updatedUser) });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

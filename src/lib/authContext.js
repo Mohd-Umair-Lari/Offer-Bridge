@@ -118,14 +118,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   const updateUser = useCallback(async (updatedFields) => {
-    setUser(prev => {
-      const next = { ...prev, ...updatedFields };
-      if (typeof window !== 'undefined') {
-        try { localStorage.setItem('ob_saved_user', JSON.stringify(next)); } catch {}
+    try {
+      const res = await api.updateProfile(updatedFields);
+      if (res.user) {
+        setUser(res.user);
+        if (res.token) setToken(res.token);
       }
-      return next;
-    });
-    return { success: true };
+      return { success: true };
+    } catch (err) {
+      throw new Error(err.message || 'Failed to update profile');
+    }
   }, []);
 
   const role        = user?.role ?? 'customer';
