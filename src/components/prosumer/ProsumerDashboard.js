@@ -30,9 +30,9 @@ function PayBanner({ tx, onPay }) {
     <motion.div layout initial={{ opacity:0, y:-12, scale:0.96 }} animate={{ opacity:1, y:0, scale:1 }}
       exit={{ opacity:0, x:60, scale:0.9 }} transition={{ type:'spring', stiffness:300, damping:24 }}
       className="relative rounded-2xl p-4 flex items-center gap-4 overflow-hidden"
-      style={{ background:'linear-gradient(135deg,rgba(139,92,246,0.12),rgba(6,182,212,0.06))', border:'1px solid rgba(139,92,246,0.3)' }}>
+      style={{ background:'var(--surface2)', border:'1px solid var(--border)' }}>
       <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
-        style={{ background:'linear-gradient(135deg,#8b5cf6,#7c3aed)', boxShadow:'0 4px 14px rgba(139,92,246,0.4)' }}>
+        style={{ background:'var(--surface3)' }}>
         <Zap size={16} className="text-white" />
       </div>
       <div className="flex-1 min-w-0">
@@ -438,7 +438,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
           ))}
         </div>
         <div className="mx-5 mb-5 rounded-xl p-3 flex items-start gap-2.5"
-          style={{ background:'rgba(139,92,246,0.05)', border:'1px solid rgba(139,92,246,0.12)' }}>
+          style={{ background:'var(--surface2)', border:'1px solid var(--border)' }}>
           <ShieldCheck size={13} style={{ color:'var(--primary)' }} className="shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed" style={{ color:'var(--text-muted)' }}>
             As a prosumer, you can <strong style={{ color:'var(--primary)' }}>buy with card discounts</strong> and
