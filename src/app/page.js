@@ -320,7 +320,7 @@ export default function OfferBridges() {
     activeTab === 'my-cards' ? 'My Cards' : 'Dashboard';
 
   return (
-    <div className="min-h-screen flex flex-col font-sans transition-colors duration-300"
+    <div className="flex h-screen w-screen overflow-hidden font-sans transition-colors duration-300"
       style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       {/* Modals */}
       {paymentTx && (
@@ -346,211 +346,208 @@ export default function OfferBridges() {
         />
       )}
 
-      {/* Main Container Wrapper */}
-      <div className="flex flex-1 relative h-screen overflow-hidden">
-
-        {/* ── Dashboard Sidebar ──────────────── */}
-        <aside
-          className={`
-            hidden md:flex flex-col flex-shrink-0 h-full overflow-hidden
-            transition-all duration-300 ease-in-out
-            p-3 z-40 select-none
-            ${desktopCollapsed ? 'w-20' : 'w-[260px]'}
-          `}
-          style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
-        >
-          {/* Workspace Switcher */}
-          <div className="relative mb-3">
-            <div className={`flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${desktopCollapsed ? 'justify-center' : ''}`}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-8 h-8 rounded-[6px] flex items-center justify-center font-semibold text-[13px] shadow-sm shrink-0"
-                  style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
-                  {displayName?.[0]?.toUpperCase() ?? 'A'}
-                </div>
-                {!desktopCollapsed && (
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-[13px] font-medium leading-none mb-1 truncate max-w-[130px]" style={{ color: 'var(--text)' }}>
-                      OfferBridges
-                    </span>
-                    <span className="text-[11px] leading-none truncate" style={{ color: 'var(--text-dim)' }}>
-                      {ROLE_LABELS[role] ?? 'Pro Plan'}
-                    </span>
-                  </div>
-                )}
+      {/* ── Dashboard Sidebar (Full Height Static Pane) ──────────────── */}
+      <aside
+        className={`
+          hidden md:flex flex-col shrink-0 h-screen
+          transition-all duration-300 ease-in-out
+          p-3 z-40 select-none
+          ${desktopCollapsed ? 'w-20' : 'w-[260px]'}
+        `}
+        style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
+      >
+        {/* Workspace Switcher */}
+        <div className="relative mb-3">
+          <div className={`flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${desktopCollapsed ? 'justify-center' : ''}`}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-8 h-8 rounded-[6px] flex items-center justify-center font-semibold text-[13px] shadow-sm shrink-0"
+                style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                {displayName?.[0]?.toUpperCase() ?? 'A'}
               </div>
               {!desktopCollapsed && (
-                <ChevronDown className="w-4 h-4 shrink-0" style={{ color: 'var(--text-dim)' }} />
+                <div className="flex flex-col overflow-hidden">
+                  <span className="text-[13px] font-medium leading-none mb-1 truncate max-w-[130px]" style={{ color: 'var(--text)' }}>
+                    OfferBridges
+                  </span>
+                  <span className="text-[11px] leading-none truncate" style={{ color: 'var(--text-dim)' }}>
+                    {ROLE_LABELS[role] ?? 'Pro Plan'}
+                  </span>
+                </div>
               )}
             </div>
+            {!desktopCollapsed && (
+              <ChevronDown className="w-4 h-4 shrink-0" style={{ color: 'var(--text-dim)' }} />
+            )}
           </div>
+        </div>
 
-          {/* Navigation Groups (Static non-scrollable) */}
-          <div className="flex-1 flex flex-col gap-4 mt-1 overflow-hidden">
-            {navSections.map(({ label, items }) => (
-              <div key={label} className="flex flex-col gap-0.5">
-                {!desktopCollapsed && (
-                  <span className="px-2.5 mb-1 text-[11px] font-semibold tracking-wider uppercase"
-                    style={{ color: 'var(--text-dim)' }}>
-                    {label}
-                  </span>
-                )}
-                {items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleTab(item.id)}
-                      className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-all duration-200 select-none ${
-                        desktopCollapsed ? 'justify-center px-0' : ''
-                      }`}
-                      style={{
-                        background: isActive ? 'var(--surface2)' : 'transparent',
-                        color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                        fontWeight: isActive ? 600 : 400
-                      }}
-                      onMouseEnter={e => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = 'var(--surface2)';
-                          e.currentTarget.style.color = 'var(--text)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = 'transparent';
-                          e.currentTarget.style.color = 'var(--text-muted)';
-                        }
-                      }}
-                      title={desktopCollapsed ? item.label : undefined}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          className="w-[16px] h-[16px] transition-colors"
-                          style={{ color: isActive ? 'var(--text)' : 'var(--text-dim)' }}
-                          strokeWidth={1.5}
-                        />
-                        {!desktopCollapsed && (
-                          <span className="text-[13px] tracking-wide truncate">
-                            {item.label}
-                          </span>
-                        )}
-                      </div>
+        {/* Navigation Groups */}
+        <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden flex flex-col gap-4 mt-1">
+          {navSections.map(({ label, items }) => (
+            <div key={label} className="flex flex-col gap-0.5">
+              {!desktopCollapsed && (
+                <span className="px-2.5 mb-1 text-[11px] font-semibold tracking-wider uppercase"
+                  style={{ color: 'var(--text-dim)' }}>
+                  {label}
+                </span>
+              )}
+              {items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleTab(item.id)}
+                    className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-all duration-200 select-none ${
+                      desktopCollapsed ? 'justify-center px-0' : ''
+                    }`}
+                    style={{
+                      background: isActive ? 'var(--surface2)' : 'transparent',
+                      color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                      fontWeight: isActive ? 600 : 400
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'var(--surface2)';
+                        e.currentTarget.style.color = 'var(--text)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = 'var(--text-muted)';
+                      }
+                    }}
+                    title={desktopCollapsed ? item.label : undefined}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon
+                        className="w-[16px] h-[16px] transition-colors"
+                        style={{ color: isActive ? 'var(--text)' : 'var(--text-dim)' }}
+                        strokeWidth={1.5}
+                      />
                       {!desktopCollapsed && (
-                        <ChevronRight className="w-3.5 h-3.5 transition-transform" style={{ color: 'var(--text-dim)' }} />
+                        <span className="text-[13px] tracking-wide truncate">
+                          {item.label}
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                    {!desktopCollapsed && (
+                      <ChevronRight className="w-3.5 h-3.5 transition-transform" style={{ color: 'var(--text-dim)' }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom Items */}
+        <div className="mt-auto pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--border)' }}>
+          <div
+            onClick={() => handleTab('settings')}
+            className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
+              desktopCollapsed ? 'justify-center px-0' : ''
+            } ${activeTab === 'settings' ? 'font-semibold' : ''}`}
+            style={{
+              background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
+              color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)'
+            }}
+            onMouseEnter={e => {
+              if (activeTab !== 'settings') {
+                e.currentTarget.style.background = 'var(--surface2)';
+                e.currentTarget.style.color = 'var(--text)';
+              }
+            }}
+            onMouseLeave={e => {
+              if (activeTab !== 'settings') {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-muted)';
+              }
+            }}
+            title={desktopCollapsed ? 'Settings' : undefined}
+          >
+            <div className="flex items-center gap-2.5">
+              <Settings className="w-[16px] h-[16px]" style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} strokeWidth={1.5} />
+              {!desktopCollapsed && <span className="text-[13px]">Settings</span>}
+            </div>
+            {!desktopCollapsed && (
+              <kbd className="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-mono rounded-[4px]"
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>
+                ⌘,
+              </kbd>
+            )}
           </div>
 
-          {/* Bottom Items */}
-          <div className="mt-auto pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--border)' }}>
-            <div
-              onClick={() => handleTab('settings')}
-              className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
-                desktopCollapsed ? 'justify-center px-0' : ''
-              } ${activeTab === 'settings' ? 'font-semibold' : ''}`}
-              style={{
-                background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
-                color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)'
-              }}
-              onMouseEnter={e => {
-                if (activeTab !== 'settings') {
-                  e.currentTarget.style.background = 'var(--surface2)';
-                  e.currentTarget.style.color = 'var(--text)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (activeTab !== 'settings') {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-muted)';
-                }
-              }}
-              title={desktopCollapsed ? 'Settings' : undefined}
+          <div
+            onClick={handleSignOut}
+            className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
+              desktopCollapsed ? 'justify-center px-0' : ''
+            }`}
+            style={{ color: '#ef4444' }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            title={desktopCollapsed ? 'Log out' : undefined}
+          >
+            <div className="flex items-center gap-2.5">
+              <LogOut className="w-[16px] h-[16px]" strokeWidth={1.5} />
+              {!desktopCollapsed && <span className="text-[13px]">Log out</span>}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main Area (Header Bar + Content) ───────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+        
+        {/* Header Bar */}
+        <header className="h-14 flex items-center px-4 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
+          style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDesktopCollapsed(!desktopCollapsed)}
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+              title="Toggle Sidebar"
             >
-              <div className="flex items-center gap-2.5">
-                <Settings className="w-[16px] h-[16px]" style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} strokeWidth={1.5} />
-                {!desktopCollapsed && <span className="text-[13px]">Settings</span>}
-              </div>
-              {!desktopCollapsed && (
-                <kbd className="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-mono rounded-[4px]"
-                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>
-                  ⌘,
-                </kbd>
+              {desktopCollapsed ? (
+                <PanelLeftOpen className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              ) : (
+                <PanelLeftClose className="w-[18px] h-[18px]" strokeWidth={1.5} />
               )}
-            </div>
-
-            <div
-              onClick={handleSignOut}
-              className={`group flex items-center justify-between px-2.5 py-[7px] rounded-[6px] cursor-pointer transition-colors ${
-                desktopCollapsed ? 'justify-center px-0' : ''
-              }`}
-              style={{ color: '#ef4444' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              title={desktopCollapsed ? 'Log out' : undefined}
-            >
-              <div className="flex items-center gap-2.5">
-                <LogOut className="w-[16px] h-[16px]" strokeWidth={1.5} />
-                {!desktopCollapsed && <span className="text-[13px]">Log out</span>}
-              </div>
+            </button>
+            
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              <span className="truncate">OfferBridges</span>
+              <span>/</span>
+              <span className="font-medium truncate" style={{ color: 'var(--text)' }}>{activeTabTitle}</span>
             </div>
           </div>
-        </aside>
 
-        {/* ── Main Area (Header Bar + Content) ───────────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ background: 'var(--bg)' }}>
-          
-          {/* Header Bar */}
-          <header className="h-14 flex items-center px-4 md:px-6 justify-between shrink-0 sticky top-0 z-30 transition-colors duration-300"
-            style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setDesktopCollapsed(!desktopCollapsed)}
-                className="p-1.5 rounded-md transition-colors"
-                style={{ color: 'var(--text-muted)' }}
-                title="Toggle Sidebar"
-              >
-                {desktopCollapsed ? (
-                  <PanelLeftOpen className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                ) : (
-                  <PanelLeftClose className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                )}
-              </button>
-              
-              {/* Breadcrumb */}
-              <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-                <span className="truncate">OfferBridges</span>
-                <span>/</span>
-                <span className="font-medium truncate" style={{ color: 'var(--text)' }}>{activeTabTitle}</span>
-              </div>
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
+            {/* Quick search input */}
+            <div
+              onClick={() => setIsSearchOpen(true)}
+              className="hidden md:flex items-center gap-2 w-64 h-8 rounded-md px-3 text-xs cursor-pointer transition-colors"
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+            >
+              <Search size={14} style={{ color: 'var(--text-dim)' }} />
+              <span className="flex-1 truncate">Search dashboard…</span>
+              <kbd className="text-[10px] font-mono px-1 rounded" style={{ background: 'var(--surface3)', color: 'var(--text-dim)' }}>⌘K</kbd>
             </div>
 
-            {/* Right Actions */}
-            <div className="flex items-center gap-3">
-              {/* Quick search input */}
-              <div
-                onClick={() => setIsSearchOpen(true)}
-                className="hidden md:flex items-center gap-2 w-64 h-8 rounded-md px-3 text-xs cursor-pointer transition-colors"
-                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-              >
-                <Search size={14} style={{ color: 'var(--text-dim)' }} />
-                <span className="flex-1 truncate">Search dashboard…</span>
-                <kbd className="text-[10px] font-mono px-1 rounded" style={{ background: 'var(--surface3)', color: 'var(--text-dim)' }}>⌘K</kbd>
-              </div>
+            <NotificationBell onPaymentAction={openPaymentModal} onTrackingAction={openTrackingModal} />
+            <ThemeToggle />
+            <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} onOpenSettings={() => setActiveTab('settings')} />
+          </div>
+        </header>
 
-              <NotificationBell onPaymentAction={openPaymentModal} onTrackingAction={openTrackingModal} />
-              <ThemeToggle />
-              <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} onOpenSettings={() => setActiveTab('settings')} />
-            </div>
-          </header>
-
-          {/* Main Content Scroll Area */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
+        {/* Main Content Scroll Area */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
             <div className="max-w-6xl mx-auto">
               {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
                 <SkeletonDashboard />
@@ -638,6 +635,5 @@ export default function OfferBridges() {
           </div>
         )}
       </div>
-    </div>
   );
 }
