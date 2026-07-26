@@ -42,13 +42,6 @@ async function getModel() {
   return mongoose.model('ScrapedProduct', schema);
 }
 
-const UA_POOL = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-];
-const randUA = () => UA_POOL[Math.floor(Math.random() * UA_POOL.length)];
-
 function getMerchant(url) {
   try {
     const h = new URL(url).hostname.toLowerCase();
@@ -74,6 +67,21 @@ function extractASIN(url) {
   return null;
 }
 
+function extractMyntraProductId(url) {
+  try {
+    const u = new URL(url);
+    const styleParam = u.searchParams.get('styleId');
+    if (styleParam && /^\d+$/.test(styleParam)) return styleParam;
+    
+    // Match numeric product ID in path e.g. /12345678/buy or /12345678
+    const pathSegments = u.pathname.split('/').filter(Boolean);
+    for (const seg of pathSegments) {
+      if (/^\d{5,10}$/.test(seg)) return seg;
+    }
+  } catch {}
+  return null;
+}
+
 function parsePrice(raw) {
   if (!raw && raw !== 0) return 0;
   const s = String(raw).replace(/[₹$,\s]/g, '').split('.')[0];
@@ -95,7 +103,7 @@ function extractJsonLD(html) {
     try {
       const o = JSON.parse(m[1]);
       const arr = Array.isArray(o) ? o : [o];
-      const prod = arr.find(x => x?.['@type'] === 'Product');
+      const prod = arr.find(x => x?.['@type'] === 'Product' || x?.['@type']?.includes?.('Product'));
       if (prod) return prod;
     } catch {}
   }
@@ -110,33 +118,30 @@ function extractOG(html, prop) {
 
 function isBotWall(html) {
   if (!html) return false;
-  // Strip <script>, <style>, and data-* attribute values before checking —
-  // Amazon/Flipkart embed words like "captcha" or "automated" inside JS config
-  // vars and data attributes which cause false-positive bot-wall detection.
   const cleanHtml = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/data-[a-z-]+=["'][^"']*["']/gi, '')   // strip data-* attr values
-    .replace(/data-[a-z-]+=[`][^`]*[`]/gi, '');      // strip template-literal data attrs
-  // Must match the FULL page-level bot-wall phrases, not just isolated words
-  return /robot\s*check|verify\s+you\s+are\s+human|automated\s+access|unusual\s+traffic/i.test(cleanHtml)
-    || (/captcha/i.test(cleanHtml) && /<form/i.test(cleanHtml)); // captcha only if there's also a form
+    .replace(/data-[a-z-]+=["'][^"']*["']/gi, '')
+    .replace(/data-[a-z-]+=[`][^`]*[`]/gi, '');
+  return /robot\s*check|verify\s+you\s+are\s+human|automated\s+access|unusual\s+traffic|access\s+denied/i.test(cleanHtml)
+    || (/captcha/i.test(cleanHtml) && /<form/i.test(cleanHtml));
 }
 
 function extractBankOffers(text) {
   const seen = new Set();
   const result = [];
   const patterns = [
-    /Bank\s+Offer\s*[:\-]?\s*.{20,300}?(?=Bank Offer|$|\n)/gi,
+    /Bank\s+Offer\s*[:\-]?\s*.{15,300}?(?=Bank Offer|$|\n)/gi,
     /(?:Get|Flat|Extra|Avail|Upto|Up\s+to)\s+(?:₹[\d,]+|\d+%)\s*.{10,250}/gi,
-    /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex)[^.\n!;]{10,250}?(?:off|cashback|discount|EMI)[^.\n!;]{0,100}/gi,
+    /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex|AU\s+Small|OneCard|Citi)[^.\n!;]{10,250}?(?:off|cashback|discount|EMI)[^.\n!;]{0,100}/gi,
     /\d+%\s*(?:instant\s+)?(?:discount|off|cashback)[^.\n!;]{10,200}/gi,
+    /No\s+Cost\s+EMI[^.\n!;]{10,200}/gi,
   ];
   for (const pat of patterns) {
     for (const m of (text.match(pat) || [])) {
       const clean = m.replace(/\s+/g, ' ').trim().slice(0, 280);
       const key = clean.slice(0, 60).toLowerCase();
-      if (clean.length > 15 && !seen.has(key)) { seen.add(key); result.push(clean); }
+      if (clean.length > 12 && !seen.has(key)) { seen.add(key); result.push(clean); }
     }
   }
   return result.slice(0, 15);
@@ -144,11 +149,11 @@ function extractBankOffers(text) {
 
 const BROWSER_PROFILES = [
   {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
     'Accept-Language': 'en-IN,en-GB;q=0.9,en;q=0.8',
     'Accept-Encoding': 'gzip, deflate, br, zstd',
-    'sec-ch-ua': '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+    'sec-ch-ua': '"Google Chrome";v="126", "Chromium";v="126", "Not.A/Brand";v="24"',
     'sec-ch-ua-mobile': '?0',
     'sec-ch-ua-platform': '"Windows"',
     'sec-fetch-dest': 'document',
@@ -159,7 +164,7 @@ const BROWSER_PROFILES = [
     'Cache-Control': 'max-age=0',
   },
   {
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-IN,en;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br',
@@ -169,11 +174,11 @@ const BROWSER_PROFILES = [
     'Upgrade-Insecure-Requests': '1',
   },
   {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36 FKUA/mweb/42',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-IN,hi;q=0.9,en;q=0.8',
     'Accept-Encoding': 'gzip, deflate, br',
-    'sec-ch-ua': '"Chromium";v="124", "Android WebView";v="124"',
+    'sec-ch-ua': '"Chromium";v="125", "Android WebView";v="125"',
     'sec-ch-ua-mobile': '?1',
     'sec-ch-ua-platform': '"Android"',
     'sec-fetch-dest': 'document',
@@ -219,8 +224,6 @@ async function fetchViaScraperAPI(url) {
 }
 
 async function fetchViaJina(url) {
-  // Jina AI Reader — free cloud proxy. Use markdown mode (no X-Return-Format header)
-  // which uses a different request path than html mode and is less frequently rate-limited
   const jinaUrl = `https://r.jina.ai/${url}`;
   const jinaKey = env('JINA_API_KEY');
   const headers = {
@@ -231,7 +234,7 @@ async function fetchViaJina(url) {
 
   const res = await fetch(jinaUrl, {
     headers,
-    signal: AbortSignal.timeout(40000),
+    signal: AbortSignal.timeout(35000),
   });
   if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
   const text = await res.text();
@@ -239,12 +242,11 @@ async function fetchViaJina(url) {
   if (/E00[0-9]|Something went wrong|Please try again/i.test(text.slice(0, 500))) {
     throw new Error('Jina service error: ' + text.slice(0, 100));
   }
-  console.log(`[Jina] Fetched ${text.length} chars (markdown) for ${url}`);
+  console.log(`[Jina] Fetched ${text.length} chars for ${url}`);
   return text;
 }
 
 async function fetchViaAllOrigins(url) {
-  // AllOrigins — free CORS/proxy service, works for many blocked sites
   const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&charset=UTF-8`;
   const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(25000) });
   if (!res.ok) throw new Error(`AllOrigins HTTP ${res.status}`);
@@ -256,27 +258,28 @@ async function fetchViaAllOrigins(url) {
   return html;
 }
 
-
+/**
+ * High-reliability fetch waterfall
+ */
 async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
 
-  // 1. ScraperAPI (if key configured) — most reliable, bypasses bot detection
+  // 1. ScraperAPI if key present
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {
       console.warn('[ScraperAPI] Failed:', e.message, '— trying next method');
     }
   }
 
-  // 2. Direct fetch with browser-profile spoofing
-  // For Amazon: also try the clean ASIN-based dp URL (strips tracking params that trigger bot checks)
+  // 2. Direct fetch with profile rotation
   let directUrls = [url];
   if (merchant === 'flipkart') {
-    directUrls = [url, toMobileFlipkartUrl(url)];
+    directUrls = [toMobileFlipkartUrl(url), url];
   } else if (merchant === 'amazon') {
     const asin = extractASIN(url);
     if (asin) {
       const cleanUrl = `https://www.amazon.in/dp/${asin}?th=1&psc=1`;
-      if (cleanUrl !== url) directUrls = [cleanUrl, url]; // try clean URL first
+      if (cleanUrl !== url) directUrls = [cleanUrl, url];
     }
   }
 
@@ -289,12 +292,12 @@ async function fetchPage(url, merchant) {
         throw new Error('Bot wall detected on direct fetch');
       } catch (e) {
         lastErr = e;
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 200 + Math.random() * 200));
       }
     }
   }
 
-  // 3. Proxy waterfall: Jina AI Reader → AllOrigins (both free, work from Vercel IPs)
+  // 3. Jina AI Reader
   console.log(`[Crawler] Direct fetch failed (${lastErr?.message}). Trying Jina AI Reader for: ${url}`);
   try {
     return await fetchViaJina(url);
@@ -302,13 +305,12 @@ async function fetchPage(url, merchant) {
     console.warn('[Jina] Failed:', jinaErr.message, '— trying AllOrigins');
   }
 
+  // 4. AllOrigins proxy
   console.log(`[Crawler] Jina failed. Trying AllOrigins for: ${url}`);
   try {
     return await fetchViaAllOrigins(url);
   } catch (originsErr) {
     console.warn('[AllOrigins] Failed:', originsErr.message);
-    // IMPORTANT: error message must contain "blocked" so backend maps to 503
-    // and frontend shows the correct "site is blocking" message (not a generic 500)
     const siteName = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
     throw new Error(
       `${siteName} is blocking automated access from this server. ` +
@@ -316,8 +318,6 @@ async function fetchPage(url, merchant) {
     );
   }
 }
-
-
 
 async function fetchKeepa(asin) {
   const key = env('KEEPA_API_KEY');
@@ -353,7 +353,7 @@ function parseAmazon(html, asin) {
   title = decodeHTML(title);
 
   let price = 0;
-  if (!price && ld?.offers?.price)    price = parsePrice(ld.offers.price);
+  if (!price && ld?.offers?.price) price = parsePrice(ld.offers.price);
   if (!price) {
     const m = html.match(/<span[^>]+class=["'][^"']*a-offscreen[^"']*["'][^>]*>₹\s*([\d,]+)/i);
     if (m) price = parsePrice(m[1]);
@@ -421,7 +421,6 @@ function parseFlipkart(html) {
         if (!block.includes('__INITIAL_STATE__')) continue;
 
         let state = null;
-
         const ea = block.match(/window\.__INITIAL_STATE__\s*=\s*JSON\.parse\("((?:[^"\\]|\\.)*)"\)/);
         if (ea) { try { state = JSON.parse(JSON.parse(`"${ea[1]}"`)); } catch {} }
 
@@ -491,10 +490,73 @@ function parseFlipkart(html) {
   return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), asin: null };
 }
 
+/**
+ * High-reliability Myntra internal API fetcher
+ */
+async function fetchMyntraInternalApi(styleId) {
+  if (!styleId) return null;
+  try {
+    const apiUrl = `https://www.myntra.com/gateway/v2/product/${styleId}`;
+    console.log(`[Myntra API] Fetching product data from internal API for styleId: ${styleId}`);
+    const res = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        'x-myntra-web': 'true',
+        'Referer': `https://www.myntra.com/${styleId}`,
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    const pdp = json?.pdpData || json?.data || json;
+
+    if (pdp && (pdp.name || pdp.title || pdp.brand)) {
+      const brand = pdp.brand?.name || '';
+      const name = pdp.name || pdp.title || '';
+      const title = brand && name ? `${brand} - ${name}` : (brand || name);
+
+      let price = parsePrice(pdp.price?.discounted || pdp.price?.mrp || 0);
+
+      let image = '';
+      if (pdp.media?.albums?.[0]?.images?.[0]?.imageURL) {
+        image = pdp.media.albums[0].images[0].imageURL;
+      } else if (pdp.media?.albums?.[0]?.images?.[0]?.src) {
+        image = pdp.media.albums[0].images[0].src;
+      }
+
+      // Extract raw bank offers from Myntra API structure
+      const rawOffers = [];
+      if (Array.isArray(pdp.offers)) {
+        pdp.offers.forEach(o => {
+          const text = typeof o === 'string' ? o : (o.title || o.description || o.offerText || '');
+          if (text) rawOffers.push(text);
+        });
+      }
+
+      if (price > 0 && title) {
+        console.log(`[Myntra API] Successfully retrieved details via internal API: "${title}" @ ₹${price}`);
+        return {
+          title,
+          price,
+          image,
+          rawOffers,
+          domain: 'myntra',
+          asin: null,
+          lowestEver: 0,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[Myntra API] Internal API fetch failed:', e.message);
+  }
+  return null;
+}
+
 function parseMyntra(html) {
   const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-  // Try extracting from window.__myx or window.pdpData first
   let pdpData = null;
   try {
     const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
@@ -524,19 +586,14 @@ function parseMyntra(html) {
     const brandName = pdpData.brand?.name || '';
     const prodName = pdpData.name || pdpData.title || '';
     title = brandName && prodName ? `${brandName} - ${prodName}` : (brandName || prodName || '');
-    
     if (pdpData.price) {
       price = parsePrice(pdpData.price.discounted || pdpData.price.mrp || 0);
     }
-    
     if (pdpData.media?.albums?.[0]?.images?.[0]?.imageURL) {
       image = pdpData.media.albums[0].images[0].imageURL;
-    } else if (pdpData.media?.albums?.[0]?.images?.[0]?.src) {
-      image = pdpData.media.albums[0].images[0].src;
     }
   }
 
-  // Fallbacks using cheerio/regex
   if (!title) {
     const brand = html.match(/<h1[^>]+class=["']pdp-title["'][^>]*>\s*([\s\S]*?)\s*<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim() || '';
     const name = html.match(/<h1[^>]+class=["']pdp-name["'][^>]*>\s*([\s\S]*?)\s*<\/h1>/i)?.[1]?.replace(/<[^>]+>/g, '').trim()
@@ -602,6 +659,14 @@ async function scrapeProduct(productUrl, merchant) {
   }
 
   if (merchant === 'myntra') {
+    // Try internal product API first
+    const styleId = extractMyntraProductId(productUrl);
+    if (styleId) {
+      const apiResult = await fetchMyntraInternalApi(styleId);
+      if (apiResult) return apiResult;
+    }
+
+    // Fallback to HTML waterfall fetch
     const html = await fetchPage(productUrl, 'myntra');
     if (isBotWall(html)) throw new Error('Myntra is blocking automated access from this server. Add SCRAPER_API_KEY to your env vars for reliable bypass, or use the Chrome Extension.');
     const parsed = parseMyntra(html);

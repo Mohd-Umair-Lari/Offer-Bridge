@@ -1,6 +1,6 @@
 /**
  * LLM Service to evaluate scraped bank offers and determine the single best discount.
- * Supports both Gemini API and OpenAI API keys.
+ * Supports Groq, Gemini, and OpenAI API keys, with local regex fallback.
  */
 
 const SYSTEM_PROMPT = `You are a financial offer parser. You are given an e-commerce product price and a list of raw credit card/bank offer descriptions scraped from the product page.
@@ -11,7 +11,7 @@ Rules to evaluate:
 2. Check for maximum discount caps mentioned in the text (e.g., '10% up to INR 1,500' or 'Max discount INR 1000'). If the calculated percentage discount exceeds the cap, apply the cap.
 3. Check for minimum transaction amounts (e.g., 'on minimum purchase of INR 5,000'). If the original price is below the required minimum, that offer cannot be used (savings is 0).
 4. Parse flat discounts (e.g., 'Flat INR 1,500 off').
-5. Analyze which bank (e.g., HDFC, ICICI, SBI, AXIS) and card type (Credit Card, Debit Card, EMI) gives the highest overall absolute discount in Indian Rupees.
+5. Analyze which bank (e.g., HDFC, ICICI, SBI, AXIS, Kotak, Federal, BOB, IDFC, RBL, HSBC, IndusInd, Amex, OneCard) and card type (Credit Card, Debit Card, EMI) gives the highest overall absolute discount in Indian Rupees.
 6. Compare all valid offers and select the single offer that yields the MAXIMUM absolute discount.
 7. If no offers apply or the list is empty, return a discount of 0.
 
@@ -25,11 +25,41 @@ JSON Format:
   "offerDescription": "Flat INR 1500 Off on HDFC Credit Card"
 }`;
 
+/**
+ * Pre-process and clean up raw scraped offer strings before feeding into LLM/regex
+ */
+function cleanOffers(rawOffers = []) {
+  if (!Array.isArray(rawOffers)) return [];
+  const cleaned = [];
+  const seen = new Set();
+
+  for (let offer of rawOffers) {
+    if (typeof offer !== 'string') continue;
+    
+    // Strip markdown links [text](url) -> text
+    let str = offer.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    // Normalize currency symbols
+    str = str.replace(/[₹]|Rs\.?|INR/gi, 'INR');
+    // Collapse excess whitespace/newlines
+    str = str.replace(/\s+/g, ' ').trim();
+
+    if (str.length < 10) continue;
+    const key = str.toLowerCase().slice(0, 70);
+    if (!seen.has(key)) {
+      seen.add(key);
+      cleaned.push(str);
+    }
+  }
+
+  return cleaned.slice(0, 15);
+}
+
 async function callGroq(apiKey, price, rawOffers) {
   const promptText = `Product Original Price: INR ${price}\nAvailable Offer Strings:\n${JSON.stringify(rawOffers, null, 2)}\n\nSelect the single best offer using the system rules.`;
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    signal: AbortSignal.timeout(15000),
     body: JSON.stringify({
       model: 'llama3-8b-8192',
       messages: [
@@ -51,26 +81,17 @@ async function callGroq(apiKey, price, rawOffers) {
   return text;
 }
 
-
 /**
  * Calls Gemini API using fetch REST request
  */
 async function callGemini(apiKey, price, rawOffers) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-  const promptText = `
-Product Original Price: INR ${price}
-Available Offer Strings:
-${JSON.stringify(rawOffers, null, 2)}
-
-Select the single best offer using the system rules.
-  `;
+  const promptText = `Product Original Price: INR ${price}\nAvailable Offer Strings:\n${JSON.stringify(rawOffers, null, 2)}\n\nSelect the single best offer using the system rules.`;
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(15000),
     body: JSON.stringify({
       contents: [
         {
@@ -92,10 +113,7 @@ Select the single best offer using the system rules.
 
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Empty response from Gemini API');
-  }
-
+  if (!text) throw new Error('Empty response from Gemini API');
   return text;
 }
 
@@ -104,14 +122,7 @@ Select the single best offer using the system rules.
  */
 async function callOpenAI(apiKey, price, rawOffers) {
   const url = 'https://api.openai.com/v1/chat/completions';
-
-  const promptText = `
-Product Original Price: INR ${price}
-Available Offer Strings:
-${JSON.stringify(rawOffers, null, 2)}
-
-Select the single best offer using the system rules.
-  `;
+  const promptText = `Product Original Price: INR ${price}\nAvailable Offer Strings:\n${JSON.stringify(rawOffers, null, 2)}\n\nSelect the single best offer using the system rules.`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -119,6 +130,7 @@ Select the single best offer using the system rules.
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
+    signal: AbortSignal.timeout(15000),
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
@@ -137,10 +149,7 @@ Select the single best offer using the system rules.
 
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content;
-  if (!text) {
-    throw new Error('Empty response from OpenAI API');
-  }
-
+  if (!text) throw new Error('Empty response from OpenAI API');
   return text;
 }
 
@@ -149,7 +158,6 @@ Select the single best offer using the system rules.
  */
 function cleanJsonResponse(rawText) {
   let cleaned = rawText.trim();
-  // Strip ```json ... ``` blocks if present
   if (cleaned.startsWith('```')) {
     cleaned = cleaned.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
   }
@@ -171,7 +179,9 @@ export async function evaluateBestOffer(price, rawOffers) {
     offerDescription: 'No card discount available',
   };
 
-  if (!rawOffers || rawOffers.length === 0) {
+  const processedOffers = cleanOffers(rawOffers);
+
+  if (!processedOffers || processedOffers.length === 0) {
     return defaultNoOfferResponse;
   }
 
@@ -179,34 +189,31 @@ export async function evaluateBestOffer(price, rawOffers) {
   try {
     if (groqKey) {
       console.log('[LLM Service] Using Groq (llama3-8b-8192) for offer evaluation');
-      rawJsonText = await callGroq(groqKey, price, rawOffers);
+      rawJsonText = await callGroq(groqKey, price, processedOffers);
     } else if (geminiKey) {
       console.log('[LLM Service] Using Gemini API for offer evaluation');
-      rawJsonText = await callGemini(geminiKey, price, rawOffers);
+      rawJsonText = await callGemini(geminiKey, price, processedOffers);
     } else if (openAIKey) {
       console.log('[LLM Service] Using OpenAI API for offer evaluation');
-      rawJsonText = await callOpenAI(openAIKey, price, rawOffers);
+      rawJsonText = await callOpenAI(openAIKey, price, processedOffers);
     } else {
       console.warn('[LLM Service] No LLM API Key found. Running local regex parser.');
-      return parseOffersLocally(price, rawOffers);
+      return parseOffersLocally(price, processedOffers);
     }
 
     const cleanJson = cleanJsonResponse(rawJsonText);
-
     const result = JSON.parse(cleanJson);
 
-    // Validate structure and fill default values
+    const discountAmount = Math.max(0, Math.min(price, typeof result.discountAmount === 'number' ? result.discountAmount : 0));
     return {
       bestOfferBank: result.bestOfferBank || '',
-      discountAmount: typeof result.discountAmount === 'number' ? result.discountAmount : 0,
-      finalPriceAfterDiscount: typeof result.finalPriceAfterDiscount === 'number' 
-        ? result.finalPriceAfterDiscount 
-        : price - (result.discountAmount || 0),
+      discountAmount,
+      finalPriceAfterDiscount: Math.max(0, price - discountAmount),
       offerDescription: result.offerDescription || 'Card offer applied',
     };
   } catch (error) {
     console.error('[LLM Service Error] Failed to parse offers using LLM:', error.message);
-    return parseOffersLocally(price, rawOffers);
+    return parseOffersLocally(price, processedOffers);
   }
 }
 
@@ -223,27 +230,36 @@ function parseOffersLocally(price, rawOffers) {
     offerDescription: 'No card discount available',
   };
 
+  const BANK_RULES = [
+    { name: 'HDFC', pattern: /\b(HDFC|HDFC Bank)\b/i },
+    { name: 'ICICI', pattern: /\b(ICICI|ICICI Bank)\b/i },
+    { name: 'SBI Card', pattern: /\b(SBI|State Bank of India|SBI Card)\b/i },
+    { name: 'Axis Bank', pattern: /\b(AXIS|Axis Bank)\b/i },
+    { name: 'Kotak Mahindra', pattern: /\b(KOTAK|Kotak Mahindra)\b/i },
+    { name: 'Federal Bank', pattern: /\b(FEDERAL|Federal Bank)\b/i },
+    { name: 'IDFC FIRST', pattern: /\b(IDFC|IDFC First)\b/i },
+    { name: 'RBL Bank', pattern: /\b(RBL|RBL Bank)\b/i },
+    { name: 'HSBC', pattern: /\bHSBC\b/i },
+    { name: 'BOB', pattern: /\b(BOB|Bank of Baroda)\b/i },
+    { name: 'IndusInd', pattern: /\bIndusInd\b/i },
+    { name: 'AU Small Finance', pattern: /\b(AU|AU Bank|AU Small Finance)\b/i },
+    { name: 'OneCard', pattern: /\bOneCard\b/i },
+    { name: 'Yes Bank', pattern: /\bYes Bank\b/i },
+    { name: 'Amex', pattern: /\b(Amex|American Express)\b/i },
+    { name: 'Citi', pattern: /\b(Citi|Citibank)\b/i },
+  ];
+
   for (const offer of rawOffers) {
-    const uppercaseOffer = offer.toUpperCase();
-    
-    // Identify Bank
     let bank = '';
-    if (uppercaseOffer.includes('HDFC')) bank = 'HDFC';
-    else if (uppercaseOffer.includes('ICICI')) bank = 'ICICI';
-    else if (uppercaseOffer.includes('SBI')) bank = 'SBI';
-    else if (uppercaseOffer.includes('AXIS')) bank = 'AXIS';
-    else if (uppercaseOffer.includes('KOTAK')) bank = 'KOTAK';
-    else if (uppercaseOffer.includes('FEDERAL')) bank = 'FEDERAL';
-    else if (uppercaseOffer.includes('IDFC')) bank = 'IDFC';
-    else if (uppercaseOffer.includes('RBL')) bank = 'RBL';
-    else if (uppercaseOffer.includes('HSBC')) bank = 'HSBC';
-    else if (uppercaseOffer.includes('BOB')) bank = 'BOB';
+    for (const b of BANK_RULES) {
+      if (b.pattern.test(offer)) { bank = b.name; break; }
+    }
     
     if (!bank) continue;
 
     // Check minimum transaction values if any
     let minPurchase = 0;
-    const minMatch = offer.match(/min(?:imum)?\s+(?:purchase|tx|txn)?\s*(?:value|of|amt)?\s*(?:rs\.?|inr)?\s*([\d,]+)/i);
+    const minMatch = offer.match(/min(?:imum)?\s+(?:purchase|tx|txn|spend|order)?\s*(?:value|of|amt)?\s*(?:INR|\$)?\s*([\d,]+)/i);
     if (minMatch) {
       minPurchase = parseInt(minMatch[1].replace(/,/g, ''), 10);
     }
@@ -251,42 +267,35 @@ function parseOffersLocally(price, rawOffers) {
       continue; // Skip because purchase amount is below minimum
     }
 
-    // Try to extract discount amount
     let discount = 0;
     
-    // 1. Check for flat discount amounts (e.g. "Flat 1500 off", "discount of 1000")
-    const flatMatch = offer.match(/(?:flat|discount\s+of|off\s+up\s+to|save|rs\.?|inr)\s*([\d,]+)\s*(?:off|instant|cashback)/i) || 
-                       offer.match(/(?:rs\.?|inr)?\s*([\d,]+)\s*(?:off|instant\s+discount)/i);
+    // 1. Check flat discount amounts
+    const flatMatch = offer.match(/(?:flat|discount\s+of|off\s+up\s+to|save|INR)\s*([\d,]+)\s*(?:off|instant|cashback)/i) || 
+                       offer.match(/(?:INR)?\s*([\d,]+)\s*(?:off|instant\s+discount)/i);
     if (flatMatch) {
       discount = parseInt(flatMatch[1].replace(/,/g, ''), 10);
     }
 
-    // 2. Check for percentage discounts (e.g. "10% off")
+    // 2. Check percentage discounts
     const percentMatch = offer.match(/(\d+)%\s*(?:instant|discount|off|cashback)/i);
     if (percentMatch) {
       const pct = parseInt(percentMatch[1], 10);
       let calculated = Math.round(price * (pct / 100));
       
-      // Look for a cap (e.g. "up to Rs. 1500")
-      const capMatch = offer.match(/(?:up\s+to|max(?:imum)?)?\s*(?:rs\.?|inr)?\s*([\d,]+)\s*(?:max|limit|cap|off)?/i);
-      let cap = 0;
+      const capMatch = offer.match(/(?:up\s+to|max(?:imum)?)?\s*(?:INR)?\s*([\d,]+)\s*(?:max|limit|cap|off)?/i);
       if (capMatch) {
-        cap = parseInt(capMatch[1].replace(/,/g, ''), 10);
+        const cap = parseInt(capMatch[1].replace(/,/g, ''), 10);
+        if (cap > 0 && calculated > cap) calculated = cap;
       }
-      if (cap && calculated > cap) {
-        calculated = cap;
-      }
-      if (calculated > discount) {
-        discount = calculated;
-      }
+      if (calculated > discount) discount = calculated;
     }
 
-    if (discount > bestOffer.discountAmount) {
+    if (discount > 0 && discount < price && discount > bestOffer.discountAmount) {
       bestOffer = {
         bestOfferBank: bank,
         discountAmount: discount,
-        finalPriceAfterDiscount: price - discount,
-        offerDescription: offer.substring(0, 100),
+        finalPriceAfterDiscount: Math.max(0, price - discount),
+        offerDescription: offer.substring(0, 120),
       };
     }
   }
