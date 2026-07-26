@@ -207,6 +207,110 @@ function extractBankOffers(text) {
 }
 
 // ─────────────────────────────────────────────
+// Plain-Text / Markdown Parser (for Jina AI responses)
+// ─────────────────────────────────────────────
+
+/**
+ * Detects whether fetched content is plain text / Markdown (e.g. from Jina AI)
+ * rather than real HTML. Jina renders pages to readable Markdown, so our
+ * HTML tag-based parsers completely fail on its output → garbage results.
+ * Real product pages have hundreds of HTML tags; Jina output has < 8.
+ */
+function isPlainText(content) {
+  if (!content) return true;
+  const sample = content.slice(0, 3000);
+  const tagCount = (sample.match(/<[a-z][^>]{0,100}>/gi) || []).length;
+  return tagCount < 8;
+}
+
+/**
+ * Universal Markdown / plain-text product parser.
+ * Used when Jina AI or AllOrigins returns non-HTML content.
+ *
+ * Jina formats pages like:
+ *   Title: <product name>
+ *   Source: <url>
+ *
+ *   # Heading
+ *   **Price:** ₹X,XXX
+ *   ...
+ */
+function parseFromText(text, merchant, asin) {
+  const lines = text.split('\n');
+
+  // ── Title ──
+  let title = '';
+
+  // 1. Jina metadata header: "Title: Product Name Here"
+  const titleMeta = text.match(/^Title:\s+(.+)$/im);
+  if (titleMeta?.[1]?.trim().length > 5) title = titleMeta[1].trim();
+
+  // 2. First H1 or H2 markdown heading
+  if (!title) {
+    for (const line of lines) {
+      const m = line.match(/^#{1,2}\s+(.{10,280})/);
+      if (m) { title = m[1].replace(/\*\*/g, '').trim(); break; }
+    }
+  }
+
+  // 3. First substantial line that looks like a product name
+  if (!title) {
+    for (const line of lines.slice(0, 50)) {
+      const clean = line
+        .replace(/^[#*\->|\s]+/, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // strip markdown links
+        .replace(/\*\*/g, '')
+        .trim();
+      if (
+        clean.length > 15 &&
+        clean.length < 280 &&
+        !/^https?:/.test(clean) &&
+        !/^\d+$/.test(clean) &&
+        !/^(Source|URL|Published|By|Category|Brand):/i.test(clean)
+      ) {
+        title = clean;
+        break;
+      }
+    }
+  }
+
+  // ── Price ──
+  // Be specific — don't grab just any ₹ number (avoids ads / related products)
+  let price = 0;
+  const pricePatterns = [
+    // Labelled price: "Selling Price: ₹X" or "Price: ₹X"
+    /(?:selling\s+price|discounted\s+price|final\s+price|current\s+price)[^₹\n]{0,40}₹\s*([\d,]+)/i,
+    /(?:price|MRP|cost)[^₹\n]{0,20}₹\s*([\d,]+)/i,
+    // Markdown bold price: **₹X,XXX** or **Price**: ₹X,XXX
+    /\*\*₹\s*([\d,]+)\*\*/,
+    // ₹ followed immediately by nothing suspicious (not a range like "from ₹")
+    /(?<!from\s)(?<!starting\s+at\s)₹\s*([\d,]+)(?=\s|$|[^\d,])/i,
+    // Rs. format
+    /Rs\.?\s*([\d,]+)/i,
+  ];
+  for (const pat of pricePatterns) {
+    const m = text.match(pat);
+    if (m) {
+      const p = parsePrice(m[1]);
+      // Sanity check: Indian e-commerce products are ₹50 – ₹99,99,999
+      if (p >= 50 && p <= 9_999_999) { price = p; break; }
+    }
+  }
+
+  // ── Image ──
+  const imageMatch = text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
+  const image = imageMatch?.[1] || '';
+
+  return {
+    title: decodeHTML(title),
+    price,
+    image,
+    rawOffers: extractBankOffers(text),
+    asin: asin || null,
+  };
+}
+
+// ─────────────────────────────────────────────
 // Fetch Layer
 // ─────────────────────────────────────────────
 
@@ -881,31 +985,49 @@ async function scrapeProduct(productUrl, merchant) {
       let rawOffers = [];
       try {
         const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : productUrl;
-        const html = await fetchPage(targetUrl, 'amazon');
-        if (html && !isBotWall(html))
-          rawOffers = extractBankOffers(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+        const content = await fetchPage(targetUrl, 'amazon');
+        if (content && !isBotWall(content))
+          rawOffers = extractBankOffers(
+            isPlainText(content) ? content : content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+          );
       } catch {}
       return { title: keepa.title, price: keepa.price, image: keepa.image, rawOffers, asin, domain: 'amazon', lowestEver: keepa.lowestEver || 0 };
     }
 
     const targetUrl = asin ? `https://www.amazon.in/dp/${asin}?th=1&psc=1` : productUrl;
-    const html      = await fetchPage(targetUrl, 'amazon');
-    if (isBotWall(html))
-      throw new Error('Amazon is blocking automated access from this server. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
-    const parsed = parseAmazon(html, asin);
+    const content   = await fetchPage(targetUrl, 'amazon');
+
+    // ── Route to correct parser based on content type ──
+    // Jina AI returns Markdown; HTML parsers cannot handle it → wrong data.
+    if (isPlainText(content)) {
+      console.log('[Amazon] Content is plain-text/Markdown — using text parser');
+      const parsed = parseFromText(content, 'amazon', asin);
+      return { ...parsed, domain: 'amazon', lowestEver: 0 };
+    }
+
+    if (isBotWall(content))
+      throw new Error('Amazon is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+    const parsed = parseAmazon(content, asin);
     return { ...parsed, domain: 'amazon', lowestEver: 0 };
   }
 
   // Flipkart
   if (merchant === 'flipkart') {
-    const html = await fetchPage(productUrl, 'flipkart');
-    if (isBotWall(html))
-      throw new Error('Flipkart is blocking automated access from this server. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
-    const parsed = parseFlipkart(html);
+    const content = await fetchPage(productUrl, 'flipkart');
+
+    if (isPlainText(content)) {
+      console.log('[Flipkart] Content is plain-text/Markdown — using text parser');
+      const parsed = parseFromText(content, 'flipkart', null);
+      return { ...parsed, domain: 'flipkart', lowestEver: 0 };
+    }
+
+    if (isBotWall(content))
+      throw new Error('Flipkart is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+    const parsed = parseFlipkart(content);
     return { ...parsed, domain: 'flipkart', lowestEver: 0 };
   }
 
-  // Myntra: try internal API first (fastest, no bot issues)
+  // Myntra: try internal API first (fastest, most reliable — no bot issues)
   if (merchant === 'myntra') {
     const styleId = extractMyntraProductId(productUrl);
     if (styleId) {
@@ -913,10 +1035,17 @@ async function scrapeProduct(productUrl, merchant) {
       if (apiResult) return apiResult;
     }
 
-    const html = await fetchPage(productUrl, 'myntra');
-    if (isBotWall(html))
-      throw new Error('Myntra is blocking automated access from this server. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
-    const parsed = parseMyntra(html);
+    const content = await fetchPage(productUrl, 'myntra');
+
+    if (isPlainText(content)) {
+      console.log('[Myntra] Content is plain-text/Markdown — using text parser');
+      const parsed = parseFromText(content, 'myntra', null);
+      return { ...parsed, domain: 'myntra', lowestEver: 0 };
+    }
+
+    if (isBotWall(content))
+      throw new Error('Myntra is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+    const parsed = parseMyntra(content);
     return { ...parsed, domain: 'myntra', lowestEver: 0 };
   }
 
@@ -962,10 +1091,11 @@ async function getOrScrapeProduct(productUrl) {
 
   const scraped = await scrapeProduct(normalizedUrl, merchant);
 
-  if (!scraped.title)
-    throw new Error('Could not extract product title. The link may be invalid or the page was blocked.');
-  if (!scraped.price)
-    throw new Error('Could not extract product price. The product may be unavailable or the page was blocked.');
+  // Validate scraped data — reject garbage before it reaches the UI
+  if (!scraped.title || scraped.title.length < 4)
+    throw new Error('Could not extract a valid product title. The page may have been blocked, or the link is invalid. Please try the manual entry mode.');
+  if (!scraped.price || scraped.price < 10 || scraped.price > 99_999_999)
+    throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked. Please try the manual entry mode.');
 
   const bestOffer = await evaluateOffers(scraped.price, scraped.rawOffers);
 
