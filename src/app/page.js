@@ -7,7 +7,7 @@ import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
   Search, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight,
-  Settings, LogOut, Sun, Moon, Command, X
+  Settings, LogOut, Sun, Moon, Command, X, Wallet
 } from 'lucide-react';
 
 import LandingPage from '@/components/landing/LandingPage';
@@ -296,9 +296,9 @@ export default function OfferBridges() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg"
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
             style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
-            A
+            <Wallet size={24} />
           </div>
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading OfferBridges…</p>
         </div>
