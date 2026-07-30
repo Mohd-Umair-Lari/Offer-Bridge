@@ -265,19 +265,20 @@ function parseFromText(text, merchant, asin, productUrl) {
   }
 
   if (!price && merchant === 'flipkart') {
-    const segment = text.slice(0, 6000);
-    const allPrices = [];
+    const segment = text.slice(0, 3000);
+    const foundPrices = [];
     const re = /₹\s*([\d,]+)/g;
     let m;
     while ((m = re.exec(segment)) !== null) {
       const p = parsePrice(m[1]);
-      if (p >= 100 && p <= 9_999_999) allPrices.push(p);
+      if (p >= 90 && p <= 9_999_999) foundPrices.push(p);
     }
-    if (allPrices.length) {
-      allPrices.sort((a, b) => b - a);
-      const top3 = allPrices.slice(0, 3);
-      const median = top3[Math.floor(top3.length / 2)];
-      if (median >= 100) price = median;
+    if (foundPrices.length) {
+      if (foundPrices.length >= 2) {
+         price = Math.min(foundPrices[0], foundPrices[1]);
+      } else {
+         price = foundPrices[0];
+      }
     }
   }
 
@@ -633,8 +634,11 @@ function parseFlipkart(html, productUrl) {
           if (slugKws.length > 0 && bestScore === 0) title = '';
         }
         if (!price) {
-          const v = deepFind(nextData, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
-          if (v) { const p = parsePrice(String(v)); if (p > 50) price = p; }
+          const priceCandidates = deepFindAll(nextData, ['specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice']);
+          for (const c of priceCandidates) {
+            const p = parsePrice(String(c));
+            if (p > 90) { price = p; break; }
+          }
         }
       }
     } catch (e) {}
@@ -674,8 +678,11 @@ function parseFlipkart(html, productUrl) {
         }
         if (state) {
           if (!price) {
-            const v = deepFind(state, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
-            if (v) { const p = parsePrice(String(v)); if (p > 50) price = p; }
+            const priceCandidates = deepFindAll(state, ['specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice']);
+            for (const c of priceCandidates) {
+              const p = parsePrice(String(c));
+              if (p > 90) { price = p; break; }
+            }
           }
           if (!title) {
             const titleCandidates = deepFindAll(state, ['title', 'name', 'productName', 'displayName', 'productTitle']);
@@ -708,19 +715,20 @@ function parseFlipkart(html, productUrl) {
 
   if (!price) {
     for (const pat of [
-      /class=["'][^"']*Nx9b7S[^"']*["'][^>]*>₹\s*([\d,]+)/i,
-      /class=["'][^"']*hl05eU[^"']*["'][^>]*>₹\s*([\d,]+)/i,
-      /class=["'][^"']*nsg5x8[^"']*["'][^>]*>₹\s*([\d,]+)/i,
-      /class=["'][^"']*_30jeq3[^"']*["'][^>]*>₹\s*([\d,]+)/i,
+      /class=["'][^"']*(?:Nx9b7S|hl05eU|nsg5x8|_30jeq3|CxhGGd|yRaY8j)[^"']*["'][^>]*>₹\s*([\d,]+)/i,
       /"finalPrice"\s*:\s*([\d]+)/,
       /"sellingPrice"\s*:\s*"?([\d,]+)/,
       /"mrpPrice"\s*:\s*([\d]+)/,
       /"finalSellingPrice"\s*:\s*([\d]+)/,
-      /₹\s*([\d]{2,}(?:,[\d]{2,3})*)/,
     ]) {
       const m = html.match(pat);
-      if (m) { const v = parsePrice(m[1]); if (v > 50) { price = v; break; } }
+      if (m) { const v = parsePrice(m[1]); if (v > 90) { price = v; break; } }
     }
+  }
+
+  if (!price) {
+      const m = html.match(/₹\s*([\d]{2,}(?:,[\d]{2,3})*)/);
+      if (m) { const v = parsePrice(m[1]); if (v > 90) { price = v; } }
   }
 
   if (price === 0 && /sold\s*out|currently\s+unavailable|out\s+of\s+stock/i.test(html))
@@ -768,10 +776,10 @@ async function fetchFlipkartInternalApi(productUrl) {
         }
       }
       if (slugKws.length > 0 && bestScore === 0) title = ''; // Reject if no keywords match
-      const v = deepFind(json, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
-      if (v) {
-        const p = parsePrice(String(v));
-        if (p > 50) price = p;
+      const priceCandidates = deepFindAll(json, ['specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice']);
+      for (const c of priceCandidates) {
+        const p = parsePrice(String(c));
+        if (p > 90) { price = p; break; }
       }
       const img = deepFind(json, ['imageUrl', 'imageURL', 'image', 'primaryImageUrl', 'src']);
       if (img && typeof img === 'string' && img.startsWith('http')) image = img;
