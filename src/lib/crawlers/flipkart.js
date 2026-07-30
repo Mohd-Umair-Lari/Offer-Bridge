@@ -186,7 +186,19 @@ function parseFlipkart(html, productUrl) {
     if (imgMatch) image = imgMatch[1];
   }
 
-  return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), domain: 'flipkart', asin: null, lowestEver: 0 };
+  const finalTitle = decodeHTML(title);
+  if (finalTitle.toLowerCase().includes('buy products online at best price')) {
+    throw new Error('Flipkart blocked the request and returned a generic homepage. Please try again.');
+  }
+
+  if (slugKws.length > 0) {
+    const finalScore = slugKws.reduce((acc, kw) => acc + (finalTitle.toLowerCase().includes(kw) ? 1 : 0), 0);
+    if (finalScore === 0) {
+       throw new Error('Flipkart returned an invalid page (bot wall redirect). Please try again.');
+    }
+  }
+
+  return { title: finalTitle, price, image, rawOffers: extractBankOffers(stripped), domain: 'flipkart', asin: null, lowestEver: 0 };
 }
 
 async function fetchFlipkartInternalApi(productUrl) {
@@ -356,5 +368,17 @@ function parseFromText(text, productUrl) {
     price = findLabelledPrice(/(?<!from\s)(?<!starting\s+at\s)₹\s*([\d,]+)(?=\s|$|[^\d,])/i);
   }
 
-  return { title, price, image: '', rawOffers: extractBankOffers(text), domain: 'flipkart', asin: null, lowestEver: 0 };
+  const finalTitle = title.trim();
+  if (finalTitle.toLowerCase().includes('buy products online at best price')) {
+    throw new Error('Flipkart blocked the request and returned a generic homepage. Please try again.');
+  }
+
+  if (slugKws.length > 0) {
+    const finalScore = slugKws.reduce((acc, kw) => acc + (finalTitle.toLowerCase().includes(kw) ? 1 : 0), 0);
+    if (finalScore === 0) {
+       throw new Error('Flipkart returned an invalid page (bot wall redirect). Please try again.');
+    }
+  }
+
+  return { title: finalTitle, price, image: '', rawOffers: extractBankOffers(text), domain: 'flipkart', asin: null, lowestEver: 0 };
 }

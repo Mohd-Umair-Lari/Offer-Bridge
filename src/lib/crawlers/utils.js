@@ -50,6 +50,7 @@ export function isBotWall(html) {
   if (!html) return false;
   const lower = html.toLowerCase();
   if (/robot\s*check|verify\s+you\s+are\s+human/i.test(html)) return true;
+  if (/buy products online at best price/i.test(html) && !/id=["']productTitle["']/i.test(html)) return true;
   if (/access\s+denied/i.test(html) && html.length < 5000) return true;
   const hasBotLanguage = /unusual\s+traffic|automated\s+access/i.test(html);
   const hasForm = /<form[\s>]/i.test(html);
