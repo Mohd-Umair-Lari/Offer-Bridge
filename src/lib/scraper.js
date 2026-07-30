@@ -1,8 +1,3 @@
-// NOTE: playwright is imported dynamically at runtime (not statically) so that
-// Next.js webpack never attempts to bundle the native Chromium binary at build time.
-// serverExternalPackages in next.config.mjs also enforces this for the build step.
-
-// User Agents for rotation
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -13,20 +8,13 @@ function getRandomUserAgent() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
-/**
- * Normalizes price text to integer
- */
 function parsePrice(priceText) {
   if (!priceText) return 0;
-  // Remove currency symbols, commas, and trailing decimals
   const clean = priceText.replace(/[₹$,]/g, '').split('.')[0].trim();
   const parsed = parseInt(clean, 10);
   return isNaN(parsed) ? 0 : parsed;
 }
 
-/**
- * Main Scraper Engine using Playwright
- */
 export async function scrapeProduct(url) {
   const domain = url.toLowerCase();
   let type = '';
@@ -42,7 +30,6 @@ export async function scrapeProduct(url) {
 
   let browser = null;
   try {
-    // Dynamic import defers Playwright binary resolution to request-time, not build-time.
     let chromium;
     try {
       ({ chromium } = await import('playwright'));
@@ -54,7 +41,6 @@ export async function scrapeProduct(url) {
       );
     }
 
-    // Launch headless chromium with anti-detection args
     browser = await chromium.launch({
       headless: true,
       args: [
@@ -78,7 +64,6 @@ export async function scrapeProduct(url) {
 
     const page = await context.newPage();
 
-    // Bypass common automated browser tests
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
@@ -88,7 +73,6 @@ export async function scrapeProduct(url) {
     console.log(`[Scraper] Navigating to: ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-    // Handle bot checking block detection page
     const pageContent = await page.content();
     if (pageContent.includes('captcha') || pageContent.includes('Robot Check') || pageContent.includes('To discuss automated access')) {
       throw new Error('Blocked by bot detection / CAPTCHA. Please try again later.');
@@ -111,21 +95,15 @@ export async function scrapeProduct(url) {
   }
 }
 
-/**
- * Scrapes Amazon Product Details
- */
 async function scrapeAmazon(page, url) {
-  // Wait for the main container or price element
   try {
     await page.waitForSelector('#productTitle', { timeout: 10000 });
   } catch {
     throw new Error('Amazon page structure did not load. Bot protection or invalid product link.');
   }
 
-  // Extract Title
   const title = await page.locator('#productTitle').innerText().then(t => t.trim()).catch(() => '');
 
-  // Extract Price
   let priceText = '';
   const priceSelectors = [
     '.a-price-whole',
@@ -147,7 +125,6 @@ async function scrapeAmazon(page, url) {
 
   const price = parsePrice(priceText);
   if (price === 0) {
-    // Check if product is out of stock
     const outOfStockEl = page.locator('#outOfStock, #availability span:has-text("Currently unavailable")').first();
     if (await outOfStockEl.count() > 0 && await outOfStockEl.isVisible()) {
       throw new Error('Product is currently out of stock on Amazon.');
@@ -155,7 +132,6 @@ async function scrapeAmazon(page, url) {
     throw new Error('Failed to extract price. The product might be unavailable.');
   }
 
-  // Extract Main Image
   let image = '';
   const imageSelectors = [
     '#landingImage',
@@ -172,10 +148,8 @@ async function scrapeAmazon(page, url) {
     } catch {}
   }
 
-  // Extract Credit Card / Bank Offers
   const rawOffers = [];
-  
-  // Try expanding Amazon offer modals if any "See more" exists in offers section
+
   try {
     const seeMoreButton = page.locator('#sopp-see-more-link, #soppShowMoreOffersLink, .sopp-see-more').first();
     if (await seeMoreButton.count() > 0 && await seeMoreButton.isVisible()) {
@@ -202,7 +176,6 @@ async function scrapeAmazon(page, url) {
       for (let i = 0; i < count; i++) {
         const text = await locators.nth(i).innerText().then(t => t.trim());
         if (text && !rawOffers.includes(text) && text.length > 5) {
-          // Amazon sometimes groups offer terms and title together, sanitize newlines
           const sanitizedText = text.replace(/\n+/g, ' | ');
           if (!rawOffers.includes(sanitizedText)) {
             rawOffers.push(sanitizedText);
@@ -212,7 +185,6 @@ async function scrapeAmazon(page, url) {
     } catch {}
   }
 
-  // Fallback: If no structured offer elements were found, scan text near "Bank Offer"
   if (rawOffers.length === 0) {
     try {
       const bodyText = await page.innerText('body');
@@ -232,23 +204,18 @@ async function scrapeAmazon(page, url) {
     title,
     price,
     image,
-    rawOffers: rawOffers.slice(0, 15), // Cap offers to prevent LLM prompt bloating
+    rawOffers: rawOffers.slice(0, 15),
     url,
   };
 }
 
-/**
- * Scrapes Flipkart Product Details
- */
 async function scrapeFlipkart(page, url) {
-  // Wait for the title or price element
   try {
     await page.waitForSelector('h1', { timeout: 10000 });
   } catch {
     throw new Error('Flipkart page structure did not load. Bot protection or invalid product link.');
   }
 
-  // Extract Title
   let title = '';
   const titleSelectors = [
     'span.B_NuCI',
@@ -266,7 +233,6 @@ async function scrapeFlipkart(page, url) {
     } catch {}
   }
 
-  // Extract Price
   let priceText = '';
   const priceSelectors = [
     'div._30jeq3',
@@ -289,7 +255,6 @@ async function scrapeFlipkart(page, url) {
 
   const price = parsePrice(priceText);
   if (price === 0) {
-    // Check if out of stock
     const outOfStockEl = page.locator('div._19JSg7, div:has-text("Sold Out"), div:has-text("This item is currently out of stock")').first();
     if (await outOfStockEl.count() > 0 && await outOfStockEl.isVisible()) {
       throw new Error('Product is currently out of stock on Flipkart.');
@@ -297,7 +262,6 @@ async function scrapeFlipkart(page, url) {
     throw new Error('Failed to extract price. The product might be unavailable.');
   }
 
-  // Extract Main Image
   let image = '';
   const imageSelectors = [
     'img.DByoEF',
@@ -315,16 +279,14 @@ async function scrapeFlipkart(page, url) {
     } catch {}
   }
 
-  // Extract Bank Offers (with click behavior for "View more offers")
   const rawOffers = [];
 
   try {
-    // Search for "View more offers" or "View all offers" button
     const viewMoreButton = page.locator('span:has-text("View more offers"), button:has-text("View more offers"), span:has-text("View all offers"), button:has-text("View all offers"), div:has-text("View more offers")').first();
     if (await viewMoreButton.count() > 0 && await viewMoreButton.isVisible()) {
       console.log('[Scraper] Clicking View More Offers on Flipkart');
       await viewMoreButton.click({ force: true });
-      await page.waitForTimeout(600); // wait for content animation
+      await page.waitForTimeout(600);
     }
   } catch (err) {
     console.log('[Scraper] View More Offers click failed or button not present:', err.message);
@@ -344,7 +306,6 @@ async function scrapeFlipkart(page, url) {
       for (let i = 0; i < count; i++) {
         const text = await locators.nth(i).innerText().then(t => t.trim());
         if (text && text.length > 5) {
-          // Remove any leading T&C or small UI characters
           const cleanText = text.replace(/^[T&C\s•*]+/i, '').trim();
           if (cleanText && !rawOffers.includes(cleanText)) {
             rawOffers.push(cleanText);
@@ -354,7 +315,6 @@ async function scrapeFlipkart(page, url) {
     } catch {}
   }
 
-  // Fallback scan if list items are empty
   if (rawOffers.length === 0) {
     try {
       const bodyText = await page.innerText('body');
@@ -374,28 +334,22 @@ async function scrapeFlipkart(page, url) {
     title,
     price,
     image,
-    rawOffers: rawOffers.slice(0, 15), // Cap offers to prevent LLM prompt bloating
+    rawOffers: rawOffers.slice(0, 15),
     url,
   };
 }
 
-/**
- * Scrapes Myntra Product Details
- */
 async function scrapeMyntra(page, url) {
-  // Wait for the title or price element
   try {
     await page.waitForSelector('.pdp-title, .pdp-name', { timeout: 10000 });
   } catch {
     throw new Error('Myntra page structure did not load. Bot protection or invalid product link.');
   }
 
-  // Extract Title
   let brand = await page.locator('.pdp-title').first().innerText().then(t => t.trim()).catch(() => '');
   let name = await page.locator('.pdp-name').first().innerText().then(t => t.trim()).catch(() => '');
   let title = brand && name ? `${brand} - ${name}` : (brand || name || '');
 
-  // Extract Price
   let priceText = '';
   const priceSelectors = [
     '.pdp-price',
@@ -413,7 +367,6 @@ async function scrapeMyntra(page, url) {
     } catch {}
   }
 
-  // Extract first numeric value from priceText (like "Rs. 899 Rs. 1499(40% OFF)")
   let price = 0;
   if (priceText) {
     const cleanText = priceText.replace(/[,\s]/g, '');
@@ -424,7 +377,6 @@ async function scrapeMyntra(page, url) {
   }
 
   if (price === 0) {
-    // Check if out of stock
     const outOfStockEl = page.locator('.pdp-outOfStock, div:has-text("Out of Stock"), span:has-text("Out of Stock")').first();
     if (await outOfStockEl.count() > 0 && await outOfStockEl.isVisible()) {
       throw new Error('Product is currently out of stock on Myntra.');
@@ -432,9 +384,7 @@ async function scrapeMyntra(page, url) {
     throw new Error('Failed to extract price. The product might be unavailable.');
   }
 
-  // Extract Main Image
   let image = '';
-  // Try OpenGraph meta image tag first since it's the high res image URL
   try {
     image = await page.locator('meta[property="og:image"]').getAttribute('content').catch(() => '');
   } catch {}
@@ -455,7 +405,6 @@ async function scrapeMyntra(page, url) {
     }
   }
 
-  // Extract Bank Offers
   const rawOffers = [];
   const offerSelectors = [
     '.pdp-offers li',
@@ -479,7 +428,6 @@ async function scrapeMyntra(page, url) {
     } catch {}
   }
 
-  // Fallback scan if list items are empty
   if (rawOffers.length === 0) {
     try {
       const bodyText = await page.innerText('body');

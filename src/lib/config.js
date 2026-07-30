@@ -22,7 +22,6 @@ const optionalEnvVars = {
   PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || '',
 };
 
-// Skip validation during Next.js build time (only warn in development/production runtime)
 const isVercelBuild = process.env.VERCEL_ENV || process.env.VERCEL;
 const isNextBuild = process.env.__NEXT_PRIVATE_PREBUILD_MARKER;
 
@@ -67,7 +66,6 @@ export const config = {
       secretKey: optionalEnvVars.STRIPE_SECRET_KEY,
     },
     webhookSecret: optionalEnvVars.PAYMENT_WEBHOOK_SECRET,
-    // 50% Buyer Savings / 35% Provider Earning / 15% Platform Commission split
     feeSplit: { customer: 0.50, provider: 0.35, platform: 0.15 },
   },
   email: {

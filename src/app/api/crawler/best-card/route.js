@@ -2,24 +2,6 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import { Offer } from '@/lib/models';
 
-/**
- * Enhanced Crawler: Find BEST Card for Product
- * 
- * Endpoint: /api/crawler/best-card
- * 
- * This endpoint:
- * 1. Takes a product URL
- * 2. Fetches all provider cards from database
- * 3. Calculates discount for each card
- * 4. Returns the card with MAXIMUM discount
- * 
- * Used when:
- * - Request is created (find best card automatically)
- * - Browse Requests page (show which card gives best deal)
- * - Payment flow (confirm best card selection)
- */
-
-// Merchant categories and discount tiers
 const MERCHANT_PROFILES = {
   'amazon': {
     name: 'Amazon',
@@ -92,7 +74,6 @@ const CARD_BANK_BONUSES = {
   'Kotak': 1.5,
 };
 
-// Card-specific category bonuses (premium cards)
 const CARD_CATEGORY_BONUSES = {
   'Amex Platinum': { 'Dining': 3, 'Travel': 4 },
   'HDFC Regalia': { 'Travel': 3, 'Dining': 2 },
@@ -105,7 +86,7 @@ function extractMerchant(url) {
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.toLowerCase();
-    
+
     if (domain.includes('amazon')) return 'amazon';
     if (domain.includes('flipkart')) return 'flipkart';
     if (domain.includes('cred')) return 'cred';
@@ -114,20 +95,13 @@ function extractMerchant(url) {
     if (domain.includes('myntra')) return 'myntra';
     if (domain.includes('yatra')) return 'yatra';
     if (domain.includes('makemytrip') || domain.includes('mmt')) return 'makemytrip';
-    
+
     return 'generic';
   } catch {
     return 'generic';
   }
 }
 
-/**
- * Calculate discount for a specific card on a product
- * @param {String} merchant - Merchant domain (amazon, flipkart, etc)
- * @param {Object} card - Offer document with bank, card_name, categories
- * @param {String} productCategory - Category of the request (Electronics, Dining, etc)
- * @returns {Number} Discount percentage
- */
 function calculateCardDiscount(merchant, card, productCategory = '') {
   const merchantData = MERCHANT_PROFILES[merchant] || {
     name: merchant,
@@ -138,7 +112,6 @@ function calculateCardDiscount(merchant, card, productCategory = '') {
 
   let discount = merchantData.base;
 
-  // Add bank bonus
   const bankKey = Object.keys(CARD_BANK_BONUSES).find(
     b => card.bank?.toUpperCase?.().includes(b.toUpperCase())
   );
@@ -146,38 +119,26 @@ function calculateCardDiscount(merchant, card, productCategory = '') {
     discount += CARD_BANK_BONUSES[bankKey];
   }
 
-  // Add category-specific bonus if applicable
   const categoryBonus = merchantData.categoryBonus[productCategory];
   if (categoryBonus) {
     discount += categoryBonus;
   }
 
-  // Add card-specific category bonus (premium card benefits)
   const cardSpecificBonus = CARD_CATEGORY_BONUSES[card.card_name];
   if (cardSpecificBonus && cardSpecificBonus[productCategory]) {
     discount += cardSpecificBonus[productCategory];
   }
 
-  // Cap at merchant's maximum
   discount = Math.min(discount, merchantData.max);
-
-  // Ensure minimum discount and round
   discount = Math.max(Math.round(discount * 2) / 2, 1);
 
   return discount;
 }
 
-/**
- * Find the best card from all provider cards
- * @param {String} productUrl - Product link
- * @param {String} productCategory - Request category
- * @returns {Object} { best_card, discount, all_options }
- */
 async function findBestCard(productUrl, productCategory = '') {
   try {
     await connectDB();
 
-    // Fetch all active provider cards
     const allCards = await Offer.find({ status: 'available', verified: true })
       .sort({ rating: -1 })
       .lean();
@@ -194,7 +155,6 @@ async function findBestCard(productUrl, productCategory = '') {
 
     const merchant = extractMerchant(productUrl);
 
-    // Calculate discount for each card
     const options = allCards.map(card => {
       const discount = calculateCardDiscount(merchant, card, productCategory);
       return {
@@ -210,7 +170,6 @@ async function findBestCard(productUrl, productCategory = '') {
       };
     });
 
-    // Sort by discount (descending)
     options.sort((a, b) => b.discount_percent - a.discount_percent);
 
     const bestCard = options[0];

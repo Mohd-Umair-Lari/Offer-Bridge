@@ -7,8 +7,8 @@ export async function GET(request) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
-    const type   = searchParams.get('type');   // requests | offers | transactions | all
-    const userId = searchParams.get('userId'); // optional — filter by owner
+    const type   = searchParams.get('type');
+    const userId = searchParams.get('userId');
 
     if (type === 'all') {
       const [requests, offers, transactions] = await Promise.all([
@@ -16,7 +16,6 @@ export async function GET(request) {
         Offer.find().sort({ createdAt: -1 }).limit(100).lean(),
         Transaction.find().sort({ createdAt: -1 }).limit(100).lean(),
       ]);
-      // Map _id → id for frontend compatibility
       const mapId = arr => arr.map(d => ({ ...d, id: d._id.toString(), _id: undefined }));
       return NextResponse.json({ requests: mapId(requests), offers: mapId(offers), transactions: mapId(transactions) });
     }
@@ -24,7 +23,6 @@ export async function GET(request) {
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
-    // Scope to a single user when userId is supplied
     const filter = userId ? { user_id: userId } : {};
     const data   = await Model.find(filter).sort({ createdAt: -1 }).limit(100).lean();
     const mapped = data.map(d => ({ ...d, id: d._id.toString(), _id: undefined }));
@@ -64,12 +62,10 @@ export async function PATCH(request) {
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
-    // Authorization: only allow users to edit their own requests
     if (type === 'requests' && user) {
       const existing = await Request.findById(id).lean();
       if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
       if (existing.user_id.toString() !== user.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-      // Cannot edit completed requests
       if (existing.status === 'completed') return NextResponse.json({ error: 'Cannot edit completed requests' }, { status: 400 });
     }
 
@@ -93,7 +89,6 @@ export async function DELETE(request) {
     const Model = { requests: Request, offers: Offer, transactions: Transaction }[type];
     if (!Model) return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
 
-    // Ownership check for requests — only the owner may delete
     if (type === 'requests' && user) {
       const existing = await Request.findById(id).lean();
       if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });

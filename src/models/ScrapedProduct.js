@@ -42,10 +42,9 @@ const ScrapedProductSchema = new mongoose.Schema({
     default: Date.now,
   }
 }, {
-  timestamps: true, // This automatically provides createdAt and updatedAt fields
+  timestamps: true,
 });
 
-// Create index for automatic cleaning or checking updated time
 ScrapedProductSchema.index({ updatedAt: -1 });
 
 export const ScrapedProduct = mongoose.models.ScrapedProduct || mongoose.model('ScrapedProduct', ScrapedProductSchema);

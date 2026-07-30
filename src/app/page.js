@@ -274,7 +274,6 @@ export default function OfferBridges() {
     return () => clearInterval(id);
   }, [user?.id]);
 
-  // Keyboard shortcut listeners (⌘K for search, ⌘, for settings)
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -346,7 +345,6 @@ export default function OfferBridges() {
         />
       )}
 
-      {/* ── Dashboard Sidebar (Full Height Static Pane) ──────────────── */}
       <aside
         className={`
           hidden md:flex flex-col shrink-0 h-screen
@@ -356,7 +354,6 @@ export default function OfferBridges() {
         `}
         style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
       >
-        {/* Workspace Switcher */}
         <div className="relative mb-3">
           <div className={`flex items-center justify-between px-2 py-2 rounded-lg cursor-pointer transition-colors ${desktopCollapsed ? 'justify-center' : ''}`}
             onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
@@ -383,7 +380,6 @@ export default function OfferBridges() {
           </div>
         </div>
 
-        {/* Navigation Groups */}
         <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden flex flex-col gap-4 mt-1">
           {navSections.map(({ label, items }) => (
             <div key={label} className="flex flex-col gap-0.5">
@@ -444,7 +440,6 @@ export default function OfferBridges() {
           ))}
         </div>
 
-        {/* Bottom Items */}
         <div className="mt-auto pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--border)' }}>
           <div
             onClick={() => handleTab('settings')}
@@ -499,10 +494,8 @@ export default function OfferBridges() {
         </div>
       </aside>
 
-      {/* ── Main Area (Header Bar + Content) ───────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         
-        {/* Header Bar */}
         <header className="h-14 flex items-center px-4 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
           style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-3">
@@ -519,7 +512,6 @@ export default function OfferBridges() {
               )}
             </button>
             
-            {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
               <span className="truncate">OfferBridges</span>
               <span>/</span>
@@ -527,9 +519,7 @@ export default function OfferBridges() {
             </div>
           </div>
 
-          {/* Right Actions */}
           <div className="flex items-center gap-3">
-            {/* Quick search input */}
             <div
               onClick={() => setIsSearchOpen(true)}
               className="hidden md:flex items-center gap-2 w-64 h-8 rounded-md px-3 text-xs cursor-pointer transition-colors"
@@ -546,7 +536,6 @@ export default function OfferBridges() {
           </div>
         </header>
 
-        {/* Main Content Scroll Area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
             <div className="max-w-6xl mx-auto">
               {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
@@ -568,7 +557,6 @@ export default function OfferBridges() {
           </main>
         </div>
 
-        {/* ── Command Palette / Search Modal (⌘K) ───────────────────── */}
         {isSearchOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm px-4">
             <div className="fixed inset-0" onClick={() => setIsSearchOpen(false)} />

@@ -20,17 +20,10 @@ function safeUser(user) {
     fullName: user.fullName,
     role: user.role,
     avatar: user.avatar || '',
-    onboarding_complete: user.onboarding_complete ?? true,  // existing users = already done
+    onboarding_complete: user.onboarding_complete ?? true,
   };
 }
 
-/**
- * POST /api/auth/oauth
- * Body: { provider: 'google'|'github', id_token: string } (from client-side OAuth)
- *   OR  { provider, oauth_id, email, name, picture }     (from server-side NextAuth callback)
- *
- * Returns: { token, user, is_new }
- */
 export async function POST(req) {
   try {
     await connectDB();
@@ -41,14 +34,11 @@ export async function POST(req) {
 
     const normalEmail = email.toLowerCase();
 
-    // 1. Try to find by oauth_id + provider (fastest path)
     let user = await User.findOne({ oauth_provider: provider, oauth_id });
 
-    // 2. Try to find by email (account might exist from password signup)
     if (!user) {
       user = await User.findOne({ email: normalEmail });
       if (user) {
-        // Link the OAuth provider to existing account
         user.oauth_provider = provider;
         user.oauth_id = oauth_id;
         if (picture && !user.avatar) user.avatar = picture;
@@ -56,7 +46,6 @@ export async function POST(req) {
       }
     }
 
-    // 3. Brand-new user — create with onboarding_complete = false
     const is_new = !user;
     if (!user) {
       user = await User.create({
@@ -65,8 +54,8 @@ export async function POST(req) {
         avatar: picture || '',
         oauth_provider: provider,
         oauth_id,
-        role: 'customer',             // default; wizard will update
-        onboarding_complete: false,   // will trigger OnboardingWizard
+        role: 'customer',
+        onboarding_complete: false,
       });
     }
 

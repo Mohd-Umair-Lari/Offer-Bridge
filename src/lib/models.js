@@ -14,7 +14,6 @@ const UserSchema = new mongoose.Schema({
   age:                 { type: String, default: '' },
 }, { timestamps: true });
 
-
 const RequestSchema = new mongoose.Schema({
   user_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title:         { type: String, required: true },
@@ -25,19 +24,18 @@ const RequestSchema = new mongoose.Schema({
   product_link:  { type: String, default: '' },
   is_public:     { type: Boolean, default: true },
   status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled'], default: 'pending' },
-  // Auto-discovered best card for this product (populated by crawler)
   best_card_info: {
     card_id:         { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
     card_name:       { type: String,  default: '' },
     bank:            { type: String,  default: '' },
-    discount_amount: { type: Number,  default: 0 },   // Actual ₹ savings from card offer
-    final_price:     { type: Number,  default: 0 },   // Price after card discount
+    discount_amount: { type: Number,  default: 0 },
+    final_price:     { type: Number,  default: 0 },
   },
-  product_image:  { type: String, default: '' },        // Product thumbnail from crawler
-  raw_offers:     { type: [String], default: [] },      // All bank offer strings from product page
-  merchant:       { type: String, default: '' },        // 'amazon' | 'flipkart' | 'myntra'
-  required_card:  { type: String, default: 'Any' },     // Preferred bank/card the buyer wants provider to use
-  pushed_at:      { type: Date,   default: Date.now },  // Creation or last 48h repush timestamp
+  product_image:  { type: String, default: '' },
+  raw_offers:     { type: [String], default: [] },
+  merchant:       { type: String, default: '' },
+  required_card:  { type: String, default: 'Any' },
+  pushed_at:      { type: Date,   default: Date.now },
 }, { timestamps: true });
 
 const OfferSchema = new mongoose.Schema({
@@ -56,8 +54,6 @@ const OfferSchema = new mongoose.Schema({
   limit:       { type: Number, default: 0 },
 }, { timestamps: true });
 
-
-
 const TransactionSchema = new mongoose.Schema({
   request_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Request', required: true },
   offer_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Offer',   required: true },
@@ -73,12 +69,11 @@ const TransactionSchema = new mongoose.Schema({
   tracking_id:  { type: String, default: '' },
   courier:      { type: String, default: '' },
   
-  // NEW: Real card discount amount (in rupees, scraped from product page)
-  card_discount_amount:  { type: Number, default: 0 },        // Actual ₹ amount from card offer
-  customer_savings:      { type: Number, default: 0 },        // card_discount_amount × 0.50 (buyer reward)
-  provider_earning:      { type: Number, default: 0 },        // card_discount_amount × 0.35 (seller reward)
-  platform_commission:   { type: Number, default: 0 },        // card_discount_amount × 0.15 (platform fee)
-  discount_source:       { type: String, default: 'scraped' }, // 'scraped' | 'estimated_fallback' | 'manual'
+  card_discount_amount:  { type: Number, default: 0 },
+  customer_savings:      { type: Number, default: 0 },
+  provider_earning:      { type: Number, default: 0 },
+  platform_commission:   { type: Number, default: 0 },
+  discount_source:       { type: String, default: 'scraped' },
   
   status: {
     type: String,
@@ -109,9 +104,6 @@ const NotificationSchema = new mongoose.Schema({
   read:       { type: Boolean, default: false },
 }, { timestamps: true });
 
-
-
-// Production Query Indexes
 RequestSchema.index({ user_id: 1, status: 1 });
 RequestSchema.index({ status: 1, is_public: 1 });
 OfferSchema.index({ user_id: 1, status: 1 });
@@ -126,4 +118,3 @@ export const Offer        = mongoose.models.Offer        || mongoose.model('Offe
 
 export const Transaction  = mongoose.models.Transaction  || mongoose.model('Transaction', TransactionSchema);
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
-

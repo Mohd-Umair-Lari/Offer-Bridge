@@ -22,34 +22,27 @@ async function request(url, options = {}) {
 }
 
 export const api = {
-  // Auth
   login:         (email, password)                 => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'login', email, password }) }),
   register:      (email, password, fullName, role) => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'register', email, password, fullName, role }) }),
   me:            ()                                => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'me' }) }),
   updateProfile: (data)                            => request('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'update-profile', ...data }) }),
 
-  // Data
   fetchAll:      ()                => request('/api/data?type=all'),
   fetch:         (type)            => request(`/api/data?type=${type}`),
   create:        (type, data)      => request('/api/data', { method: 'POST', body: JSON.stringify({ type, ...data }) }),
   update:        (type, id, data)  => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type, id, ...data }) }),
   remove:        (type, id)        => request(`/api/data?type=${type}&id=${id}`, { method: 'DELETE' }),
 
-  // Convenience: fetch only the current user's requests (userId optional — server filters when provided)
   getRequests:   (userId)          => request(`/api/data?type=requests${userId ? `&userId=${userId}` : ''}`),
-  // Convenience: delete a request by id (server enforces ownership)
   deleteRequest: (id)              => request(`/api/data?type=requests&id=${id}`, { method: 'DELETE' }),
-  // Convenience: repush an unmatched request for another 48 hours
   repushRequest: (id)              => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type: 'requests', id, pushed_at: new Date().toISOString() }) }),
 
-  // Payment portal
-  initiatePayment: (request_id, offer_id)       => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),
-  confirmPayment:  (tx_id, upi_ref)             => request('/api/payment', { method: 'PUT',  body: JSON.stringify({ tx_id, upi_ref }) }),
-  submitTracking:  (tx_id, tracking_id, courier)=> request('/api/payment/tracking', { method: 'POST', body: JSON.stringify({ tx_id, tracking_id, courier }) }),
-  getTransactions: (userId)                     => request(`/api/payment?userId=${userId}`),
-  runRefundCheck:  ()                           => request('/api/payment/refund-check'),
+  initiatePayment: (request_id, offer_id)        => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),
+  confirmPayment:  (tx_id, upi_ref)              => request('/api/payment', { method: 'PUT',  body: JSON.stringify({ tx_id, upi_ref }) }),
+  submitTracking:  (tx_id, tracking_id, courier) => request('/api/payment/tracking', { method: 'POST', body: JSON.stringify({ tx_id, tracking_id, courier }) }),
+  getTransactions: (userId)                      => request(`/api/payment?userId=${userId}`),
+  runRefundCheck:  ()                            => request('/api/payment/refund-check'),
 
-  // Notifications
   getNotifications: (limit = 20) => request(`/api/notifications?limit=${limit}`),
   markNotifRead:    (id)          => request('/api/notifications', { method: 'PATCH', body: JSON.stringify({ id }) }),
   markAllRead:      ()            => request('/api/notifications', { method: 'PATCH', body: JSON.stringify({ markAllRead: true }) }),

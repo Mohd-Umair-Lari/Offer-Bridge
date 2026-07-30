@@ -3,7 +3,6 @@ import { connectDB } from '@/lib/mongodb';
 import { Notification } from '@/lib/models';
 import { getUser } from '@/lib/auth';
 
-// GET /api/notifications?limit=20   → fetch user's notifications
 export async function GET(req) {
   try {
     await connectDB();
@@ -26,7 +25,6 @@ export async function GET(req) {
   }
 }
 
-// PATCH /api/notifications   body: { id } or { markAllRead: true }
 export async function PATCH(req) {
   try {
     await connectDB();

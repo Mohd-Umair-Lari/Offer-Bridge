@@ -40,12 +40,10 @@ export async function POST(req) {
 
     const buyerDoc = await User.findById(requestDoc.user_id).lean();
     const amount = Number(requestDoc.amount);
-    
-    // Check if card discount is already stored on the request
+
     let actualDiscountAmount = requestDoc.best_card_info?.discount_amount || 0;
     let bestCardForDiscount = requestDoc.best_card_info || null;
 
-    // Fall back to lightweight crawler if discount not yet populated
     if (!actualDiscountAmount && requestDoc.product_link && amount) {
       try {
         const crawlerRes = await fetch(new URL('/api/crawler/extract-product', req.url).toString(), {
@@ -76,10 +74,9 @@ export async function POST(req) {
     }
 
     if (!actualDiscountAmount) {
-      actualDiscountAmount = Math.round(amount * 0.05); // 5% default fallback
+      actualDiscountAmount = Math.round(amount * 0.05);
     }
 
-    // Calculate earnings using 50/35/15 split model
     const customerSavings = Math.round(actualDiscountAmount * 0.50);
     const providerEarning = Math.round(actualDiscountAmount * 0.35);
     const platformCommission = Math.round(actualDiscountAmount * 0.15);

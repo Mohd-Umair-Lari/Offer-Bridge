@@ -4,12 +4,11 @@ import { ScrapedProduct } from '@/models/ScrapedProduct';
 import { scrapeProduct } from '@/lib/scraper';
 import { evaluateBestOffer } from '@/lib/llmService';
 
-// Supported domains check
 function isValidUrl(url) {
   try {
     const domain = new URL(url).hostname.toLowerCase();
-    return domain.includes('amazon.in') || 
-           domain.includes('amazon.com') || 
+    return domain.includes('amazon.in') ||
+           domain.includes('amazon.com') ||
            domain.includes('flipkart.com') ||
            domain.includes('myntra.com');
   } catch {
@@ -17,25 +16,19 @@ function isValidUrl(url) {
   }
 }
 
-/**
- * Handle scrape and LLM processing
- */
 async function processScrape(productUrl) {
   const normalizedUrl = productUrl.trim().toLowerCase();
-  
-  // 1. Scraping execution
+
   console.log(`[API Route] Cache miss. Initiating browser scraper for: ${normalizedUrl}`);
   const scrapedData = await scrapeProduct(normalizedUrl);
-  
+
   if (!scrapedData.success) {
     throw new Error('Failed to scrape the product webpage.');
   }
 
-  // 2. Evaluate credit card/bank offers using LLM
   console.log(`[API Route] Scraped successfully. Invoking LLM for offer evaluation on price: ${scrapedData.price}`);
   const bestOffer = await evaluateBestOffer(scrapedData.price, scrapedData.rawOffers);
 
-  // 3. Save or update cache in MongoDB ScrapedProducts
   const upsertData = {
     url: normalizedUrl,
     domain: scrapedData.domain,
@@ -57,10 +50,6 @@ async function processScrape(productUrl) {
   return savedDoc;
 }
 
-/**
- * POST Route
- * Body JSON: { "productUrl": "https://..." }
- */
 export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -82,10 +71,8 @@ export async function POST(request) {
 
     await connectDB();
 
-    // Cache expiration time window: 12 hours ago
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-    
-    // Check MongoDB cache
+
     const cachedDoc = await ScrapedProduct.findOne({
       url: productUrl.trim().toLowerCase(),
       updatedAt: { $gte: twelveHoursAgo },
@@ -100,7 +87,6 @@ export async function POST(request) {
       });
     }
 
-    // Cache miss - Scrape and evaluate
     const finalDoc = await processScrape(productUrl);
 
     return NextResponse.json({
@@ -111,31 +97,26 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('[API Route Error] scraping process failed:', error.message);
-    
-    // Graceful error status codes
+
     let status = 500;
     if (error.message.includes('out of stock')) {
-      status = 422; // Unprocessable Entity for out-of-stock items
+      status = 422;
     } else if (error.message.includes('bot detection') || error.message.includes('Blocked')) {
-      status = 503; // Service Unavailable
+      status = 503;
     } else if (error.message.includes('Unsupported domain')) {
       status = 400;
     }
 
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'An error occurred while processing the product page.' 
+      {
+        success: false,
+        error: error.message || 'An error occurred while processing the product page.'
       },
       { status }
     );
   }
 }
 
-/**
- * GET Route (Convenience fallback/testing)
- * Query Param: ?url=https://...
- */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);

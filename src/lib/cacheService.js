@@ -1,4 +1,3 @@
-// Cache utilities for efficient data management
 const CACHE_KEYS = {
   REQUESTS: 'offerbridges_requests',
   OFFERS: 'offerbridges_offers',
@@ -7,10 +6,9 @@ const CACHE_KEYS = {
   TIMESTAMP: 'offerbridges_cache_timestamp',
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000;
 
 export const CacheService = {
-  // Get cached data if still fresh
   get: (key) => {
     if (typeof window === 'undefined') return null;
     try {
@@ -19,7 +17,6 @@ export const CacheService = {
       if (cached && timestamp && Date.now() - parseInt(timestamp) < CACHE_DURATION) {
         return JSON.parse(cached);
       }
-      // Cache expired or invalid
       CacheService.clear();
       return null;
     } catch {
@@ -27,7 +24,6 @@ export const CacheService = {
     }
   },
 
-  // Set cache
   set: (key, data) => {
     if (typeof window === 'undefined') return;
     try {
@@ -36,7 +32,6 @@ export const CacheService = {
     } catch { /* storage unavailable */ }
   },
 
-  // Clear all cache (call on logout or session change)
   clear: () => {
     if (typeof window === 'undefined') return;
     try {
@@ -45,7 +40,6 @@ export const CacheService = {
   }
 };
 
-// Retry logic with exponential backoff
 export const withRetry = async (fn, maxRetries = 3, delay = 1000) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
@@ -53,7 +47,7 @@ export const withRetry = async (fn, maxRetries = 3, delay = 1000) => {
     } catch (error) {
       if (i === maxRetries - 1) throw error;
       await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2; // Exponential backoff
+      delay *= 2;
     }
   }
 };

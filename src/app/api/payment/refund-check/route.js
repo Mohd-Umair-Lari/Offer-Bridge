@@ -7,7 +7,6 @@ export async function GET() {
     await connectDB();
     const now = new Date();
 
-    // Find all expired tracking_pending transactions
     const expired = await Transaction.find({
       status:          'tracking_pending',
       tracking_due_at: { $lte: now },

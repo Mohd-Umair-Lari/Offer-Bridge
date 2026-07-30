@@ -25,7 +25,7 @@ function extractMerchant(url) {
   try {
     const urlObj = new URL(url);
     const domain = urlObj.hostname.toLowerCase();
-    
+
     if (domain.includes('amazon')) return 'amazon';
     if (domain.includes('flipkart')) return 'flipkart';
     if (domain.includes('cred')) return 'cred';
@@ -34,7 +34,7 @@ function extractMerchant(url) {
     if (domain.includes('myntra')) return 'myntra';
     if (domain.includes('yatra')) return 'yatra';
     if (domain.includes('makemytrip') || domain.includes('mmt')) return 'makemytrip';
-    
+
     return 'generic';
   } catch {
     return 'generic';
@@ -42,23 +42,18 @@ function extractMerchant(url) {
 }
 
 function calculateDiscount(merchant, bank, cardName) {
-  // Base discount from merchant
   const merchantData = MERCHANT_DISCOUNTS[merchant] || { base: 2, max: 10 };
   let discount = merchantData.base;
-  
-  // Bank bonus
+
   const bankBonus = Object.entries(CARD_BANK_BONUSES).find(
     ([b]) => bank?.toUpperCase?.().includes(b.toUpperCase())
   );
   if (bankBonus) discount += bankBonus[1];
-  
-  // Cap at merchant max
+
   discount = Math.min(discount, merchantData.max);
-  
-  // Round to nearest 0.5%
   discount = Math.round(discount * 2) / 2;
-  
-  return Math.max(discount, 1); // Minimum 1% discount
+
+  return Math.max(discount, 1);
 }
 
 export async function POST(request) {

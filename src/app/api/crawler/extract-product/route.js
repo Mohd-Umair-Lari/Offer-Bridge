@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
-// ─────────────────────────────────────────────
-// DB / Model
-// ─────────────────────────────────────────────
-
 const DB_NAME = 'offerbridge';
 const env = (k) => process.env[k] || '';
 
@@ -50,10 +46,6 @@ async function getModel() {
   return mongoose.model('ScrapedProduct', schema);
 }
 
-// ─────────────────────────────────────────────
-// URL / ID Helpers
-// ─────────────────────────────────────────────
-
 function getMerchant(url) {
   try {
     const h = new URL(url).hostname.toLowerCase();
@@ -64,10 +56,6 @@ function getMerchant(url) {
   return null;
 }
 
-/**
- * FIX #5 — Tightened ASIN extraction.
- * Removed the greedy fallback that matched any 10-char path segment.
- */
 function extractASIN(url) {
   const patterns = [
     /\/dp\/([A-Z0-9]{10})(?:\/|\?|$)/i,
@@ -82,26 +70,15 @@ function extractASIN(url) {
   return null;
 }
 
-/**
- * FIX #9 — Better Myntra style ID extraction.
- * Handles `/buy` suffix, `/p/` prefix, and short-form URLs.
- */
 function extractMyntraProductId(url) {
   try {
     const u = new URL(url);
-
-    // 1. styleId query param
     const styleParam = u.searchParams.get('styleId');
     if (styleParam && /^\d+$/.test(styleParam)) return styleParam;
-
     const pathSegments = u.pathname.split('/').filter(Boolean);
-
-    // 2. Numeric segment 5–10 digits (product ID in path)
     for (const seg of pathSegments) {
       if (/^\d{5,10}$/.test(seg)) return seg;
     }
-
-    // 3. Short-form: last numeric token in the path (e.g. /product/buy/12345678)
     for (let i = pathSegments.length - 1; i >= 0; i--) {
       const cleaned = pathSegments[i].replace(/[^0-9]/g, '');
       if (/^\d{5,10}$/.test(cleaned)) return cleaned;
@@ -109,10 +86,6 @@ function extractMyntraProductId(url) {
   } catch {}
   return null;
 }
-
-// ─────────────────────────────────────────────
-// Parsing Helpers
-// ─────────────────────────────────────────────
 
 function parsePrice(raw) {
   if (!raw && raw !== 0) return 0;
@@ -144,56 +117,47 @@ function extractJsonLD(html) {
   return null;
 }
 
+function flipkartSlugKeywords(url) {
+  try {
+    const path = new URL(url).pathname;
+    const slug = path.split('/').filter(Boolean)[0] || '';
+    return slug
+      .toLowerCase()
+      .split('-')
+      .filter((w) => w.length > 1 && !/^(p|itm|[0-9a-f]{10,})$/i.test(w));
+  } catch {
+    return [];
+  }
+}
+
 function extractOG(html, prop) {
   const re1 = new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']+)["']`, 'i');
   const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:${prop}["']`, 'i');
   return decodeHTML((html.match(re1) || html.match(re2))?.[1] || '');
 }
 
-/**
- * FIX #12 — Tightened bot-wall detection.
- * Now requires BOTH bot-language AND a <form> element (CAPTCHA form),
- * preventing false positives on normal pages that mention "automated" in copy.
- */
 function isBotWall(html) {
   if (!html) return false;
   const lower = html.toLowerCase();
-
-  // Hard signals — definitive captcha/block pages
   if (/robot\s*check|verify\s+you\s+are\s+human/i.test(html)) return true;
   if (/access\s+denied/i.test(html) && html.length < 5000) return true;
-
-  // Soft signals — only flag if there's also a <form> (CAPTCHA challenge)
   const hasBotLanguage = /unusual\s+traffic|automated\s+access/i.test(html);
   const hasForm = /<form[\s>]/i.test(html);
   if (hasBotLanguage && hasForm) return true;
-
-  // Captcha keyword requires an iframe or form (not just marketing text)
   const hasCaptcha = /captcha/i.test(html);
   if (hasCaptcha && (hasForm || /<iframe[\s>]/i.test(html))) return true;
-
   return false;
 }
 
-/**
- * FIX #6 — Expanded bank offer extraction.
- * Allows periods within offer text, adds more banks, covers Myntra's format.
- */
 function extractBankOffers(text) {
   const seen = new Set();
   const result = [];
   const patterns = [
-    // Bank Offer label with multi-sentence body (allow . inside)
     /Bank\s+Offer\s*[:\-]?\s*.{15,350}?(?=Bank Offer|Credit Card Offer|Debit Card Offer|$|\n\n)/gi,
-    // Flat / Get / Extra / Upto discounts
     /(?:Get|Flat|Extra|Avail|Upto|Up\s+to)\s+(?:₹[\d,]+|\d+%)\s*.{10,280}/gi,
-    // Named bank offers (including Paytm, NAVI, Jupiter)
     /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex|AU\s+Small|OneCard|Citi|Paytm|NAVI|Jupiter)[^!\n;]{10,280}?(?:off|cashback|discount|EMI|reward)[^!\n;]{0,120}/gi,
-    // Percentage-based offers
     /\d+%\s*(?:instant\s+)?(?:discount|off|cashback)[^!\n;]{10,220}/gi,
-    // No Cost EMI
     /No\s+Cost\s+EMI[^!\n;]{10,220}/gi,
-    // Myntra style "10% off on HDFC Credit Card" compact format
     /(?:\d+%|₹[\d,]+)\s+(?:off|discount|cashback)\s+(?:on|with|using)\s+\w+[^!\n;]{5,180}/gi,
   ];
   for (const pat of patterns) {
@@ -206,16 +170,6 @@ function extractBankOffers(text) {
   return result.slice(0, 15);
 }
 
-// ─────────────────────────────────────────────
-// Plain-Text / Markdown Parser (for Jina AI responses)
-// ─────────────────────────────────────────────
-
-/**
- * Detects whether fetched content is plain text / Markdown (e.g. from Jina AI)
- * rather than real HTML. Jina renders pages to readable Markdown, so our
- * HTML tag-based parsers completely fail on its output → garbage results.
- * Real product pages have hundreds of HTML tags; Jina output has < 8.
- */
 function isPlainText(content) {
   if (!content) return true;
   const sample = content.slice(0, 3000);
@@ -223,83 +177,127 @@ function isPlainText(content) {
   return tagCount < 8;
 }
 
-/**
- * Universal Markdown / plain-text product parser.
- * Used when Jina AI or AllOrigins returns non-HTML content.
- *
- * Jina formats pages like:
- *   Title: <product name>
- *   Source: <url>
- *
- *   # Heading
- *   **Price:** ₹X,XXX
- *   ...
- */
-function parseFromText(text, merchant, asin) {
+function parseFromText(text, merchant, asin, productUrl) {
   const lines = text.split('\n');
+  const slugKws = merchant === 'flipkart' && productUrl
+    ? flipkartSlugKeywords(productUrl)
+    : [];
 
-  // ── Title ──
+  const isNavLine = (s) =>
+    /^(home|login|cart|wishlist|become a seller|notifications|more|offers|gift cards|help)/i.test(s) ||
+    /^(men|women|kids|electronics|fashion|mobiles|computers|appliances|sports)/i.test(s) ||
+    /^back\s*$|^skip\s*$|^continue\s*$/i.test(s) ||
+    /^\[?(search|menu|navigation|breadcrumb|category)/i.test(s);
+
+  const scoreLine = (s) => {
+    if (!slugKws.length) return 1;
+    const lower = s.toLowerCase();
+    let hits = 0;
+    for (const kw of slugKws) if (lower.includes(kw)) hits++;
+    return hits;
+  };
+
   let title = '';
 
-  // 1. Jina metadata header: "Title: Product Name Here"
   const titleMeta = text.match(/^Title:\s+(.+)$/im);
-  if (titleMeta?.[1]?.trim().length > 5) title = titleMeta[1].trim();
-
-  // 2. First H1 or H2 markdown heading
-  if (!title) {
-    for (const line of lines) {
-      const m = line.match(/^#{1,2}\s+(.{10,280})/);
-      if (m) { title = m[1].replace(/\*\*/g, '').trim(); break; }
-    }
+  if (titleMeta?.[1]?.trim().length > 5) {
+    const candidate = titleMeta[1].trim();
+    if (!isNavLine(candidate)) title = candidate;
   }
 
-  // 3. First substantial line that looks like a product name
   if (!title) {
-    for (const line of lines.slice(0, 50)) {
-      const clean = line
-        .replace(/^[#*\->|\s]+/, '')
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // strip markdown links
-        .replace(/\*\*/g, '')
-        .trim();
-      if (
-        clean.length > 15 &&
-        clean.length < 280 &&
-        !/^https?:/.test(clean) &&
-        !/^\d+$/.test(clean) &&
-        !/^(Source|URL|Published|By|Category|Brand):/i.test(clean)
-      ) {
-        title = clean;
-        break;
+    let bestScore = -1;
+    for (const line of lines) {
+      const m = line.match(/^#{1,2}\s+(.{10,280})/);
+      if (!m) continue;
+      const candidate = m[1].replace(/\*\*/g, '').trim();
+      if (isNavLine(candidate)) continue;
+      const score = scoreLine(candidate);
+      if (score > bestScore) {
+        bestScore = score;
+        title = candidate;
+        if (score >= Math.max(2, Math.ceil(slugKws.length * 0.4))) break;
       }
     }
   }
 
-  // ── Price ──
-  // Be specific — don't grab just any ₹ number (avoids ads / related products)
+  if (!title) {
+    let best = { score: -1, text: '' };
+    for (const line of lines.slice(0, 80)) {
+      const clean = line
+        .replace(/^[#*\->|\s]+/, '')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/\*\*/g, '')
+        .trim();
+      if (
+        clean.length > 15 &&
+        clean.length < 300 &&
+        !/^https?:/.test(clean) &&
+        !/^\d+$/.test(clean) &&
+        !/^(Source|URL|Published|By|Category|Brand):/i.test(clean) &&
+        !isNavLine(clean)
+      ) {
+        const score = scoreLine(clean);
+        if (score > best.score) {
+          best = { score, text: clean };
+        }
+      }
+    }
+    if (best.text) title = best.text;
+  }
+
   let price = 0;
-  const pricePatterns = [
-    // Labelled price: "Selling Price: ₹X" or "Price: ₹X"
-    /(?:selling\s+price|discounted\s+price|final\s+price|current\s+price)[^₹\n]{0,40}₹\s*([\d,]+)/i,
-    /(?:price|MRP|cost)[^₹\n]{0,20}₹\s*([\d,]+)/i,
-    // Markdown bold price: **₹X,XXX** or **Price**: ₹X,XXX
-    /\*\*₹\s*([\d,]+)\*\*/,
-    // ₹ followed immediately by nothing suspicious (not a range like "from ₹")
-    /(?<!from\s)(?<!starting\s+at\s)₹\s*([\d,]+)(?=\s|$|[^\d,])/i,
-    // Rs. format
-    /Rs\.?\s*([\d,]+)/i,
-  ];
-  for (const pat of pricePatterns) {
-    const m = text.match(pat);
-    if (m) {
+
+  const findLabelledPrice = (pattern) => {
+    const m = text.match(pattern);
+    if (!m) return 0;
+    const p = parsePrice(m[1]);
+    return p >= 50 && p <= 9_999_999 ? p : 0;
+  };
+
+  price =
+    findLabelledPrice(/(?:selling\s+price|discounted\s+price|final\s+price|current\s+price)[^₹\n]{0,40}₹\s*([\d,]+)/i) ||
+    findLabelledPrice(/(?:\bprice\b|\bMRP\b|\bcost\b)[^₹\n]{0,20}₹\s*([\d,]+)/i) ||
+    0;
+
+  if (!price) {
+    price = findLabelledPrice(/\*\*₹\s*([\d,]+)\*\*/);
+  }
+
+  if (!price && merchant === 'flipkart') {
+    const segment = text.slice(0, 6000);
+    const allPrices = [];
+    const re = /₹\s*([\d,]+)/g;
+    let m;
+    while ((m = re.exec(segment)) !== null) {
       const p = parsePrice(m[1]);
-      // Sanity check: Indian e-commerce products are ₹50 – ₹99,99,999
-      if (p >= 50 && p <= 9_999_999) { price = p; break; }
+      if (p >= 100 && p <= 9_999_999) allPrices.push(p);
+    }
+    if (allPrices.length) {
+      allPrices.sort((a, b) => b - a);
+      const top3 = allPrices.slice(0, 3);
+      const median = top3[Math.floor(top3.length / 2)];
+      if (median >= 100) price = median;
     }
   }
 
-  // ── Image ──
-  const imageMatch = text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/);
-  const image = imageMatch?.[1] || '';
+  if (!price) {
+    price = findLabelledPrice(/(?<!from\s)(?<!starting\s+at\s)₹\s*([\d,]+)(?=\s|$|[^\d,])/i);
+  }
+
+  if (!price) {
+    price = findLabelledPrice(/Rs\.?\s*([\d,]+)/i);
+  }
+
+  let image = '';
+  const imgRe = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g;
+  let imgMatch;
+  while ((imgMatch = imgRe.exec(text)) !== null) {
+    const imgUrl = imgMatch[1];
+    if (/favicon|logo|icon|badge|sprite|chrome-extension|gstatic|googleusercontent/i.test(imgUrl)) continue;
+    image = imgUrl;
+    break;
+  }
 
   return {
     title: decodeHTML(title),
@@ -310,14 +308,6 @@ function parseFromText(text, merchant, asin) {
   };
 }
 
-// ─────────────────────────────────────────────
-// Fetch Layer
-// ─────────────────────────────────────────────
-
-/**
- * Browser profiles for direct fetch rotation.
- * Uses realistic Chrome/Safari UAs to avoid basic bot fingerprinting.
- */
 const BROWSER_PROFILES = [
   {
     'User-Agent':              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
@@ -345,7 +335,6 @@ const BROWSER_PROFILES = [
     'Upgrade-Insecure-Requests': '1',
   },
   {
-    // Android mobile UA – useful for Flipkart's mobile-optimised HTML
     'User-Agent':         'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
     'Accept':             'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language':    'en-IN,hi;q=0.9,en;q=0.8',
@@ -361,9 +350,6 @@ const BROWSER_PROFILES = [
   },
 ];
 
-/**
- * FIX #1 — Flipkart mobile URL uses m.flipkart.com (dl.flipkart.com does not exist).
- */
 function toMobileFlipkartUrl(url) {
   try {
     const u = new URL(url);
@@ -375,10 +361,6 @@ function toMobileFlipkartUrl(url) {
   return url;
 }
 
-/**
- * FIX #11 — Domain-specific Referer headers.
- * Amazon blocks requests that lack a valid google.com or amazon.in referer.
- */
 function getDomainReferer(merchant) {
   if (merchant === 'amazon')   return 'https://www.amazon.in/';
   if (merchant === 'flipkart') return 'https://www.flipkart.com/';
@@ -386,9 +368,6 @@ function getDomainReferer(merchant) {
   return 'https://www.google.com/';
 }
 
-/**
- * FIX #10 — withRetry: retries a network call once on transient errors (5xx, timeout).
- */
 async function withRetry(fn, maxAttempts = 2, delayMs = 800) {
   let lastErr;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -418,7 +397,7 @@ async function tryFetch(url, profile, merchant, timeoutMs = 20000) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const html = await res.text();
-  if (!html || html.length < 800) throw new Error('Response too small — blocked');
+  if (!html || html.length < 800) throw new Error('Response too small');
   return html;
 }
 
@@ -450,7 +429,6 @@ async function fetchViaJina(url) {
   if (!text || text.length < 300) throw new Error('Jina returned too short response');
   if (/E00[0-9]|Something went wrong|Please try again/i.test(text.slice(0, 500)))
     throw new Error('Jina service error: ' + text.slice(0, 100));
-  console.log(`[Jina] Fetched ${text.length} chars for ${url}`);
   return text;
 }
 
@@ -462,29 +440,17 @@ async function fetchViaAllOrigins(url) {
   const html = json?.contents;
   if (!html || html.length < 500) throw new Error('AllOrigins returned empty or too-small response');
   if (isBotWall(html)) throw new Error('AllOrigins: bot wall on response');
-  console.log(`[AllOrigins] Fetched ${html.length} chars for ${url}`);
   return html;
 }
 
-/**
- * High-reliability fetch waterfall:
- * 1. ScraperAPI (if key present)
- * 2. Direct fetch with browser profile rotation (+ retry)
- * 3. Jina AI Reader
- * 4. AllOrigins proxy
- */
 async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
   const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
 
-  // 1. ScraperAPI
   if (scraperKey) {
-    try { return await withRetry(() => fetchViaScraperAPI(url)); } catch (e) {
-      console.warn('[ScraperAPI] Failed:', e.message, '— trying next method');
-    }
+    try { return await withRetry(() => fetchViaScraperAPI(url)); } catch (e) {}
   }
 
-  // 2. Direct fetch with profile rotation
   let directUrls = [url];
   if (merchant === 'flipkart') {
     directUrls = [toMobileFlipkartUrl(url), url];
@@ -510,26 +476,12 @@ async function fetchPage(url, merchant) {
     }
   }
 
-  // 3. Jina AI Reader
-  console.log(`[Crawler] Direct fetch failed (${lastErr?.message}). Trying Jina AI for: ${url}`);
-  try { return await withRetry(() => fetchViaJina(url)); } catch (jinaErr) {
-    console.warn('[Jina] Failed:', jinaErr.message, '— trying AllOrigins');
-  }
+  try { return await withRetry(() => fetchViaJina(url)); } catch (jinaErr) {}
 
-  // 4. AllOrigins
-  console.log(`[Crawler] Jina failed. Trying AllOrigins for: ${url}`);
   try { return await withRetry(() => fetchViaAllOrigins(url)); } catch (originsErr) {
-    console.warn('[AllOrigins] Failed:', originsErr.message);
-    throw new Error(
-      `${siteName} is blocking automated access from this server. ` +
-      `Add a SCRAPER_API_KEY to your environment for reliable bypass, or use the Chrome Extension instead.`,
-    );
+    throw new Error(`${siteName} is blocking automated access from this server.`);
   }
 }
-
-// ─────────────────────────────────────────────
-// Keepa (Amazon price history)
-// ─────────────────────────────────────────────
 
 async function fetchKeepa(asin) {
   const key = env('KEEPA_API_KEY');
@@ -551,23 +503,13 @@ async function fetchKeepa(asin) {
       lowestEver: toINR(p.stats?.min?.[0] ?? -1),
     };
   } catch (e) {
-    console.warn('[Keepa] Failed:', e.message);
     return null;
   }
 }
 
-// ─────────────────────────────────────────────
-// Platform Parsers
-// ─────────────────────────────────────────────
-
-/**
- * FIX #4 — Amazon: added corePriceDisplay + apex_desktop patterns for newer PDPs.
- */
 function parseAmazon(html, asin) {
   const ld      = extractJsonLD(html);
   const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-
-  // --- Title ---
   let title =
     html.match(/<span[^>]+id=["']productTitle["'][^>]*>\s*([\s\S]*?)\s*<\/span>/i)?.[1]
       ?.replace(/<[^>]+>/g, '').trim()
@@ -576,19 +518,12 @@ function parseAmazon(html, asin) {
     || '';
   title = decodeHTML(title);
 
-  // --- Price ---
   let price = 0;
-
-  // 1. JSON-LD offers price (most reliable when present)
   if (!price && ld?.offers?.price) price = parsePrice(ld.offers.price);
-
-  // 2. a-offscreen span (universal, most common)
   if (!price) {
     const m = html.match(/<span[^>]+class=["'][^"']*a-offscreen[^"']*["'][^>]*>₹\s*([\d,]+)/i);
     if (m) price = parsePrice(m[1]);
   }
-
-  // 3. corePriceDisplay section (2024+ Amazon PDP layout)
   if (!price) {
     const coreSection = html.match(
       /id=["']corePriceDisplay_desktop_feature_div["'][^>]*>([\s\S]{0,2000})/i,
@@ -596,8 +531,6 @@ function parseAmazon(html, asin) {
     const m = coreSection.match(/₹\s*([\d,]+)/);
     if (m) price = parsePrice(m[1]);
   }
-
-  // 4. apex_desktop section (alternative 2024 layout)
   if (!price) {
     const apexSection = html.match(
       /id=["']apex_desktop_priceToPaySection["'][^>]*>([\s\S]{0,1500})/i,
@@ -605,31 +538,23 @@ function parseAmazon(html, asin) {
     const m = apexSection.match(/₹\s*([\d,]+)/);
     if (m) price = parsePrice(m[1]);
   }
-
-  // 5. priceblock (legacy layout)
   if (!price) {
     const m = html.match(
       /id=["']priceblock_(?:ourprice|dealprice|saleprice)["'][^>]*>[\s₹]*([\d,]+)/i,
     );
     if (m) price = parsePrice(m[1]);
   }
-
-  // 6. JSON in page scripts
   if (!price) {
     const m =
       html.match(/"priceAmount"\s*:\s*([\d.]+)/i) ||
       html.match(/"displayPrice"\s*:\s*"₹\s*([\d,]+)"/i);
     if (m) price = parsePrice(m[1]);
   }
-
-  // 7. OG description fallback
   if (!price) {
     const desc = extractOG(html, 'description');
     const m    = desc.match(/₹\s*([\d,]+)/);
     if (m) price = parsePrice(m[1]);
   }
-
-  // 8. Last resort: first ₹ amount in stripped text
   if (!price) {
     const m = stripped.match(/₹\s*([\d]{2,}(?:,[\d]{2,3})*)/);
     if (m) price = parsePrice(m[1]);
@@ -647,9 +572,6 @@ function parseAmazon(html, asin) {
   return { title, price, image, rawOffers: extractBankOffers(stripped), asin: asin || '' };
 }
 
-/**
- * Deep search for a value matching any of `keys` in a nested JS object.
- */
 function deepFind(obj, keys, max = 14, depth = 0) {
   if (!obj || typeof obj !== 'object' || depth > max) return undefined;
   for (const key of keys) {
@@ -668,11 +590,6 @@ function deepFind(obj, keys, max = 14, depth = 0) {
   return undefined;
 }
 
-/**
- * FIX #2 & #3 — Flipkart parser.
- * Now parses __NEXT_DATA__ (newer Flipkart build) alongside __INITIAL_STATE__.
- * Expanded price CSS class patterns. Offer extraction uses state JSON keys.
- */
 function parseFlipkart(html) {
   const ld       = extractJsonLD(html);
   const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
@@ -681,7 +598,6 @@ function parseFlipkart(html) {
   let price = ld?.offers?.price ? parsePrice(String(ld.offers.price)) : 0;
   let image = (Array.isArray(ld?.image) ? ld.image[0] : ld?.image) || extractOG(html, 'image') || '';
 
-  // --- Try __NEXT_DATA__ (newer Flipkart pages) ---
   if (!price || !title) {
     try {
       const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
@@ -696,10 +612,9 @@ function parseFlipkart(html) {
           if (v) { const p = parsePrice(String(v)); if (p > 50) price = p; }
         }
       }
-    } catch (e) { console.warn('[Flipkart] __NEXT_DATA__ parse error:', e.message); }
+    } catch (e) {}
   }
 
-  // --- Try __INITIAL_STATE__ (older Flipkart pages) ---
   if (!price || !title) {
     try {
       const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
@@ -707,17 +622,13 @@ function parseFlipkart(html) {
       while ((sm = scriptRe.exec(html)) !== null) {
         const block = sm[1];
         if (!block.includes('__INITIAL_STATE__')) continue;
-
         let state = null;
-
         const ea = block.match(/window\.__INITIAL_STATE__\s*=\s*JSON\.parse\("((?:[^"\\]|\\.)*)"\)/);
         if (ea) { try { state = JSON.parse(JSON.parse(`"${ea[1]}"`)); } catch {} }
-
         if (!state) {
           const eb = block.match(/window\.__INITIAL_STATE__\s*=\s*JSON\.parse\('((?:[^'\\]|\\.)*)'\)/);
           if (eb) { try { state = JSON.parse(eb[1]); } catch {} }
         }
-
         if (!state) {
           const idx  = block.indexOf('__INITIAL_STATE__');
           const open = idx !== -1 ? block.indexOf('{', idx) : -1;
@@ -736,7 +647,6 @@ function parseFlipkart(html) {
             if (end > open) { try { state = JSON.parse(block.slice(open, end + 1)); } catch {} }
           }
         }
-
         if (state) {
           if (!price) {
             const v = deepFind(state, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
@@ -749,10 +659,9 @@ function parseFlipkart(html) {
           break;
         }
       }
-    } catch (e) { console.warn('[Flipkart] __INITIAL_STATE__ parse error:', e.message); }
+    } catch (e) {}
   }
 
-  // --- HTML fallbacks ---
   if (!title) {
     title =
       html.match(/<span[^>]+class=["'][^"']*B_NuCI[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)?.[1]
@@ -767,18 +676,14 @@ function parseFlipkart(html) {
 
   if (!price) {
     for (const pat of [
-      // Current obfuscated class patterns
       /class=["'][^"']*Nx9b7S[^"']*["'][^>]*>₹\s*([\d,]+)/i,
       /class=["'][^"']*hl05eU[^"']*["'][^>]*>₹\s*([\d,]+)/i,
       /class=["'][^"']*nsg5x8[^"']*["'][^>]*>₹\s*([\d,]+)/i,
-      // Legacy class
       /class=["'][^"']*_30jeq3[^"']*["'][^>]*>₹\s*([\d,]+)/i,
-      // JSON strings in page
       /"finalPrice"\s*:\s*([\d]+)/,
       /"sellingPrice"\s*:\s*"?([\d,]+)/,
       /"mrpPrice"\s*:\s*([\d]+)/,
       /"finalSellingPrice"\s*:\s*([\d]+)/,
-      // Any ₹ amount
       /₹\s*([\d]{2,}(?:,[\d]{2,3})*)/,
     ]) {
       const m = html.match(pat);
@@ -792,21 +697,67 @@ function parseFlipkart(html) {
   return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), asin: null };
 }
 
-/**
- * FIX #7 — Improved Myntra internal API fetch.
- * Added correct headers, tries two API endpoint versions.
- */
+async function fetchFlipkartInternalApi(productUrl) {
+  const endpoints = [
+    `https://1.rome.api.flipkart.com/api/4/page/fetch?url=${encodeURIComponent(
+      productUrl.replace(/^https?:\/\/[^/]+/, '')
+    )}`,
+    `https://www.flipkart.com${new URL(productUrl).pathname}?_format=json`,
+  ];
+  const headers = {
+    'User-Agent':   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
+    'Accept':       'application/json, text/plain, */*',
+    'x-user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36 FKUA/0.0.1/0.0.1/Desktop',
+    'Referer':      'https://www.flipkart.com/',
+    'Origin':       'https://www.flipkart.com',
+  };
+  for (const apiUrl of endpoints) {
+    try {
+      const res = await fetch(apiUrl, {
+        headers,
+        signal: AbortSignal.timeout(18000),
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      let title = '';
+      let price = 0;
+      let image = '';
+      let rawOffers = [];
+      const t = deepFind(json, ['title', 'name', 'productName', 'displayName', 'productTitle', 'shortTitle']);
+      if (t && typeof t === 'string' && t.length > 3) title = t;
+      const v = deepFind(json, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
+      if (v) {
+        const p = parsePrice(String(v));
+        if (p > 50) price = p;
+      }
+      const img = deepFind(json, ['imageUrl', 'imageURL', 'image', 'primaryImageUrl', 'src']);
+      if (img && typeof img === 'string' && img.startsWith('http')) image = img;
+      const offerTexts = deepFind(json, ['bankOffers', 'offers', 'availableOffers', 'offersList']);
+      if (Array.isArray(offerTexts)) {
+        for (const o of offerTexts) {
+          const text = typeof o === 'string' ? o : (o?.title || o?.description || o?.offerText || '');
+          if (text && text.length > 5) rawOffers.push(text);
+        }
+      } else {
+        const jsonStr = JSON.stringify(json);
+        rawOffers = extractBankOffers(jsonStr.replace(/\\n/g, ' ').replace(/\\"/g, '"'));
+      }
+      if (price > 50 && title && title.length > 3) {
+        return { title: decodeHTML(title), price, image, rawOffers, domain: 'flipkart', asin: null, lowestEver: 0 };
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 async function fetchMyntraInternalApi(styleId) {
   if (!styleId) return null;
-
   const endpoints = [
     `https://www.myntra.com/gateway/v2/product/${styleId}`,
     `https://www.myntra.com/gateway/v1/product/${styleId}`,
   ];
-
   for (const apiUrl of endpoints) {
     try {
-      console.log(`[Myntra API] Trying: ${apiUrl}`);
       const res = await fetch(apiUrl, {
         headers: {
           Accept:              'application/json, text/plain, */*',
@@ -819,32 +770,22 @@ async function fetchMyntraInternalApi(styleId) {
         },
         signal: AbortSignal.timeout(15000),
       });
-
-      if (!res.ok) {
-        console.warn(`[Myntra API] ${res.status} from ${apiUrl}`);
-        continue;
-      }
-
+      if (!res.ok) continue;
       const json = await res.json();
       const pdp  = json?.pdpData || json?.data || json;
-
       if (pdp && (pdp.name || pdp.title || pdp.brand)) {
         const brand = pdp.brand?.name || '';
         const name  = pdp.name || pdp.title || '';
         const title = brand && name ? `${brand} - ${name}` : (brand || name);
-
         let price = parsePrice(
           pdp.price?.discounted || pdp.price?.mrp || pdp.priceInfo?.discountedPrice || 0,
         );
-
         let image = '';
         if (pdp.media?.albums?.[0]?.images?.[0]?.imageURL) {
           image = pdp.media.albums[0].images[0].imageURL;
         } else if (pdp.media?.albums?.[0]?.images?.[0]?.src) {
           image = pdp.media.albums[0].images[0].src;
         }
-
-        // Extract offers from various Myntra API shapes
         const rawOffers = [];
         const offerSources = [pdp.offers, pdp.bankOffers, pdp.cashbackOffers, pdp.couponOffers];
         for (const src of offerSources) {
@@ -857,29 +798,18 @@ async function fetchMyntraInternalApi(styleId) {
             });
           }
         }
-
         if (price > 0 && title) {
-          console.log(`[Myntra API] ✓ "${title}" @ ₹${price} via ${apiUrl}`);
           return { title, price, image, rawOffers, domain: 'myntra', asin: null, lowestEver: 0 };
         }
       }
-    } catch (e) {
-      console.warn(`[Myntra API] Failed (${apiUrl}):`, e.message);
-    }
+    } catch (e) {}
   }
   return null;
 }
 
-/**
- * FIX #8 — Myntra HTML parser.
- * Now also tries window.__NEXT_DATA__ (used in newer Myntra builds).
- */
 function parseMyntra(html) {
   const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-
   let pdpData = null;
-
-  // 1. Try window.__NEXT_DATA__ (newer Myntra)
   try {
     const nd = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
     if (nd) {
@@ -887,9 +817,7 @@ function parseMyntra(html) {
       pdpData = deepFind(nextData, ['pdpData', 'productDetail', 'productData']);
       if (pdpData && !pdpData.name && !pdpData.brand) pdpData = null;
     }
-  } catch (e) { console.warn('[Myntra] __NEXT_DATA__ parse error:', e.message); }
-
-  // 2. Try window.__myx / window.pdpData (older Myntra)
+  } catch (e) {}
   if (!pdpData) {
     try {
       const scriptRe = /<script[^>]*>([\s\S]*?)<\/script>/gi;
@@ -908,13 +836,11 @@ function parseMyntra(html) {
           } catch {}
         }
       }
-    } catch (e) { console.warn('[Myntra] window.__myx parse error:', e.message); }
+    } catch (e) {}
   }
-
   let title = '';
   let price  = 0;
   let image  = '';
-
   if (pdpData) {
     const brandName = pdpData.brand?.name || '';
     const prodName  = pdpData.name || pdpData.title || '';
@@ -928,8 +854,6 @@ function parseMyntra(html) {
       image = pdpData.media.albums[0].images[0].imageURL;
     }
   }
-
-  // HTML fallbacks
   if (!title) {
     const brand =
       html.match(/<h1[^>]+class=["']pdp-title["'][^>]*>\s*([\s\S]*?)\s*<\/h1>/i)?.[1]
@@ -941,7 +865,6 @@ function parseMyntra(html) {
         ?.replace(/<[^>]+>/g, '').trim() || '';
     title = brand && name ? `${brand} - ${name}` : (brand || name || extractOG(html, 'title') || '');
   }
-
   if (!price) {
     const m =
       html.match(/class=["']pdp-price["'][^>]*>([\s\S]*?)<\/span>/i) ||
@@ -952,33 +875,23 @@ function parseMyntra(html) {
       if (numMatch) price = parseInt(numMatch[0], 10) || 0;
     }
   }
-
   if (!price) {
     const m = stripped.match(/(?:Rs\.?|₹)\s*([\d,]+)/i);
     if (m) price = parsePrice(m[1]);
   }
-
   if (price === 0 && /out\s+of\s+stock|sold\s+out/i.test(html))
     throw new Error('Product is currently out of stock on Myntra.');
-
   if (!image) {
     image =
       extractOG(html, 'image') ||
       html.match(/<img[^>]+class=["']image-grid-image["'][^>]+src=["']([^"']+)["']/i)?.[1] ||
       '';
   }
-
   return { title: decodeHTML(title), price, image, rawOffers: extractBankOffers(stripped), asin: null };
 }
 
-// ─────────────────────────────────────────────
-// Main scrape orchestrator
-// ─────────────────────────────────────────────
-
 async function scrapeProduct(productUrl, merchant) {
   const asin = merchant === 'amazon' ? extractASIN(productUrl) : null;
-
-  // Amazon: try Keepa first (price history API, bypasses bot blocks entirely)
   if (merchant === 'amazon') {
     const keepa = await fetchKeepa(asin);
     if (keepa?.price > 0) {
@@ -993,68 +906,50 @@ async function scrapeProduct(productUrl, merchant) {
       } catch {}
       return { title: keepa.title, price: keepa.price, image: keepa.image, rawOffers, asin, domain: 'amazon', lowestEver: keepa.lowestEver || 0 };
     }
-
     const targetUrl = asin ? `https://www.amazon.in/dp/${asin}?th=1&psc=1` : productUrl;
     const content   = await fetchPage(targetUrl, 'amazon');
-
-    // ── Route to correct parser based on content type ──
-    // Jina AI returns Markdown; HTML parsers cannot handle it → wrong data.
     if (isPlainText(content)) {
-      console.log('[Amazon] Content is plain-text/Markdown — using text parser');
       const parsed = parseFromText(content, 'amazon', asin);
       return { ...parsed, domain: 'amazon', lowestEver: 0 };
     }
-
     if (isBotWall(content))
-      throw new Error('Amazon is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+      throw new Error('Amazon is blocking automated access.');
     const parsed = parseAmazon(content, asin);
     return { ...parsed, domain: 'amazon', lowestEver: 0 };
   }
-
-  // Flipkart
   if (merchant === 'flipkart') {
+    try {
+      const apiResult = await fetchFlipkartInternalApi(productUrl);
+      if (apiResult) return apiResult;
+    } catch (e) {}
     const content = await fetchPage(productUrl, 'flipkart');
-
     if (isPlainText(content)) {
-      console.log('[Flipkart] Content is plain-text/Markdown — using text parser');
-      const parsed = parseFromText(content, 'flipkart', null);
+      const parsed = parseFromText(content, 'flipkart', null, productUrl);
       return { ...parsed, domain: 'flipkart', lowestEver: 0 };
     }
-
     if (isBotWall(content))
-      throw new Error('Flipkart is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+      throw new Error('Flipkart is blocking automated access.');
     const parsed = parseFlipkart(content);
     return { ...parsed, domain: 'flipkart', lowestEver: 0 };
   }
-
-  // Myntra: try internal API first (fastest, most reliable — no bot issues)
   if (merchant === 'myntra') {
     const styleId = extractMyntraProductId(productUrl);
     if (styleId) {
       const apiResult = await fetchMyntraInternalApi(styleId);
       if (apiResult) return apiResult;
     }
-
     const content = await fetchPage(productUrl, 'myntra');
-
     if (isPlainText(content)) {
-      console.log('[Myntra] Content is plain-text/Markdown — using text parser');
       const parsed = parseFromText(content, 'myntra', null);
       return { ...parsed, domain: 'myntra', lowestEver: 0 };
     }
-
     if (isBotWall(content))
-      throw new Error('Myntra is blocking automated access. Add SCRAPER_API_KEY to your env for reliable bypass, or use the Chrome Extension.');
+      throw new Error('Myntra is blocking automated access.');
     const parsed = parseMyntra(content);
     return { ...parsed, domain: 'myntra', lowestEver: 0 };
   }
-
   throw new Error('Unsupported merchant.');
 }
-
-// ─────────────────────────────────────────────
-// LLM Offer Evaluation
-// ─────────────────────────────────────────────
 
 async function evaluateOffers(price, rawOffers) {
   if (!rawOffers?.length)
@@ -1063,42 +958,32 @@ async function evaluateOffers(price, rawOffers) {
     const { evaluateBestOffer } = await import('@/lib/llmService');
     return await evaluateBestOffer(price, rawOffers);
   } catch (e) {
-    console.warn('[LLM] Evaluation failed:', e.message);
     return { bestOfferBank: '', discountAmount: 0, finalPriceAfterDiscount: price, offerDescription: 'Offers found — LLM evaluation unavailable' };
   }
 }
 
-// ─────────────────────────────────────────────
-// Cache-aware entry point
-// ─────────────────────────────────────────────
-
-async function getOrScrapeProduct(productUrl) {
+async function getOrScrapeProduct(productUrl, force = false) {
   const merchant = getMerchant(productUrl);
   if (!merchant)
     return { success: false, message: 'Unsupported URL. Only Amazon.in, Flipkart.com, and Myntra.com links are accepted.' };
-
   const normalizedUrl   = productUrl.trim().toLowerCase();
   const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-
   let ScrapedProduct = null;
-  try {
-    ScrapedProduct = await getModel();
-    const cached = await ScrapedProduct.findOne({ url: normalizedUrl, updatedAt: { $gte: twelveHoursAgo } });
-    if (cached) return buildResponse(cached, merchant, true);
-  } catch (e) {
-    console.warn('[Crawler] Cache lookup failed (scraping fresh):', e.message);
+  if (!force) {
+    try {
+      ScrapedProduct = await getModel();
+      const cached = await ScrapedProduct.findOne({ url: normalizedUrl, updatedAt: { $gte: twelveHoursAgo } });
+      if (cached) return buildResponse(cached, merchant, true);
+    } catch (e) {}
+  } else {
+    try { ScrapedProduct = await getModel(); } catch (e) {}
   }
-
   const scraped = await scrapeProduct(normalizedUrl, merchant);
-
-  // Validate scraped data — reject garbage before it reaches the UI
   if (!scraped.title || scraped.title.length < 4)
     throw new Error('Could not extract a valid product title. The page may have been blocked, or the link is invalid. Please try the manual entry mode.');
   if (!scraped.price || scraped.price < 10 || scraped.price > 99_999_999)
     throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked. Please try the manual entry mode.');
-
   const bestOffer = await evaluateOffers(scraped.price, scraped.rawOffers);
-
   let doc = { ...scraped, bestOffer, updatedAt: new Date() };
   if (ScrapedProduct) {
     try {
@@ -1117,9 +1002,8 @@ async function getOrScrapeProduct(productUrl) {
         },
         { new: true, upsert: true },
       );
-    } catch (e) { console.error('[Crawler] MongoDB save failed:', e.message); }
+    } catch (e) {}
   }
-
   return buildResponse({ ...scraped, bestOffer, lowestEver: scraped.lowestEver, updatedAt: new Date() }, merchant, false);
 }
 
@@ -1147,20 +1031,16 @@ function buildResponse(doc, merchant, cached) {
   };
 }
 
-// ─────────────────────────────────────────────
-// Route Handlers
-// ─────────────────────────────────────────────
-
 export async function POST(request) {
   try {
     const body       = await request.json().catch(() => ({}));
     const productUrl = (body.productUrl || '').trim();
+    const force      = body.force === true || body.force === 'true';
     if (!productUrl)
       return NextResponse.json({ success: false, message: 'productUrl is required in the request body' }, { status: 400 });
-    const result = await getOrScrapeProduct(productUrl);
+    const result = await getOrScrapeProduct(productUrl, force);
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (err) {
-    console.error('[extract-product POST ERROR]', err.message);
     const status = err.message?.includes('out of stock') ? 422
       : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
       : err.message?.includes('MONGODB_URI') ? 503
@@ -1171,13 +1051,14 @@ export async function POST(request) {
 
 export async function GET(request) {
   try {
-    const productUrl = (new URL(request.url).searchParams.get('url') || '').trim();
+    const searchParams = new URL(request.url).searchParams;
+    const productUrl   = (searchParams.get('url') || '').trim();
+    const force        = searchParams.get('force') === 'true' || searchParams.get('force') === '1';
     if (!productUrl)
       return NextResponse.json({ success: false, message: 'url query parameter is required' }, { status: 400 });
-    const result = await getOrScrapeProduct(productUrl);
+    const result = await getOrScrapeProduct(productUrl, force);
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (err) {
-    console.error('[extract-product GET ERROR]', err.message);
     const status = err.message?.includes('out of stock') ? 422
       : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
       : 500;

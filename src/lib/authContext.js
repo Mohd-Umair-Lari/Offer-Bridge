@@ -6,11 +6,10 @@ import { api, setToken } from './api';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]   = useState(undefined); // undefined=loading, null=not logged in
+  const [user, setUser]   = useState(undefined);
   const [loading, setLoading] = useState(true);
   const { data: session, status: sessionStatus } = useSession();
 
-  // ── On mount: restore from localStorage token ─────────────────
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
     if (!token) {
@@ -24,18 +23,15 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── NextAuth session → upsert user via /api/auth/oauth ────────
   useEffect(() => {
     if (sessionStatus === 'loading') return;
     if (sessionStatus !== 'authenticated' || !session) return;
 
-    // If we already have a local token user, don't re-process
     const existing = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
     if (existing && user) return;
 
-    // Exchange NextAuth session for our custom JWT
     const { provider, oauth_id, user: oauthUser } = session;
-    if (!oauth_id) return; // not an OAuth session
+    if (!oauth_id) return;
 
     fetch('/api/auth/oauth', {
       method: 'POST',
@@ -59,7 +55,6 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, [sessionStatus, session]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Email/password sign-in ─────────────────────────────────────
   const signIn = useCallback(async (email, password) => {
     try {
       const res = await api.login(email, password);
@@ -71,7 +66,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // ── Email/password register ────────────────────────────────────
   const signUp = useCallback(async (email, password, fullName, role) => {
     try {
       const res = await api.register(email, password, fullName, role);
@@ -83,12 +77,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // ── OAuth sign-in (triggers NextAuth redirect) ─────────────────
   const signInWithOAuth = useCallback((provider) => {
     nextAuthSignIn(provider, { callbackUrl: window.location.href });
   }, []);
 
-  // ── Sign out ───────────────────────────────────────────────────
   const signOut = useCallback(async () => {
     setToken(null);
     setUser(null);
@@ -97,7 +89,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // ── Complete onboarding (called from OnboardingWizard) ─────────
   const completeOnboarding = useCallback(async ({ role, fullName, phone }) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
     if (!token) return { error: 'Not authenticated' };

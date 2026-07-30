@@ -127,7 +127,6 @@ export async function POST(request) {
       const currentUser = await User.findById(decoded.id);
       if (!currentUser) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-      // Only allow updating email if NOT an OAuth account
       if (body.email && body.email.toLowerCase() !== currentUser.email.toLowerCase()) {
         if (currentUser.oauth_provider || currentUser.oauth_id || currentUser.email.toLowerCase().endsWith('@gmail.com')) {
           return NextResponse.json({ error: 'Email for OAuth accounts cannot be changed' }, { status: 400 });
