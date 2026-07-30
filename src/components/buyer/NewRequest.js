@@ -375,7 +375,7 @@ export default function NewRequest({ onCreated }) {
       const res = await fetch('/api/crawler/extract-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productUrl: form.productLink }),
+        body: JSON.stringify({ productUrl: form.productLink, force: true }),
       });
 
       clearStepTimer();

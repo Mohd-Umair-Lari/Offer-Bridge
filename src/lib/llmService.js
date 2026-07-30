@@ -27,7 +27,8 @@ function cleanOffers(rawOffers = []) {
   for (let offer of rawOffers) {
     if (typeof offer !== 'string') continue;
     let str = offer.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-    str = str.replace(/[₹]|Rs\.?|INR/gi, 'INR');
+    str = str.replace(/₹/g, 'INR ');
+    str = str.replace(/\bRs\.?(?=\s|\d)/gi, 'INR ');
     str = str.replace(/\s+/g, ' ').trim();
     if (str.length < 10) continue;
     const key = str.toLowerCase().slice(0, 70);
@@ -205,25 +206,34 @@ function parseOffersLocally(price, rawOffers) {
     }
     if (!bank) continue;
     let minPurchase = 0;
-    const minMatch = offer.match(/min(?:imum)?\s+(?:purchase|tx|txn|spend|order)?\s*(?:value|of|amt)?\s*(?:INR|\$)?\s*([\d,]+)/i);
+    const minMatch = offer.match(/min(?:imum)?\s+(?:purchase|tx|txn|spend|order)?\s*(?:value|of|amt)?\s*(?:INR|\$)?\s*([\d,]+(?:\.\d+)?)/i);
     if (minMatch) {
-      minPurchase = parseInt(minMatch[1].replace(/,/g, ''), 10);
+      minPurchase = Math.floor(parseFloat(minMatch[1].replace(/,/g, '')));
     }
     if (minPurchase && price < minPurchase) continue;
     let discount = 0;
     let offerDesc = offer.substring(0, 150);
-    const flatMatch = offer.match(/(?:flat|discount\s+of|off\s+up\s+to|save|INR)\s*([\d,]+)\s*(?:off|instant|cashback)/i) || 
-                       offer.match(/(?:INR)?\s*([\d,]+)\s*(?:off|instant\s+discount)/i);
-    if (flatMatch) {
-      discount = parseInt(flatMatch[1].replace(/,/g, ''), 10);
+    
+    const flatRe1 = /(?:flat|discount\s+of|off\s+up\s+to|save|INR)\s*([\d,]+(?:\.\d+)?)\s*(?:off|instant|cashback|discount)/gi;
+    let m;
+    while ((m = flatRe1.exec(offer)) !== null) {
+      const val = Math.floor(parseFloat(m[1].replace(/,/g, '')));
+      if (val > discount) discount = val;
     }
-    const percentMatch = offer.match(/(\d+)%\s*(?:instant|discount|off|cashback)/i);
-    if (percentMatch) {
-      const pct = parseInt(percentMatch[1], 10);
-      let calculated = Math.round(price * (pct / 100));
-      const capMatch = offer.match(/(?:up\s+to|max(?:imum)?)?\s*(?:INR)?\s*([\d,]+)\s*(?:max|limit|cap|off)?/i);
+    
+    const flatRe2 = /(?:INR)?\s*([\d,]+(?:\.\d+)?)\s*(?:off|instant\s+discount|discount|cashback)/gi;
+    while ((m = flatRe2.exec(offer)) !== null) {
+      const val = Math.floor(parseFloat(m[1].replace(/,/g, '')));
+      if (val > discount) discount = val;
+    }
+
+    const percentRe = /(\d+)%\s*(?:instant|discount|off|cashback)/gi;
+    while ((m = percentRe.exec(offer)) !== null) {
+      const pct = parseInt(m[1], 10);
+      let calculated = Math.floor(price * (pct / 100));
+      const capMatch = offer.match(/(?:up\s+to|max(?:imum)?)?\s*(?:INR)?\s*([\d,]+(?:\.\d+)?)\s*(?:max|limit|cap|off|discount|cashback)?/i);
       if (capMatch) {
-        const cap = parseInt(capMatch[1].replace(/,/g, ''), 10);
+        const cap = Math.floor(parseFloat(capMatch[1].replace(/,/g, '')));
         if (cap > 0 && calculated > cap) calculated = cap;
       }
       if (calculated > discount) discount = calculated;

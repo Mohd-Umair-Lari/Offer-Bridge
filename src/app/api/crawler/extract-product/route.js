@@ -590,9 +590,27 @@ function deepFind(obj, keys, max = 14, depth = 0) {
   return undefined;
 }
 
-function parseFlipkart(html) {
+function deepFindAll(obj, keys, max = 14, depth = 0, results = []) {
+  if (!obj || typeof obj !== 'object' || depth > max) return results;
+  for (const key of keys) {
+    if (key in obj && obj[key] !== null && obj[key] !== undefined) {
+      const v = obj[key];
+      if (typeof v === 'number' && v > 0) results.push(v);
+      if (typeof v === 'string' && v.length > 0) results.push(v);
+    }
+  }
+  for (const child of Array.isArray(obj) ? obj : Object.values(obj)) {
+    if (child && typeof child === 'object') {
+      deepFindAll(child, keys, max, depth + 1, results);
+    }
+  }
+  return results;
+}
+
+function parseFlipkart(html, productUrl) {
   const ld       = extractJsonLD(html);
   const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const slugKws = productUrl ? flipkartSlugKeywords(productUrl) : [];
 
   let title = ld?.name || '';
   let price = ld?.offers?.price ? parsePrice(String(ld.offers.price)) : 0;
@@ -604,8 +622,15 @@ function parseFlipkart(html) {
       if (nextDataMatch) {
         const nextData = JSON.parse(nextDataMatch[1]);
         if (!title) {
-          const t = deepFind(nextData, ['title', 'name', 'productName', 'displayName', 'productTitle']);
-          if (t && typeof t === 'string' && t.length > 3) title = t;
+          const titleCandidates = deepFindAll(nextData, ['title', 'name', 'productName', 'displayName', 'productTitle']);
+          let bestScore = -1;
+          for (const t of titleCandidates) {
+            if (typeof t === 'string' && t.length > 3) {
+              const score = slugKws.length > 0 ? slugKws.reduce((acc, kw) => acc + (t.toLowerCase().includes(kw) ? 1 : 0), 0) : 1;
+              if (score > bestScore) { bestScore = score; title = t; }
+            }
+          }
+          if (slugKws.length > 0 && bestScore === 0) title = '';
         }
         if (!price) {
           const v = deepFind(nextData, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
@@ -653,8 +678,15 @@ function parseFlipkart(html) {
             if (v) { const p = parsePrice(String(v)); if (p > 50) price = p; }
           }
           if (!title) {
-            const t = deepFind(state, ['title', 'name', 'productName', 'displayName', 'productTitle']);
-            if (t && typeof t === 'string' && t.length > 3) title = t;
+            const titleCandidates = deepFindAll(state, ['title', 'name', 'productName', 'displayName', 'productTitle']);
+            let bestScore = -1;
+            for (const t of titleCandidates) {
+              if (typeof t === 'string' && t.length > 3) {
+                const score = slugKws.length > 0 ? slugKws.reduce((acc, kw) => acc + (t.toLowerCase().includes(kw) ? 1 : 0), 0) : 1;
+                if (score > bestScore) { bestScore = score; title = t; }
+              }
+            }
+            if (slugKws.length > 0 && bestScore === 0) title = '';
           }
           break;
         }
@@ -723,8 +755,19 @@ async function fetchFlipkartInternalApi(productUrl) {
       let price = 0;
       let image = '';
       let rawOffers = [];
-      const t = deepFind(json, ['title', 'name', 'productName', 'displayName', 'productTitle', 'shortTitle']);
-      if (t && typeof t === 'string' && t.length > 3) title = t;
+      const slugKws = flipkartSlugKeywords(productUrl);
+      const titleCandidates = deepFindAll(json, ['title', 'name', 'productName', 'displayName', 'productTitle', 'shortTitle']);
+      let bestScore = -1;
+      for (const t of titleCandidates) {
+        if (typeof t === 'string' && t.length > 3) {
+          const score = slugKws.length > 0 ? slugKws.reduce((acc, kw) => acc + (t.toLowerCase().includes(kw) ? 1 : 0), 0) : 1;
+          if (score > bestScore) {
+            bestScore = score;
+            title = t;
+          }
+        }
+      }
+      if (slugKws.length > 0 && bestScore === 0) title = ''; // Reject if no keywords match
       const v = deepFind(json, ['finalPrice', 'sellingPrice', 'mrpPrice', 'finalSellingPrice', 'basePrice', 'price', 'discountedPrice', 'listingPrice']);
       if (v) {
         const p = parsePrice(String(v));
@@ -929,7 +972,7 @@ async function scrapeProduct(productUrl, merchant) {
     }
     if (isBotWall(content))
       throw new Error('Flipkart is blocking automated access.');
-    const parsed = parseFlipkart(content);
+    const parsed = parseFlipkart(content, productUrl);
     return { ...parsed, domain: 'flipkart', lowestEver: 0 };
   }
   if (merchant === 'myntra') {
