@@ -292,6 +292,86 @@ async function fetchViaAllOrigins(url) {
 }
 
 
+async function fetchViaCorsProxyIo(url) {
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`CorsProxy HTTP ${res.status}`);
+  }
+  const html = await res.text();
+  if (!html || html.length < 800) throw new Error('CorsProxy empty response');
+  if (isBotWall(html)) throw new Error('CorsProxy bot wall');
+  return html;
+}
+
+async function fetchViaCodetabs(url) {
+  const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`Codetabs HTTP ${res.status}`);
+  }
+  const html = await res.text();
+  if (!html || html.length < 800) throw new Error('Codetabs empty response');
+  if (isBotWall(html)) throw new Error('Codetabs bot wall');
+  return html;
+}
+
+export function extractSlugKeywords(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    const parts = u.pathname.split('/').filter(Boolean);
+    for (const part of parts) {
+      if (part === 'dp' || part === 'p' || part === 'gp' || part === 'product') continue;
+      const clean = part.replace(/[-_]+/g, ' ').trim();
+      if (clean.length > 5 && !/^[a-z0-9]{8,16}$/i.test(clean)) {
+        return clean;
+      }
+    }
+  } catch {}
+  return '';
+}
+
+export async function autoResolveUrl(productUrl) {
+  const merchant = getMerchant(productUrl);
+  if (!merchant) return productUrl;
+
+  const domain = merchant === 'amazon' ? 'amazon.in' : merchant === 'flipkart' ? 'flipkart.com' : 'myntra.com';
+  const slug = extractSlugKeywords(productUrl);
+  if (!slug) return productUrl;
+
+  try {
+    const ddgUrl = `https://r.jina.ai/https://html.duckduckgo.com/html/?q=site:${domain}+${encodeURIComponent(slug)}`;
+    const res = await fetch(ddgUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return productUrl;
+    const text = await res.text();
+
+    if (merchant === 'amazon') {
+      const match = text.match(/amazon\.in\/[^"'\s]*\/dp\/([A-Z0-9]{10})/i) || text.match(/amazon\.in\/dp\/([A-Z0-9]{10})/i);
+      if (match) {
+        return `https://www.amazon.in/dp/${match[1]}`;
+      }
+    } else if (merchant === 'flipkart') {
+      const match = text.match(/flipkart\.com\/([^"'\s]*\/p\/itm[a-zA-Z0-9]{11,15})/i);
+      if (match) {
+        return `https://www.flipkart.com/${match[1]}`;
+      }
+    }
+  } catch (e) {}
+
+  return productUrl;
+}
+
 async function fetchAmazonDirect(url) {
   const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
              || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
@@ -326,7 +406,6 @@ export async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
   const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
 
-  // 1. ScraperAPI — best option when key is available
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {}
   }
@@ -337,10 +416,10 @@ export async function fetchPage(url, merchant) {
     }
   };
 
-  // 2. Flipkart / Myntra: Jina renders JS and bypasses bot detection reliably
   if (merchant === 'flipkart' || merchant === 'myntra') {
     try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
-    // Fallback: direct fetch with browser UA (works sometimes for Myntra)
+    try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
+    try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
     for (const profile of BROWSER_PROFILES) {
       try {
         const html = await tryFetch(url, profile, merchant, 10000);
@@ -351,15 +430,15 @@ export async function fetchPage(url, merchant) {
     throw new Error(`${siteName} is blocking automated access from this server. Try using the Chrome Extension instead.`);
   }
 
-  // 3. Amazon: direct mobile-UA fetch first, then Jina (Amazon blocks Jina but worth trying), then AllOrigins
   if (merchant === 'amazon') {
     try { return await fetchAmazonDirect(url); } catch (e) {}
     try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+    try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
+    try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
     try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
     throw new Error(`Amazon is blocking automated access from this server. Try using the Chrome Extension instead.`);
   }
 
-  // 4. Generic fallback for any other merchant
   for (const profile of BROWSER_PROFILES) {
     try {
       const html = await tryFetch(url, profile, merchant, 12000);
@@ -367,10 +446,13 @@ export async function fetchPage(url, merchant) {
     } catch (e) {}
   }
   try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+  try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
+  try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
   try { return await fetchViaAllOrigins(url); } catch (e) {
     throwOn404(e);
     throw new Error(`${siteName} is blocking automated access from this server.`);
   }
   throw new Error(`${siteName} is blocking automated access from this server.`);
 }
+
 
