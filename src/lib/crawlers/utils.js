@@ -236,25 +236,66 @@ async function fetchViaJina(url) {
     Accept:       'text/plain, */*',
     'X-Timeout':  '30',
     'X-No-Cache': 'true',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
     ...(jinaKey ? { Authorization: `Bearer ${jinaKey}` } : {}),
   };
   const res = await fetch(jinaUrl, { headers, signal: AbortSignal.timeout(40000) });
-  if (!res.ok) throw new Error(`Jina HTTP ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`Jina HTTP ${res.status}`);
+  }
   const text = await res.text();
   if (!text || text.length < 300) throw new Error('Jina returned too short response');
   if (/E00[0-9]|Something went wrong|Please try again/i.test(text.slice(0, 500)))
     throw new Error('Jina service error: ' + text.slice(0, 100));
+  if (/Warning: Target URL returned error 404/i.test(text.slice(0, 500)))
+    throw new Error('HTTP_404');
   return text;
 }
 
 async function fetchViaAllOrigins(url) {
   const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&charset=UTF-8`;
   const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(28000) });
-  if (!res.ok) throw new Error(`AllOrigins HTTP ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`AllOrigins HTTP ${res.status}`);
+  }
   const json = await res.json();
   const html = json?.contents;
   if (!html || html.length < 500) throw new Error('AllOrigins returned empty or too-small response');
   if (isBotWall(html)) throw new Error('AllOrigins: bot wall on response');
+  return html;
+}
+
+async function fetchViaCorsProxyIo(url) {
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`CorsProxy HTTP ${res.status}`);
+  }
+  const html = await res.text();
+  if (!html || html.length < 800) throw new Error('CorsProxy empty response');
+  if (isBotWall(html)) throw new Error('CorsProxy bot wall');
+  return html;
+}
+
+async function fetchViaCodetabs(url) {
+  const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) {
+    if (res.status === 404) throw new Error('HTTP_404');
+    throw new Error(`Codetabs HTTP ${res.status}`);
+  }
+  const html = await res.text();
+  if (!html || html.length < 800) throw new Error('Codetabs empty response');
+  if (isBotWall(html)) throw new Error('Codetabs bot wall');
   return html;
 }
 
@@ -291,9 +332,18 @@ export async function fetchPage(url, merchant) {
     }
   }
 
-  try { return await withRetry(() => fetchViaJina(url)); } catch (jinaErr) {}
+  const throwOn404 = (err) => {
+    if (err.message === 'HTTP_404') {
+      throw new Error(`The provided product URL is invalid or not found (404). Please check the link and try again.`);
+    }
+  };
+
+  try { return await withRetry(() => fetchViaJina(url)); } catch (e) { throwOn404(e); }
+  try { return await withRetry(() => fetchViaCorsProxyIo(url)); } catch (e) { throwOn404(e); }
+  try { return await withRetry(() => fetchViaCodetabs(url)); } catch (e) { throwOn404(e); }
 
   try { return await withRetry(() => fetchViaAllOrigins(url)); } catch (originsErr) {
+    throwOn404(originsErr);
     throw new Error(`${siteName} is blocking automated access from this server.`);
   }
 }
