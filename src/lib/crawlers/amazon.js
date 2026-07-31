@@ -55,15 +55,14 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
     }
 
     let price = 0;
-    // Exclude EMI lines when searching for price
-    const cleanTextForPrice = text.replace(/EMI\s+starts\s+at[^\n]*/gi, '')
-                                  .replace(/No\s+Cost\s+EMI[^\n]*/gi, '');
+    // Strictly strip bank offer / EMI lines before scanning for product selling price
+    const textWithoutOffers = text.replace(/(?:bank\s+offer|credit\s+card|debit\s+card|emi|cashback|buy\s+for|save|discount)[^\n]*/gi, '');
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
     const prices = [];
-    while ((m = priceRe.exec(cleanTextForPrice.slice(0, 4000))) !== null) {
+    while ((m = priceRe.exec(textWithoutOffers.slice(0, 4000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 500 && p !== 999 && p !== 299) prices.push(p);
+      if (p > 1000 && p !== 999 && p !== 299) prices.push(p);
     }
     if (prices.length > 0) price = Math.min(...prices);
 
@@ -129,11 +128,11 @@ export class AmazonCrawler extends BaseCrawler {
     }
 
     const cleanTitle = cleanExtractedTitle(result.title, productUrl);
-    if (!cleanTitle || cleanTitle === 'E-Commerce Product' || result.price === 0) {
+    if (!cleanTitle || cleanTitle === 'E-Commerce Product' || result.price === 0 || result.price < 1000) {
       const ddgMeta = await fetchAmazonMetadataViaDDG(asin, productUrl);
       if (ddgMeta) {
         if (ddgMeta.title) result.title = ddgMeta.title;
-        if (!result.price && ddgMeta.price) result.price = ddgMeta.price;
+        if ((!result.price || result.price < 1000) && ddgMeta.price > 0) result.price = ddgMeta.price;
         if (!result.rawOffers?.length && ddgMeta.rawOffers?.length) {
           result.rawOffers = ddgMeta.rawOffers;
         }
@@ -158,7 +157,6 @@ export class AmazonCrawler extends BaseCrawler {
     let price = 0;
     let originalPrice = 0;
 
-    // 1. Primary price selectors for Amazon selling price
     const primaryPriceSelectors = [
       /<span[^>]+class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
       /<span[^>]+class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
@@ -171,7 +169,7 @@ export class AmazonCrawler extends BaseCrawler {
       const m = html.match(sel);
       if (m) {
         const p = parsePrice(m[1]);
-        if (p > 500) {
+        if (p > 1000) {
           price = p;
           break;
         }
@@ -182,11 +180,10 @@ export class AmazonCrawler extends BaseCrawler {
       const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
       if (offerObj?.price) {
         const p = parsePrice(String(offerObj.price));
-        if (p > 500) price = p;
+        if (p > 1000) price = p;
       }
     }
 
-    // 2. Extract MRP
     const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
                      html.match(/M\.?R\.?P\.?\s*:?\s*₹\s*([\d,]+)/i);
     if (mrpMatch) {
@@ -218,7 +215,6 @@ export class AmazonCrawler extends BaseCrawler {
     const isOutOfStock = price === 0 || /currently unavailable|out of stock/i.test(html);
     const availability = isOutOfStock ? 'out_of_stock' : 'in_stock';
 
-    // Strip script and style tags before extracting bank offers
     const stripped = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
                          .replace(/<[^>]+>/g, ' ')
@@ -262,14 +258,14 @@ export class AmazonCrawler extends BaseCrawler {
     }
 
     let price = 0;
-    const cleanTextForPrice = text.replace(/EMI\s+starts\s+at[^\n]*/gi, '')
-                                  .replace(/No\s+Cost\s+EMI[^\n]*/gi, '');
+    // Strictly strip out all bank offer lines, credit card lines, and EMI lines before extracting selling price
+    const textWithoutOffers = text.replace(/(?:bank\s+offer|credit\s+card|debit\s+card|emi|cashback|buy\s+for|save|discount)[^\n]*/gi, '');
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
     const prices = [];
-    while ((m = priceRe.exec(cleanTextForPrice.slice(0, 3000))) !== null) {
+    while ((m = priceRe.exec(textWithoutOffers.slice(0, 3000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 500 && p !== 999 && p !== 299) prices.push(p);
+      if (p > 1000 && p !== 999 && p !== 299) prices.push(p);
     }
     if (prices.length > 0) price = Math.min(...prices);
 

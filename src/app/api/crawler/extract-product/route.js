@@ -81,10 +81,17 @@ async function evaluateOffers(price, rawOffers, bankOffers = []) {
   }
 
   if (bestDiscount === 0 && rawOffers.length > 0) {
-    bestDesc = rawOffers[0];
-    const match = bestDesc.match(/(?:₹|Rs\.?)\s*([\d,]+)/i);
-    if (match) {
-      bestDiscount = parseInt(match[1].replace(/,/g, ''), 10) || 0;
+    for (const raw of rawOffers) {
+      const match = raw.match(/(?:discount|cashback|save|off|upto)\s+(?:of\s+)?(?:₹|Rs\.?)\s*([\d,]+)/i) ||
+                    raw.match(/(?:₹|Rs\.?)\s*([\d,]+)\s*(?:off|discount|cashback)/i);
+      if (match) {
+        const val = parseInt(match[1].replace(/,/g, ''), 10) || 0;
+        if (val > 0 && val < price) {
+          bestDiscount = val;
+          bestDesc = raw;
+          break;
+        }
+      }
     }
   }
 
@@ -117,7 +124,9 @@ async function getOrScrapeProduct(productUrl, force = false) {
     try {
       ScrapedProduct = await getModel();
       const cached = await ScrapedProduct.findOne({ url: normalizedUrl, updatedAt: { $gte: twelveHoursAgo } });
-      if (cached) return buildResponse(cached, merchant, true);
+      if (cached && cached.price > 500 && cached.title && !cached.title.toLowerCase().includes('unknown')) {
+        return buildResponse(cached, merchant, true);
+      }
     } catch (e) {}
   } else {
     try { ScrapedProduct = await getModel(); } catch (e) {}
