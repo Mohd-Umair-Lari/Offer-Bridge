@@ -803,15 +803,13 @@ export default function NewRequest({ onCreated }) {
                     <RawOffersList offers={form.rawOffers} bankOffers={form.bankOffers} />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"
-                    style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                    <CreditCard size={13} style={{ color: 'var(--text-dim)' }} />
-                    No card discount detected for this product
-                    {form.rawOffers?.length > 0 && (
-                      <span style={{ color: 'var(--text-dim)' }}>
-                        &nbsp;· {form.rawOffers.length} offer string{form.rawOffers.length !== 1 ? 's' : ''} found
-                      </span>
-                    )}
+                  <div className="rounded-xl p-3.5 space-y-3"
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <CreditCard size={14} style={{ color: 'var(--text-dim)' }} />
+                      <span>Card discounts detected for this product</span>
+                    </div>
+                    <RawOffersList offers={form.rawOffers} bankOffers={form.bankOffers} />
                   </div>
                 )}
                 <ManualCardEntry

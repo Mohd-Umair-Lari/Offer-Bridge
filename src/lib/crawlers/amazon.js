@@ -5,6 +5,7 @@ import {
   parseStructuredBankOffers,
   parsePrice,
   decodeHTML,
+  extractJsonLD,
   isPlainText,
   sanitizeUrl,
   cleanExtractedTitle,
@@ -147,8 +148,17 @@ export class AmazonCrawler extends BaseCrawler {
   }
 
   parseFromHTML(html, asin, productUrl, lowestEver) {
+    const ld = extractJsonLD(html);
+    if (ld?.offers) {
+      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+      if (offerObj?.price) {
+        const p = parsePrice(String(offerObj.price));
+        if (p > 50) price = p;
+      }
+    }
+
     const titleMatch = html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
-    const title = titleMatch ? decodeHTML(titleMatch[1].replace(/<[^>]+>/g, '')) : '';
+    const title = titleMatch ? decodeHTML(titleMatch[1].replace(/<[^>]+>/g, '')) : (ld?.name || '');
 
     let price = 0;
     const priceSelectors = [

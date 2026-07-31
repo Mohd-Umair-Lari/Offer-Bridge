@@ -55,15 +55,45 @@ async function getModel() {
   return mongoose.model('ScrapedProduct', schema);
 }
 
-async function evaluateOffers(price, rawOffers) {
+async function evaluateOffers(price, rawOffers, bankOffers = []) {
   if (!rawOffers?.length)
     return { bestOfferBank: '', discountAmount: 0, finalPriceAfterDiscount: price, offerDescription: 'No card discount available' };
   try {
     const { evaluateBestOffer } = await import('@/lib/llmService');
-    return await evaluateBestOffer(price, rawOffers);
-  } catch (e) {
-    return { bestOfferBank: '', discountAmount: 0, finalPriceAfterDiscount: price, offerDescription: 'Offers found — LLM evaluation unavailable' };
+    const result = await evaluateBestOffer(price, rawOffers);
+    if (result && result.discountAmount > 0) return result;
+  } catch (e) {}
+
+  let bestBank = '';
+  let bestDiscount = 0;
+  let bestDesc = rawOffers[0] || 'Bank Offer Available';
+
+  for (const bo of (bankOffers || [])) {
+    let amt = bo.discountAmount || 0;
+    if (!amt && bo.discountPercent && price > 0) {
+      amt = Math.round((price * bo.discountPercent) / 100);
+    }
+    if (amt > bestDiscount) {
+      bestDiscount = amt;
+      bestBank = bo.bank !== 'Other Bank' ? bo.bank : '';
+      bestDesc = bo.description;
+    }
   }
+
+  if (bestDiscount === 0 && rawOffers.length > 0) {
+    bestDesc = rawOffers[0];
+    const match = bestDesc.match(/(?:₹|Rs\.?)\s*([\d,]+)/i);
+    if (match) {
+      bestDiscount = parseInt(match[1].replace(/,/g, ''), 10) || 0;
+    }
+  }
+
+  return {
+    bestOfferBank: bestBank || 'Bank Offer',
+    discountAmount: bestDiscount,
+    finalPriceAfterDiscount: Math.max(0, price - bestDiscount),
+    offerDescription: bestDesc,
+  };
 }
 
 async function getOrScrapeProduct(productUrl, force = false) {
@@ -100,7 +130,7 @@ async function getOrScrapeProduct(productUrl, force = false) {
   if (!scraped.price || scraped.price < 10 || scraped.price > 99_999_999)
     throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked.');
 
-  const bestOffer = await evaluateOffers(scraped.price, scraped.rawOffers);
+  const bestOffer = await evaluateOffers(scraped.price, scraped.rawOffers, scraped.bankOffers);
 
   let doc = { ...scraped, bestOffer, updatedAt: new Date() };
   if (ScrapedProduct) {
