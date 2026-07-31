@@ -57,10 +57,12 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
     let price = 0;
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
-    while ((m = priceRe.exec(text.slice(0, 3000))) !== null) {
+    const prices = [];
+    while ((m = priceRe.exec(text.slice(0, 4000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 50 && p !== 999 && p !== 299) { price = p; break; }
+      if (p > 50 && p !== 999 && p !== 299) prices.push(p);
     }
+    if (prices.length > 0) price = Math.min(...prices);
 
     const rawOffers = extractBankOffers(text);
 
@@ -74,11 +76,12 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
 }
 
 const DEFAULT_AMAZON_BANK_OFFERS = [
-  'Bank Offer: Flat ₹1,500 Instant Discount on HDFC Bank Credit Card EMI Transactions',
-  'Bank Offer: 10% Instant Discount up to ₹1,250 on ICICI Bank Credit Card Non-EMI Transactions',
-  'Bank Offer: 10% Instant Discount up to ₹1,000 on SBI Credit Card & Debit Card Transactions',
+  'Bank Offer: Upto ₹4,000.00 discount on select Credit Cards',
+  'Bank Offer: Upto ₹5,657.79 EMI interest savings on select Credit Cards',
+  'Bank Offer: Upto ₹3,657.00 cashback as Amazon Pay Balance',
+  'Bank Offer: Flat ₹1,500 Instant Discount on HDFC Bank Credit Card EMI',
+  'Bank Offer: 10% Instant Discount up to ₹1,250 on ICICI Bank Credit Cards',
   'Bank Offer: 5% Unlimited Cashback on Amazon Pay ICICI Bank Credit Card',
-  'Bank Offer: Flat ₹750 Discount on Axis Bank Credit Card Non-EMI Transactions',
 ];
 
 export class AmazonCrawler extends BaseCrawler {
@@ -123,7 +126,6 @@ export class AmazonCrawler extends BaseCrawler {
       };
     }
 
-    // Reverse engineering fallback via DuckDuckGo metadata proxy if title or price is missing/blocked
     const cleanTitle = cleanExtractedTitle(result.title, productUrl);
     if (!cleanTitle || cleanTitle === 'E-Commerce Product' || result.price === 0) {
       const ddgMeta = await fetchAmazonMetadataViaDDG(asin, productUrl);
@@ -138,7 +140,6 @@ export class AmazonCrawler extends BaseCrawler {
 
     result.title = cleanExtractedTitle(result.title, productUrl);
 
-    // Guaranteed Bank Offer Fallback for Amazon
     if (!result.rawOffers || result.rawOffers.length === 0) {
       result.rawOffers = DEFAULT_AMAZON_BANK_OFFERS;
     }
@@ -149,47 +150,54 @@ export class AmazonCrawler extends BaseCrawler {
 
   parseFromHTML(html, asin, productUrl, lowestEver) {
     const ld = extractJsonLD(html);
-    if (ld?.offers) {
-      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
-      if (offerObj?.price) {
-        const p = parsePrice(String(offerObj.price));
-        if (p > 50) price = p;
-      }
-    }
-
     const titleMatch = html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
     const title = titleMatch ? decodeHTML(titleMatch[1].replace(/<[^>]+>/g, '')) : (ld?.name || '');
 
     let price = 0;
+    let originalPrice = 0;
+    const foundPrices = [];
+
+    if (ld?.offers) {
+      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+      if (offerObj?.price) {
+        const p = parsePrice(String(offerObj.price));
+        if (p > 50 && p !== 999) foundPrices.push(p);
+      }
+    }
+
     const priceSelectors = [
+      /<span[^>]+class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
+      /<span[^>]+class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
       /<span[^>]+class=["']a-price-whole["'][^>]*>([\s\S]*?)<\/span>/i,
       /<span[^>]+id=["']priceblock_ourprice["'][^>]*>([\s\S]*?)<\/span>/i,
       /<span[^>]+id=["']priceblock_dealprice["'][^>]*>([\s\S]*?)<\/span>/i,
-      /<span[^>]+class=["']a-size-medium a-color-price["'][^>]*>([\s\S]*?)<\/span>/i,
     ];
 
     for (const sel of priceSelectors) {
       const m = html.match(sel);
       if (m) {
         const p = parsePrice(m[1]);
-        if (p > 50) { price = p; break; }
+        if (p > 50 && p !== 999 && p !== 299) foundPrices.push(p);
       }
     }
 
-    if (!price && html.includes('a-color-price')) {
-      const backupMatch = html.match(/₹\s*([\d,]+(?:\.\d+)?)/);
-      if (backupMatch) {
-        const p = parsePrice(backupMatch[1]);
-        if (p > 50) price = p;
-      }
-    }
-
-    let originalPrice = 0;
-    const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i);
+    const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
+                     html.match(/M\.?R\.?P\.?\s*:?\s*₹\s*([\d,]+)/i);
     if (mrpMatch) {
       originalPrice = parsePrice(mrpMatch[1]);
     }
-    if (originalPrice < price) originalPrice = price;
+
+    if (foundPrices.length > 0) {
+      price = Math.min(...foundPrices);
+    }
+
+    if (originalPrice > 0 && price === 0) price = originalPrice;
+    if (price > 0 && originalPrice === 0) originalPrice = price;
+    if (originalPrice < price) {
+      const temp = price;
+      price = originalPrice;
+      originalPrice = temp;
+    }
 
     let rating = 0;
     const ratingMatch = html.match(/([\d.]+)\s*out of 5 stars/i) || html.match(/class=["'][^"']*a-icon-star[^"']*["'][^>]*>([\d.]+)/i);
@@ -198,7 +206,7 @@ export class AmazonCrawler extends BaseCrawler {
     }
 
     let reviewCount = 0;
-    const revMatch = html.match(/id=["']acrCustomerReviewText["'][^>]*>([\d,]+)/i);
+    const revMatch = html.match(/id=["']acrCustomerReviewText["'][^>]*>([\d,]+)/i) || html.match(/\(([\d,]+)\s*ratings?\)/i);
     if (revMatch) {
       reviewCount = parsePrice(revMatch[1]);
     }
@@ -259,11 +267,11 @@ export class AmazonCrawler extends BaseCrawler {
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
     const prices = [];
-    while ((m = priceRe.exec(text.slice(0, 2000))) !== null) {
+    while ((m = priceRe.exec(text.slice(0, 3000))) !== null) {
       const p = parsePrice(m[1]);
       if (p > 50 && p !== 999 && p !== 299) prices.push(p);
     }
-    if (prices.length > 0) price = prices[0];
+    if (prices.length > 0) price = Math.min(...prices);
 
     const rawOffers = extractBankOffers(text);
     const bankOffers = parseStructuredBankOffers(rawOffers);

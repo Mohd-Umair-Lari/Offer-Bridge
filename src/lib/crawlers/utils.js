@@ -133,7 +133,9 @@ export function extractBankOffers(text) {
   const result = [];
   const patterns = [
     /Bank\s+Offer\s*[:\-]?\s*.{15,350}?(?=Bank Offer|Credit Card Offer|Debit Card Offer|$|\n\n)/gi,
-    /(?:Get|Flat|Extra|Avail|Upto|Up\s+to)\s+(?:₹[\d,]+|\d+%)\s*.{10,280}/gi,
+    /(?:Upto|Up\s+to|Flat|Get)\s+₹?[\d,.]+\s+discount\s+on\s+select\s+(?:Credit|Debit)\s+Cards.{0,100}/gi,
+    /(?:Upto|Up\s+to|Flat|Get)\s+(?:₹[\d,.]+|\d+%)\s+(?:discount|cashback|EMI\s+interest\s+savings)[^!\n;]{5,200}/gi,
+    /(?:Get|Flat|Extra|Avail|Upto|Up\s+to)\s+(?:₹[\d,.]+|\d+%)\s*.{10,280}/gi,
     /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex|AU\s+Small|OneCard|Citi|Paytm|NAVI|Jupiter)[^!\n;]{10,280}?(?:off|cashback|discount|EMI|reward)[^!\n;]{0,120}/gi,
     /\d+%\s*(?:instant\s+)?(?:discount|off|cashback)[^!\n;]{10,220}/gi,
     /No\s+Cost\s+EMI[^!\n;]{10,220}/gi,
