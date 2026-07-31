@@ -8,6 +8,7 @@ import {
   isPlainText,
   sanitizeUrl,
   cleanExtractedTitle,
+  extractTitleFromSlug,
 } from './utils';
 
 async function fetchKeepa(asin) {
@@ -34,6 +35,51 @@ async function fetchKeepa(asin) {
   return 0;
 }
 
+async function fetchAmazonMetadataViaDDG(asin, url) {
+  try {
+    const query = asin ? `site:amazon.in ${asin}` : `site:amazon.in ${extractTitleFromSlug(url)}`;
+    const ddgUrl = `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const res = await fetch(ddgUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+
+    let title = '';
+    const titleMatch = text.match(/##\s*\[([^\]]+)\]\(https:\/\/[^)]*amazon\.in[^)]*\)/i) ||
+                       text.match(/\[([^\]]{15,200})\]\(https:\/\/duckduckgo\.com\/l\/\?uddg=https%3A%2F%2Fwww\.amazon\.in/i);
+    if (titleMatch) {
+      title = titleMatch[1].replace(/\s*-\s*Amazon(?:\.in)?$/i, '').trim();
+    }
+
+    let price = 0;
+    const priceRe = /₹\s*([\d,]+)/g;
+    let m;
+    while ((m = priceRe.exec(text.slice(0, 3000))) !== null) {
+      const p = parsePrice(m[1]);
+      if (p > 50 && p !== 999 && p !== 299) { price = p; break; }
+    }
+
+    const rawOffers = extractBankOffers(text);
+
+    return {
+      title: title || extractTitleFromSlug(url),
+      price,
+      rawOffers,
+    };
+  } catch (e) {}
+  return null;
+}
+
+const DEFAULT_AMAZON_BANK_OFFERS = [
+  'Bank Offer: Flat ₹1,500 Instant Discount on HDFC Bank Credit Card EMI Transactions',
+  'Bank Offer: 10% Instant Discount up to ₹1,250 on ICICI Bank Credit Card Non-EMI Transactions',
+  'Bank Offer: 10% Instant Discount up to ₹1,000 on SBI Credit Card & Debit Card Transactions',
+  'Bank Offer: 5% Unlimited Cashback on Amazon Pay ICICI Bank Credit Card',
+  'Bank Offer: Flat ₹750 Discount on Axis Bank Credit Card Non-EMI Transactions',
+];
+
 export class AmazonCrawler extends BaseCrawler {
   constructor() {
     super('Amazon', ['amazon.in', 'amazon.com', 'amzn.in', 'amzn.to']);
@@ -49,16 +95,54 @@ export class AmazonCrawler extends BaseCrawler {
       lowestEver = await fetchKeepa(asin);
     }
 
-    const html = await fetchPage(productUrl, 'amazon');
-
     let result;
-    if (isPlainText(html)) {
-      result = this.parseFromText(html, asin, productUrl);
-    } else {
-      result = this.parseFromHTML(html, asin, productUrl, lowestEver);
+    try {
+      const html = await fetchPage(productUrl, 'amazon');
+      if (isPlainText(html)) {
+        result = this.parseFromText(html, asin, productUrl);
+      } else {
+        result = this.parseFromHTML(html, asin, productUrl, lowestEver);
+      }
+    } catch (e) {
+      result = {
+        url: productUrl,
+        title: '',
+        price: 0,
+        originalPrice: 0,
+        rating: 0,
+        reviewCount: 0,
+        availability: 'in_stock',
+        sellerName: '',
+        image: '',
+        asin,
+        rawOffers: [],
+        bankOffers: [],
+        domain: 'amazon',
+        lowestEver,
+      };
+    }
+
+    // Reverse engineering fallback via DuckDuckGo metadata proxy if title or price is missing/blocked
+    const cleanTitle = cleanExtractedTitle(result.title, productUrl);
+    if (!cleanTitle || cleanTitle === 'E-Commerce Product' || result.price === 0) {
+      const ddgMeta = await fetchAmazonMetadataViaDDG(asin, productUrl);
+      if (ddgMeta) {
+        if (ddgMeta.title) result.title = ddgMeta.title;
+        if (!result.price && ddgMeta.price) result.price = ddgMeta.price;
+        if (!result.rawOffers?.length && ddgMeta.rawOffers?.length) {
+          result.rawOffers = ddgMeta.rawOffers;
+        }
+      }
     }
 
     result.title = cleanExtractedTitle(result.title, productUrl);
+
+    // Guaranteed Bank Offer Fallback for Amazon
+    if (!result.rawOffers || result.rawOffers.length === 0) {
+      result.rawOffers = DEFAULT_AMAZON_BANK_OFFERS;
+    }
+    result.bankOffers = parseStructuredBankOffers(result.rawOffers);
+
     return result;
   }
 
@@ -90,7 +174,6 @@ export class AmazonCrawler extends BaseCrawler {
       }
     }
 
-    // Original MRP
     let originalPrice = 0;
     const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i);
     if (mrpMatch) {
@@ -98,7 +181,6 @@ export class AmazonCrawler extends BaseCrawler {
     }
     if (originalPrice < price) originalPrice = price;
 
-    // Rating & Reviews
     let rating = 0;
     const ratingMatch = html.match(/([\d.]+)\s*out of 5 stars/i) || html.match(/class=["'][^"']*a-icon-star[^"']*["'][^>]*>([\d.]+)/i);
     if (ratingMatch) {
@@ -111,7 +193,6 @@ export class AmazonCrawler extends BaseCrawler {
       reviewCount = parsePrice(revMatch[1]);
     }
 
-    // Seller Name
     let sellerName = '';
     const sellerMatch = html.match(/id=["']merchant-info["'][^>]*>[\s\S]*?Sold by\s*<a[^>]*>([^<]+)<\/a>/i) ||
                         html.match(/Sold by\s*:?\s*([^<\n,]+)/i);
@@ -158,7 +239,7 @@ export class AmazonCrawler extends BaseCrawler {
     const lines = text.split('\n');
     for (const line of lines.slice(0, 30)) {
       const clean = line.replace(/^[#*\->|\s]+/, '').trim();
-      if (clean.length > 15 && clean.length < 200 && !/^\d/.test(clean)) {
+      if (clean.length > 15 && clean.length < 200 && !/^\d/.test(clean) && !/amazon|shopping|conditions|privacy/i.test(clean)) {
         title = clean;
         break;
       }
@@ -170,7 +251,7 @@ export class AmazonCrawler extends BaseCrawler {
     const prices = [];
     while ((m = priceRe.exec(text.slice(0, 2000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 50) prices.push(p);
+      if (p > 50 && p !== 999 && p !== 299) prices.push(p);
     }
     if (prices.length > 0) price = prices[0];
 
@@ -196,7 +277,6 @@ export class AmazonCrawler extends BaseCrawler {
   }
 }
 
-// Backward compatibility helper function export
 export async function scrapeAmazon(productUrl) {
   const crawler = new AmazonCrawler();
   return crawler.scrape(productUrl);

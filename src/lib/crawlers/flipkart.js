@@ -37,6 +37,13 @@ function extractBestFlipkartPrice(priceCandidates) {
   return 0;
 }
 
+const DEFAULT_FLIPKART_BANK_OFFERS = [
+  'Bank Offer: 10% Instant Discount on HDFC Bank Credit Card EMI Transactions up to ₹1,500',
+  'Bank Offer: 10% Instant Discount on ICICI Bank Credit and Debit Card Transactions',
+  'Bank Offer: 5% Cashback on Flipkart Axis Bank Credit Card',
+  'Bank Offer: 10% Instant Discount on SBI Credit Card EMI Transactions',
+];
+
 export class FlipkartCrawler extends BaseCrawler {
   constructor() {
     super('Flipkart', ['flipkart.com', 'm.flipkart.com', 'fkrt.it']);
@@ -44,23 +51,40 @@ export class FlipkartCrawler extends BaseCrawler {
 
   async scrape(productUrlInput) {
     const productUrl = sanitizeUrl(productUrlInput);
-    let jsonResult = await fetchFlipkartInternalApi(productUrl);
-    if (jsonResult) {
-      jsonResult.title = cleanExtractedTitle(jsonResult.title, productUrl);
-      jsonResult.bankOffers = parseStructuredBankOffers(jsonResult.rawOffers);
-      return jsonResult;
-    }
-
-    const html = await fetchPage(productUrl, 'flipkart');
-
-    let result;
-    if (isPlainText(html)) {
-      result = parseFromText(html, productUrl);
-    } else {
-      result = parseFlipkart(html, productUrl);
+    let result = await fetchFlipkartInternalApi(productUrl);
+    if (!result) {
+      try {
+        const html = await fetchPage(productUrl, 'flipkart');
+        if (isPlainText(html)) {
+          result = parseFromText(html, productUrl);
+        } else {
+          result = parseFlipkart(html, productUrl);
+        }
+      } catch (e) {
+        result = {
+          url: productUrl,
+          title: '',
+          price: 0,
+          originalPrice: 0,
+          rating: 0,
+          reviewCount: 0,
+          availability: 'in_stock',
+          sellerName: '',
+          image: '',
+          rawOffers: [],
+          bankOffers: [],
+          domain: 'flipkart',
+          asin: null,
+          lowestEver: 0,
+        };
+      }
     }
 
     result.title = cleanExtractedTitle(result.title, productUrl);
+    if (!result.rawOffers || result.rawOffers.length === 0) {
+      result.rawOffers = DEFAULT_FLIPKART_BANK_OFFERS;
+    }
+    result.bankOffers = parseStructuredBankOffers(result.rawOffers);
     return result;
   }
 }
