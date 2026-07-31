@@ -6,6 +6,8 @@ import {
   parsePrice,
   decodeHTML,
   isPlainText,
+  sanitizeUrl,
+  cleanExtractedTitle,
 } from './utils';
 
 async function fetchKeepa(asin) {
@@ -37,7 +39,8 @@ export class AmazonCrawler extends BaseCrawler {
     super('Amazon', ['amazon.in', 'amazon.com', 'amzn.in', 'amzn.to']);
   }
 
-  async scrape(productUrl) {
+  async scrape(productUrlInput) {
+    const productUrl = sanitizeUrl(productUrlInput);
     const asin = productUrl.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
               || productUrl.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
 
@@ -48,11 +51,15 @@ export class AmazonCrawler extends BaseCrawler {
 
     const html = await fetchPage(productUrl, 'amazon');
 
+    let result;
     if (isPlainText(html)) {
-      return this.parseFromText(html, asin, productUrl);
+      result = this.parseFromText(html, asin, productUrl);
+    } else {
+      result = this.parseFromHTML(html, asin, productUrl, lowestEver);
     }
 
-    return this.parseFromHTML(html, asin, productUrl, lowestEver);
+    result.title = cleanExtractedTitle(result.title, productUrl);
+    return result;
   }
 
   parseFromHTML(html, asin, productUrl, lowestEver) {

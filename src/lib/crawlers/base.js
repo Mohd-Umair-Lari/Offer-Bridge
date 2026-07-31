@@ -1,3 +1,5 @@
+import { cleanExtractedTitle } from './utils';
+
 /**
  * BaseCrawler - Abstract Base Class for E-Commerce Platform Scrapers
  * Standardizes metadata extraction and provider extensions.
@@ -35,10 +37,12 @@ export class BaseCrawler {
    * Standardizes scraped product object into a clean production schema.
    */
   normalizeProductData(raw) {
+    const finalTitle = cleanExtractedTitle(raw.title, raw.url);
+
     return {
       platform: this.name.toLowerCase(),
       url: raw.url || '',
-      title: raw.title ? String(raw.title).trim() : 'Unknown Product',
+      title: finalTitle,
       price: typeof raw.price === 'number' ? raw.price : 0,
       originalPrice: typeof raw.originalPrice === 'number' && raw.originalPrice > 0 ? raw.originalPrice : (raw.price || 0),
       currency: raw.currency || 'INR',

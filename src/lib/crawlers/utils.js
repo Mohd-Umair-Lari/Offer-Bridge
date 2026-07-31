@@ -1,13 +1,57 @@
-const env = (k) => process.env[k] || '';
+export function sanitizeUrl(urlStr = '') {
+  if (!urlStr) return '';
+  let clean = String(urlStr).trim();
+  // Strip trailing single/double quotes or angle brackets commonly pasted from messages
+  clean = clean.replace(/^['"<]+|['">]+$/g, '').trim();
+  return clean;
+}
 
 export function getMerchant(url) {
   try {
-    const h = new URL(url).hostname.toLowerCase();
+    const cleanUrl = sanitizeUrl(url);
+    const h = new URL(cleanUrl).hostname.toLowerCase();
     if (h.includes('amazon')) return 'amazon';
     if (h.includes('flipkart')) return 'flipkart';
     if (h.includes('myntra')) return 'myntra';
   } catch {}
   return null;
+}
+
+export function extractTitleFromSlug(urlStr) {
+  try {
+    const cleanUrl = sanitizeUrl(urlStr);
+    const u = new URL(cleanUrl);
+    const parts = u.pathname.split('/').filter(Boolean);
+    for (const part of parts) {
+      if (part === 'dp' || part === 'p' || part === 'gp' || part === 'product' || part === 'buy') continue;
+      const clean = part.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+      // Must look like a product slug (not an ASIN or item ID like B0CTMNDF9T or itm6ac64855)
+      if (clean.length > 4 && !/^[a-z0-9]{8,16}$/i.test(clean)) {
+        return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+  } catch {}
+  return '';
+}
+
+export function cleanExtractedTitle(title, urlStr) {
+  const INVALID_TITLES = [
+    'unknown product', 'amazon.in', 'page not found', 'buy products online at best price',
+    'something went wrong', 'live content', 'duckduckgo', 'shopping cart', 'login', 'flipkart'
+  ];
+
+  const t = (title || '').trim();
+  const lower = t.toLowerCase();
+
+  const isInvalid = !t || t.length < 3 || INVALID_TITLES.some(inv => lower === inv || lower.startsWith(inv));
+
+  if (isInvalid) {
+    const slugTitle = extractTitleFromSlug(urlStr);
+    if (slugTitle && slugTitle.length >= 3) return slugTitle;
+    return 'E-Commerce Product';
+  }
+
+  return t;
 }
 
 export function validateProductUrl(url) {

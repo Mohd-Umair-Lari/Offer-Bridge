@@ -10,6 +10,8 @@ import {
   deepFind,
   deepFindAll,
   isPlainText,
+  sanitizeUrl,
+  cleanExtractedTitle,
 } from './utils';
 
 function flipkartSlugKeywords(url) {
@@ -40,20 +42,26 @@ export class FlipkartCrawler extends BaseCrawler {
     super('Flipkart', ['flipkart.com', 'm.flipkart.com', 'fkrt.it']);
   }
 
-  async scrape(productUrl) {
+  async scrape(productUrlInput) {
+    const productUrl = sanitizeUrl(productUrlInput);
     let jsonResult = await fetchFlipkartInternalApi(productUrl);
     if (jsonResult) {
+      jsonResult.title = cleanExtractedTitle(jsonResult.title, productUrl);
       jsonResult.bankOffers = parseStructuredBankOffers(jsonResult.rawOffers);
       return jsonResult;
     }
 
     const html = await fetchPage(productUrl, 'flipkart');
 
+    let result;
     if (isPlainText(html)) {
-      return parseFromText(html, productUrl);
+      result = parseFromText(html, productUrl);
+    } else {
+      result = parseFlipkart(html, productUrl);
     }
 
-    return parseFlipkart(html, productUrl);
+    result.title = cleanExtractedTitle(result.title, productUrl);
+    return result;
   }
 }
 
