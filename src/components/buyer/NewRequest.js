@@ -122,28 +122,51 @@ function CrawlStatus({ step }) {
   );
 }
 
-/* Raw offers collapsible */
-function RawOffersList({ offers }) {
+/* Bank & Card offers collapsible list */
+function RawOffersList({ offers, bankOffers }) {
   const [open, setOpen] = useState(false);
-  if (!offers?.length) return null;
+  const items = bankOffers?.length ? bankOffers : offers;
+  if (!items?.length) return null;
+
   return (
     <div className="mt-3">
       <button type="button" onClick={() => setOpen(p => !p)}
-        className="flex items-center gap-1.5 text-xs font-medium w-full text-left"
-        style={{ color: 'var(--text-muted)' }}>
+        className="flex items-center gap-1.5 text-xs font-semibold w-full text-left transition hover:opacity-80"
+        style={{ color: 'var(--primary)' }}>
         {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        {open ? 'Hide' : 'Show'} all {offers.length} bank offer{offers.length !== 1 ? 's' : ''} found
+        {open ? 'Hide' : 'View'} all {items.length} bank offer{items.length !== 1 ? 's' : ''} detected
       </button>
       <AnimatePresence>
         {open && (
           <motion.ul initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2 space-y-1.5">
-            {offers.map((o, i) => (
-              <li key={i} className="text-xs px-3 py-1.5 rounded"
-                style={{ background: 'var(--surface)', color: 'var(--text-muted)', borderLeft: '2px solid var(--border)' }}>
-                {o}
-              </li>
-            ))}
+            exit={{ opacity: 0, height: 0 }} className="overflow-hidden mt-2 space-y-2">
+            {items.map((o, i) => {
+              const isObj = typeof o === 'object';
+              const bankName = isObj ? o.bank : 'Bank Offer';
+              const cardType = isObj ? o.cardType : 'any';
+              const desc = isObj ? o.description : o;
+
+              return (
+                <li key={i} className="text-xs p-2.5 rounded-lg space-y-1"
+                  style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded"
+                      style={{ background: 'var(--primary-dim)', color: 'var(--primary)' }}>
+                      {bankName}
+                    </span>
+                    {cardType !== 'any' && (
+                      <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded"
+                        style={{ background: 'var(--surface2)', color: 'var(--text-muted)' }}>
+                        {cardType} Card
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                    {desc}
+                  </p>
+                </li>
+              );
+            })}
           </motion.ul>
         )}
       </AnimatePresence>
@@ -388,7 +411,7 @@ export default function NewRequest({ onCreated }) {
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Extraction failed');
 
-      const { product, best_card, raw_offers, merchant } = data;
+      const { product, best_card, bank_offers, raw_offers, merchant } = data;
 
       setCrawlStep('done');
       setTimeout(() => setCrawlStep(null), 2200);
@@ -400,6 +423,7 @@ export default function NewRequest({ onCreated }) {
         productImage: product.image || '',
         merchant: merchant || '',
         rawOffers: raw_offers || [],
+        bankOffers: bank_offers || [],
         bestCardInfo: best_card?.discount_amount > 0 ? {
           bank: best_card.bank || '',
           discount_amount: best_card.discount_amount || 0,
@@ -414,23 +438,7 @@ export default function NewRequest({ onCreated }) {
       clearStepTimer();
       setCrawlStep(null);
       const msg = err.message || 'Could not fetch product. Try again.';
-      const isBlockMsg = msg.toLowerCase().includes('blocking')
-        || msg.toLowerCase().includes('blocked')
-        || msg.toLowerCase().includes('bot')
-        || msg.includes('503') || msg.includes('500')
-        || msg.includes('403') || msg.includes('404');
-      if (isBlockMsg) {
-        let site = 'The site';
-        if (msg.toLowerCase().includes('amazon')) site = 'Amazon';
-        else if (msg.toLowerCase().includes('flipkart')) site = 'Flipkart';
-        else if (msg.toLowerCase().includes('myntra')) site = 'Myntra';
-        else if (form.productLink?.toLowerCase().includes('amazon')) site = 'Amazon';
-        else if (form.productLink?.toLowerCase().includes('flipkart')) site = 'Flipkart';
-        else if (form.productLink?.toLowerCase().includes('myntra')) site = 'Myntra';
-        setFetchError(`${site} is blocking automated access from this server. Try using the Chrome Extension instead.`);
-      } else {
-        setFetchError(msg);
-      }
+      setFetchError(msg);
     }
   };
 
@@ -792,7 +800,7 @@ export default function NewRequest({ onCreated }) {
                         </div>
                       </div>
                     </div>
-                    <RawOffersList offers={form.rawOffers} />
+                    <RawOffersList offers={form.rawOffers} bankOffers={form.bankOffers} />
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"

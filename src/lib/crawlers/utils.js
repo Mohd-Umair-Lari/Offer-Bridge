@@ -103,6 +103,70 @@ export function extractBankOffers(text) {
   return result.slice(0, 15);
 }
 
+export function parseStructuredBankOffers(offersInput) {
+  const rawList = Array.isArray(offersInput)
+    ? offersInput
+    : extractBankOffers(String(offersInput || ''));
+
+  const KNOWN_BANKS = [
+    'HDFC', 'ICICI', 'SBI', 'AXIS', 'Kotak', 'IndusInd', 'RBL', 'HSBC',
+    'Federal Bank', 'Yes Bank', 'BOB', 'Union Bank', 'IDFC', 'Amex',
+    'AU Small', 'OneCard', 'Citi', 'Paytm', 'NAVI', 'Jupiter'
+  ];
+
+  const structured = [];
+  const seenKeys = new Set();
+
+  for (const offerText of rawList) {
+    if (!offerText || typeof offerText !== 'string') continue;
+    const cleanText = offerText.replace(/\s+/g, ' ').trim();
+    if (cleanText.length < 10) continue;
+
+    let foundBank = 'Other Bank';
+    for (const bank of KNOWN_BANKS) {
+      if (new RegExp(`\\b${bank.replace(/\s+/g, '\\s+')}\\b`, 'i').test(cleanText)) {
+        foundBank = bank;
+        break;
+      }
+    }
+
+    let cardType = 'any';
+    const lower = cleanText.toLowerCase();
+    if (lower.includes('credit card') && !lower.includes('debit card')) {
+      cardType = 'credit';
+    } else if (lower.includes('debit card') && !lower.includes('credit card')) {
+      cardType = 'debit';
+    }
+
+    let discountAmount = 0;
+    let discountPercent = 0;
+
+    const amtMatch = cleanText.match(/(?:₹|Rs\.?)\s*([\d,]+)/i);
+    if (amtMatch) {
+      discountAmount = parsePrice(amtMatch[1]);
+    }
+
+    const pctMatch = cleanText.match(/(\d+(?:\.\d+)?)\s*%/);
+    if (pctMatch) {
+      discountPercent = parseFloat(pctMatch[1]);
+    }
+
+    const dedupeKey = `${foundBank}-${cardType}-${cleanText.slice(0, 40).toLowerCase()}`;
+    if (!seenKeys.has(dedupeKey)) {
+      seenKeys.add(dedupeKey);
+      structured.push({
+        bank: foundBank,
+        cardType,
+        discountAmount,
+        discountPercent,
+        description: cleanText,
+      });
+    }
+  }
+
+  return structured;
+}
+
 export function isPlainText(content) {
   if (!content) return true;
   const sample = content.slice(0, 3000);

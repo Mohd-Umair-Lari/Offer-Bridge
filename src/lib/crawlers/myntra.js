@@ -1,13 +1,33 @@
+import { BaseCrawler } from './base';
 import {
   fetchPage,
   extractBankOffers,
+  parseStructuredBankOffers,
   parsePrice,
   decodeHTML,
   deepFind,
   isPlainText,
 } from './utils';
 
-async function fetchMyntraInternalApi(styleId) {
+export class MyntraCrawler extends BaseCrawler {
+  constructor() {
+    super('Myntra', ['myntra.com']);
+  }
+
+  async scrape(productUrl) {
+    const styleId = productUrl.match(/\/(\d+)\/buy/i)?.[1] || productUrl.match(/[^\d](\d{6,10})(?:[^\d]|$)/)?.[1];
+    const apiRes = await fetchMyntraInternalApi(styleId, productUrl);
+    if (apiRes) return apiRes;
+
+    const html = await fetchPage(productUrl, 'myntra');
+    if (isPlainText(html)) {
+      return parseFromTextMyntra(html, productUrl);
+    }
+    return parseMyntra(html, productUrl);
+  }
+}
+
+async function fetchMyntraInternalApi(styleId, productUrl) {
   if (!styleId) return null;
   const endpoints = [
     `https://www.myntra.com/gateway/v2/product/${styleId}`,
@@ -42,7 +62,22 @@ async function fetchMyntraInternalApi(styleId) {
           image = deepFind(json, ['imageURL', 'src', 'secureUrl']);
         }
         if (price > 50 && title.length > 3) {
-          return { title: decodeHTML(title), price, image, rawOffers: [], domain: 'myntra', asin: null, lowestEver: 0 };
+          return {
+            url: productUrl,
+            title: decodeHTML(title),
+            price,
+            originalPrice: style?.price?.mrp || price,
+            rating: parseFloat(style?.ratings?.average) || 0,
+            reviewCount: style?.ratings?.count || 0,
+            availability: 'in_stock',
+            sellerName: style?.seller?.name || '',
+            image,
+            rawOffers: [],
+            bankOffers: [],
+            domain: 'myntra',
+            asin: null,
+            lowestEver: 0,
+          };
         }
       }
     } catch (e) {}
@@ -50,19 +85,7 @@ async function fetchMyntraInternalApi(styleId) {
   return null;
 }
 
-export async function scrapeMyntra(productUrl) {
-  const styleId = productUrl.match(/\/(\d+)\/buy/i)?.[1] || productUrl.match(/[^\d](\d{6,10})(?:[^\d]|$)/)?.[1];
-  const apiRes = await fetchMyntraInternalApi(styleId);
-  if (apiRes) return apiRes;
-
-  const html = await fetchPage(productUrl, 'myntra');
-  if (isPlainText(html)) {
-    return parseFromTextMyntra(html);
-  }
-  return parseMyntra(html);
-}
-
-function parseMyntra(html) {
+function parseMyntra(html, productUrl) {
   let title = '';
   const titleMatch = html.match(/<h1[^>]*class=["'][^"']*pdp-title["'][^>]*>([\s\S]*?)<\/h1>/i) ||
                      html.match(/<h1[^>]*class=["'][^"']*pdp-name["'][^>]*>([\s\S]*?)<\/h1>/i);
@@ -82,37 +105,6 @@ function parseMyntra(html) {
     if (p > 50) price = p;
   }
 
-  if (!price) {
-    const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/gi);
-    if (scriptMatch) {
-      for (const sm of scriptMatch) {
-        if (sm.includes('pdpData')) {
-          const priceRe = /"price"\s*:\s*(\d+)/i;
-          const discountedRe = /"discounted"\s*:\s*(\d+)/i;
-          const m1 = sm.match(discountedRe);
-          if (m1) {
-             const p = parsePrice(m1[1]);
-             if (p > 50) { price = p; break; }
-          }
-          const m2 = sm.match(priceRe);
-          if (m2) {
-             const p = parsePrice(m2[1]);
-             if (p > 50) { price = p; break; }
-          }
-        }
-      }
-    }
-  }
-
-  if (!title && html.includes('pdpData')) {
-    const nameMatch = html.match(/"name"\s*:\s*"([^"]+)"/i);
-    if (nameMatch) title = nameMatch[1];
-  }
-
-  if (price === 0 && html.toLowerCase().includes('out of stock')) {
-    throw new Error('Product is currently out of stock on Myntra.');
-  }
-
   let image = '';
   const imgMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
   if (imgMatch) image = imgMatch[1];
@@ -122,46 +114,65 @@ function parseMyntra(html) {
                        .replace(/<[^>]+>/g, ' ')
                        .replace(/\s+/g, ' ');
   const rawOffers = extractBankOffers(stripped);
+  const bankOffers = parseStructuredBankOffers(rawOffers);
 
-  return { title, price, image, rawOffers, domain: 'myntra', asin: null, lowestEver: 0 };
+  return {
+    url: productUrl,
+    title,
+    price,
+    originalPrice: price,
+    rating: 0,
+    reviewCount: 0,
+    availability: price > 0 ? 'in_stock' : 'out_of_stock',
+    sellerName: '',
+    image,
+    rawOffers,
+    bankOffers,
+    domain: 'myntra',
+    asin: null,
+    lowestEver: 0,
+  };
 }
 
-function parseFromTextMyntra(text) {
+function parseFromTextMyntra(text, productUrl) {
   let title = '';
   const titleMeta = text.match(/^Title:\s+(.+)$/im);
   if (titleMeta?.[1]?.trim().length > 5) {
     title = titleMeta[1].trim();
-  } else {
-    for (const line of text.split('\n').slice(0, 30)) {
-      const clean = line.replace(/^[#*\->|\s]+/, '').trim();
-      if (clean.length > 15 && clean.length < 200 && !/^\d/.test(clean)) {
-        title = clean;
-        break;
-      }
-    }
   }
 
   let price = 0;
-  const findLabelledPrice = (pattern) => {
-    const m = text.match(pattern);
-    if (!m) return 0;
+  const priceRe = /₹\s*([\d,]+)/g;
+  let m;
+  const prices = [];
+  while ((m = priceRe.exec(text.slice(0, 2000))) !== null) {
     const p = parsePrice(m[1]);
-    return p >= 50 && p <= 9_999_999 ? p : 0;
-  };
-  price = findLabelledPrice(/(?:selling\s+price|discounted\s+price|final\s+price|current\s+price)[^₹\n]{0,40}₹\s*([\d,]+)/i) ||
-          findLabelledPrice(/(?:\bprice\b|\bMRP\b|\bcost\b)[^₹\n]{0,20}₹\s*([\d,]+)/i) || 0;
-  
-  if (!price) price = findLabelledPrice(/\*\*₹\s*([\d,]+)\*\*/);
-  if (!price) {
-    const priceRe = /₹\s*([\d,]+)/g;
-    let m;
-    const prices = [];
-    while ((m = priceRe.exec(text.slice(0, 2000))) !== null) {
-      const p = parsePrice(m[1]);
-      if (p > 50) prices.push(p);
-    }
-    if (prices.length > 0) price = prices[0];
+    if (p > 50) prices.push(p);
   }
+  if (prices.length > 0) price = prices[0];
 
-  return { title, price, image: '', rawOffers: extractBankOffers(text), domain: 'myntra', asin: null, lowestEver: 0 };
+  const rawOffers = extractBankOffers(text);
+  const bankOffers = parseStructuredBankOffers(rawOffers);
+
+  return {
+    url: productUrl,
+    title,
+    price,
+    originalPrice: price,
+    rating: 0,
+    reviewCount: 0,
+    availability: price > 0 ? 'in_stock' : 'out_of_stock',
+    sellerName: '',
+    image: '',
+    rawOffers,
+    bankOffers,
+    domain: 'myntra',
+    asin: null,
+    lowestEver: 0,
+  };
+}
+
+export async function scrapeMyntra(productUrl) {
+  const crawler = new MyntraCrawler();
+  return crawler.scrape(productUrl);
 }

@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { getMerchant, validateProductUrl, autoResolveUrl } from '@/lib/crawlers/utils';
-import { scrapeAmazon } from '@/lib/crawlers/amazon';
-import { scrapeFlipkart } from '@/lib/crawlers/flipkart';
-import { scrapeMyntra } from '@/lib/crawlers/myntra';
+import { registry } from '@/lib/crawlers/registry';
 
 export const maxDuration = 300;
 
@@ -30,13 +28,19 @@ async function getModel() {
   if (mongoose.models.ScrapedProduct) return mongoose.models.ScrapedProduct;
   const schema = new mongoose.Schema(
     {
-      url:       { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-      domain:    { type: String, enum: ['amazon', 'flipkart', 'myntra'], required: true },
-      title:     { type: String, required: true },
-      price:     { type: Number, required: true },
-      asin:      { type: String, default: '' },
-      image:     { type: String, default: '' },
-      rawOffers: { type: [String], default: [] },
+      url:           { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+      domain:        { type: String, enum: ['amazon', 'flipkart', 'myntra'], required: true },
+      title:         { type: String, required: true },
+      price:         { type: Number, required: true },
+      originalPrice: { type: Number, default: 0 },
+      rating:        { type: Number, default: 0 },
+      reviewCount:   { type: Number, default: 0 },
+      availability:  { type: String, default: 'in_stock' },
+      sellerName:    { type: String, default: '' },
+      asin:          { type: String, default: '' },
+      image:         { type: String, default: '' },
+      rawOffers:     { type: [String], default: [] },
+      bankOffers:    { type: Array, default: [] },
       bestOffer: {
         bestOfferBank:           { type: String,  default: '' },
         discountAmount:          { type: Number,  default: 0 },
@@ -62,13 +66,6 @@ async function evaluateOffers(price, rawOffers) {
   }
 }
 
-async function scrapeProduct(productUrl, merchant) {
-  if (merchant === 'amazon') return await scrapeAmazon(productUrl);
-  if (merchant === 'flipkart') return await scrapeFlipkart(productUrl);
-  if (merchant === 'myntra') return await scrapeMyntra(productUrl);
-  throw new Error('Unsupported merchant.');
-}
-
 async function getOrScrapeProduct(productUrl, force = false) {
   let targetUrl = (productUrl || '').trim();
   targetUrl = await autoResolveUrl(targetUrl);
@@ -81,10 +78,10 @@ async function getOrScrapeProduct(productUrl, force = false) {
   if (validationError) {
     return { success: false, message: validationError };
   }
-  
+
   const normalizedUrl = targetUrl.toLowerCase();
   const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-  
+
   let ScrapedProduct = null;
   if (!force) {
     try {
@@ -96,15 +93,15 @@ async function getOrScrapeProduct(productUrl, force = false) {
     try { ScrapedProduct = await getModel(); } catch (e) {}
   }
 
-  const scraped = await scrapeProduct(normalizedUrl, merchant);
-  
+  const scraped = await registry.scrape(targetUrl);
+
   if (!scraped.title || scraped.title.length < 4)
-    throw new Error('Could not extract a valid product title. The page may have been blocked, or the link is invalid. Please try the manual entry mode.');
+    throw new Error('Could not extract a valid product title. The page may have been blocked or the link is invalid.');
   if (!scraped.price || scraped.price < 10 || scraped.price > 99_999_999)
-    throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked. Please try the manual entry mode.');
-  
+    throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked.');
+
   const bestOffer = await evaluateOffers(scraped.price, scraped.rawOffers);
-  
+
   let doc = { ...scraped, bestOffer, updatedAt: new Date() };
   if (ScrapedProduct) {
     try {
@@ -112,12 +109,18 @@ async function getOrScrapeProduct(productUrl, force = false) {
         { url: normalizedUrl },
         {
           url:           normalizedUrl,
-          domain:        scraped.domain,
+          domain:        scraped.platform || merchant,
           title:         scraped.title,
           price:         scraped.price,
-          asin:          scraped.asin   || '',
-          image:         scraped.image  || '',
+          originalPrice: scraped.originalPrice || scraped.price,
+          rating:        scraped.rating || 0,
+          reviewCount:   scraped.reviewCount || 0,
+          availability:  scraped.availability || 'in_stock',
+          sellerName:    scraped.sellerName || '',
+          asin:          scraped.asin || '',
+          image:         scraped.image || '',
           rawOffers:     scraped.rawOffers || [],
+          bankOffers:    scraped.bankOffers || [],
           bestOffer,
           lastScrapedAt: new Date(),
         },
@@ -125,7 +128,7 @@ async function getOrScrapeProduct(productUrl, force = false) {
       );
     } catch (e) {}
   }
-  return buildResponse({ ...scraped, bestOffer, lowestEver: scraped.lowestEver, updatedAt: new Date() }, merchant, false);
+  return buildResponse({ ...scraped, bestOffer, updatedAt: new Date() }, merchant, false);
 }
 
 function buildResponse(doc, merchant, cached) {
@@ -133,12 +136,17 @@ function buildResponse(doc, merchant, cached) {
     success: true,
     cached,
     product: {
-      title:      doc.title  || '',
-      price:      doc.price  || 0,
-      currency:   'INR',
-      image:      doc.image  || '',
-      asin:       doc.asin   || null,
-      lowestEver: doc.lowestEver || 0,
+      title:         doc.title || '',
+      price:         doc.price || 0,
+      originalPrice: doc.originalPrice || doc.price || 0,
+      currency:      'INR',
+      image:         doc.image || '',
+      rating:        doc.rating || 0,
+      reviewCount:   doc.reviewCount || 0,
+      availability:  doc.availability || 'in_stock',
+      sellerName:    doc.sellerName || '',
+      asin:          doc.asin || null,
+      lowestEver:    doc.lowestEver || 0,
     },
     best_card: {
       bank:            doc.bestOffer?.bestOfferBank           || '',
@@ -146,9 +154,10 @@ function buildResponse(doc, merchant, cached) {
       final_price:     doc.bestOffer?.finalPriceAfterDiscount || doc.price || 0,
       card_name:       doc.bestOffer?.offerDescription        || 'No card discount available',
     },
-    raw_offers: doc.rawOffers || [],
-    merchant,
-    timestamp: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
+    bank_offers: doc.bankOffers || [],
+    raw_offers:  doc.rawOffers || [],
+    merchant:    doc.platform || merchant,
+    timestamp:   doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
   };
 }
 
