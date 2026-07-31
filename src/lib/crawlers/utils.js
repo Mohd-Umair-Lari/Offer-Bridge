@@ -267,8 +267,89 @@ async function fetchViaAllOrigins(url) {
   return html;
 }
 
-async function fetchViaCorsProxyIo(url) {
-  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+async function fetchAmazonDirect(url) {
+  const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
+             || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
+  const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : url;
+  const headers = {
+    'User-Agent':      'Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer':         'https://www.amazon.in/',
+    'sec-fetch-dest':  'document',
+    'sec-fetch-mode':  'navigate',
+    'sec-fetch-site':  'same-origin',
+    'sec-fetch-user':  '?1',
+    'Upgrade-Insecure-Requests': '1',
+  };
+  const res = await fetch(targetUrl, {
+    headers,
+    redirect: 'follow',
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`Amazon direct HTTP ${res.status}`);
+  const html = await res.text();
+  if (!html || html.length < 2000) throw new Error('Amazon direct: response too small');
+  if (isBotWall(html)) throw new Error('Amazon direct: bot wall');
+  if (!html.includes('productTitle') && !html.includes('a-price-whole'))
+    throw new Error('Amazon direct: no product data found');
+  return html;
+}
+
+export async function fetchPage(url, merchant) {
+  const scraperKey = env('SCRAPER_API_KEY');
+  const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
+
+  // 1. ScraperAPI — best option when key is available
+  if (scraperKey) {
+    try { return await fetchViaScraperAPI(url); } catch (e) {}
+  }
+
+  const throwOn404 = (err) => {
+    if (err.message === 'HTTP_404') {
+      throw new Error('The product URL appears to be invalid or the item no longer exists. Please check the link and try again.');
+    }
+  };
+
+  // 2. Flipkart / Myntra: Jina renders JS and bypasses bot detection reliably
+  if (merchant === 'flipkart' || merchant === 'myntra') {
+    try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+    // Fallback: direct fetch with browser UA (works sometimes for Myntra)
+    for (const profile of BROWSER_PROFILES) {
+      try {
+        const html = await tryFetch(url, profile, merchant, 10000);
+        if (!isBotWall(html)) return html;
+      } catch (e) {}
+    }
+    try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
+    throw new Error(`${siteName} is blocking automated access from this server. Try using the Chrome Extension instead.`);
+  }
+
+  // 3. Amazon: direct mobile-UA fetch first, then Jina (Amazon blocks Jina but worth trying), then AllOrigins
+  if (merchant === 'amazon') {
+    try { return await fetchAmazonDirect(url); } catch (e) {}
+    try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+    try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
+    throw new Error(`Amazon is blocking automated access from this server. Try using the Chrome Extension instead.`);
+  }
+
+  // 4. Generic fallback for any other merchant
+  for (const profile of BROWSER_PROFILES) {
+    try {
+      const html = await tryFetch(url, profile, merchant, 12000);
+      if (!isBotWall(html)) return html;
+    } catch (e) {}
+  }
+  try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+  try { return await fetchViaAllOrigins(url); } catch (e) {
+    throwOn404(e);
+    throw new Error(`${siteName} is blocking automated access from this server.`);
+  }
+  throw new Error(`${siteName} is blocking automated access from this server.`);
+}
+
   const res = await fetch(proxyUrl, {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
     signal: AbortSignal.timeout(30000)
@@ -290,12 +371,33 @@ async function fetchViaCodetabs(url) {
     signal: AbortSignal.timeout(30000)
   });
   if (!res.ok) {
-    if (res.status === 404) throw new Error('HTTP_404');
-    throw new Error(`Codetabs HTTP ${res.status}`);
-  }
+async function fetchAmazonDirect(url) {
+  const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
+             || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
+  const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : url;
+  const headers = {
+    'User-Agent':      'Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer':         'https://www.amazon.in/',
+    'sec-fetch-dest':  'document',
+    'sec-fetch-mode':  'navigate',
+    'sec-fetch-site':  'same-origin',
+    'sec-fetch-user':  '?1',
+    'Upgrade-Insecure-Requests': '1',
+  };
+  const res = await fetch(targetUrl, {
+    headers,
+    redirect: 'follow',
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`Amazon direct HTTP ${res.status}`);
   const html = await res.text();
-  if (!html || html.length < 800) throw new Error('Codetabs empty response');
-  if (isBotWall(html)) throw new Error('Codetabs bot wall');
+  if (!html || html.length < 2000) throw new Error('Amazon direct: response too small');
+  if (isBotWall(html)) throw new Error('Amazon direct: bot wall');
+  if (!html.includes('productTitle') && !html.includes('a-price-whole'))
+    throw new Error('Amazon direct: no product data found');
   return html;
 }
 
@@ -304,13 +406,6 @@ export async function fetchPage(url, merchant) {
   const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
 
   if (scraperKey) {
-    try { return await withRetry(() => fetchViaScraperAPI(url)); } catch (e) {}
-  }
-
-  let directUrls = [url];
-  if (merchant === 'flipkart') {
-    directUrls = [toMobileFlipkartUrl(url), url];
-  } else if (merchant === 'amazon') {
     const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1] || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
     if (asin) {
       const cleanUrl = `https://www.amazon.in/dp/${asin}?th=1&psc=1`;
