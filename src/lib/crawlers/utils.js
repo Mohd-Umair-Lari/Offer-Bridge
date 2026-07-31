@@ -1,3 +1,5 @@
+const env = (k) => process.env[k] || '';
+
 export function sanitizeUrl(urlStr = '') {
   if (!urlStr) return '';
   let clean = String(urlStr).trim();
