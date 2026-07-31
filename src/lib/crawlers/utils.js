@@ -10,6 +10,28 @@ export function getMerchant(url) {
   return null;
 }
 
+export function validateProductUrl(url) {
+  try {
+    const merchant = getMerchant(url);
+    if (!merchant) return null;
+
+    if (merchant === 'amazon') {
+      const asinMatch = url.match(/\/(?:dp|gp\/product)\/([A-Za-z0-9]{10})/i) || url.match(/[?&]asin=([A-Za-z0-9]{10})/i);
+      if (!asinMatch) {
+        return 'The Amazon link is incomplete or missing the 10-character Product ASIN (e.g. /dp/B0CTMNDF9T). Please copy and paste the complete URL from your browser address bar.';
+      }
+    }
+
+    if (merchant === 'flipkart') {
+      const itemMatch = url.match(/\/p\/(itm[a-zA-Z0-9]{11,15})/i) || url.match(/[?&]pid=([a-zA-Z0-9]{12,20})/i);
+      if (!itemMatch) {
+        return 'The Flipkart link is incomplete or missing the full Product ID (e.g. /p/itm6ac6485515ae4). Please copy and paste the complete URL from your browser address bar.';
+      }
+    }
+  } catch {}
+  return null;
+}
+
 export function parsePrice(raw) {
   if (!raw && raw !== 0) return 0;
   const s = String(raw).replace(/[₹$,\s]/g, '').split('.')[0];
@@ -246,10 +268,12 @@ async function fetchViaJina(url) {
   }
   const text = await res.text();
   if (!text || text.length < 300) throw new Error('Jina returned too short response');
-  if (/E00[0-9]|Something went wrong|Please try again/i.test(text.slice(0, 500)))
-    throw new Error('Jina service error: ' + text.slice(0, 100));
-  if (/Warning: Target URL returned error 404/i.test(text.slice(0, 500)))
+  if (/Warning: Target URL returned error 404/i.test(text.slice(0, 600)) ||
+      /buy products online at best price/i.test(text.slice(0, 600)) ||
+      /something went wrong/i.test(text.slice(0, 500)) ||
+      /E00[0-9]/i.test(text.slice(0, 500))) {
     throw new Error('HTTP_404');
+  }
   return text;
 }
 
@@ -350,95 +374,3 @@ export async function fetchPage(url, merchant) {
   throw new Error(`${siteName} is blocking automated access from this server.`);
 }
 
-  const res = await fetch(proxyUrl, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!res.ok) {
-    if (res.status === 404) throw new Error('HTTP_404');
-    throw new Error(`CorsProxy HTTP ${res.status}`);
-  }
-  const html = await res.text();
-  if (!html || html.length < 800) throw new Error('CorsProxy empty response');
-  if (isBotWall(html)) throw new Error('CorsProxy bot wall');
-  return html;
-}
-
-async function fetchViaCodetabs(url) {
-  const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-  const res = await fetch(proxyUrl, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!res.ok) {
-async function fetchAmazonDirect(url) {
-  const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
-             || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
-  const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : url;
-  const headers = {
-    'User-Agent':      'Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-IN,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Referer':         'https://www.amazon.in/',
-    'sec-fetch-dest':  'document',
-    'sec-fetch-mode':  'navigate',
-    'sec-fetch-site':  'same-origin',
-    'sec-fetch-user':  '?1',
-    'Upgrade-Insecure-Requests': '1',
-  };
-  const res = await fetch(targetUrl, {
-    headers,
-    redirect: 'follow',
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!res.ok) throw new Error(`Amazon direct HTTP ${res.status}`);
-  const html = await res.text();
-  if (!html || html.length < 2000) throw new Error('Amazon direct: response too small');
-  if (isBotWall(html)) throw new Error('Amazon direct: bot wall');
-  if (!html.includes('productTitle') && !html.includes('a-price-whole'))
-    throw new Error('Amazon direct: no product data found');
-  return html;
-}
-
-export async function fetchPage(url, merchant) {
-  const scraperKey = env('SCRAPER_API_KEY');
-  const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
-
-  if (scraperKey) {
-    const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1] || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
-    if (asin) {
-      const cleanUrl = `https://www.amazon.in/dp/${asin}?th=1&psc=1`;
-      if (cleanUrl.toLowerCase() !== url.toLowerCase()) directUrls = [cleanUrl, url];
-    }
-  }
-
-  let lastErr;
-  for (const targetUrl of directUrls) {
-    for (const profile of BROWSER_PROFILES) {
-      try {
-        const html = await withRetry(() => tryFetch(targetUrl, profile, merchant), 2, 600);
-        if (!isBotWall(html)) return html;
-        throw new Error('Bot wall detected on direct fetch');
-      } catch (e) {
-        lastErr = e;
-        await new Promise((r) => setTimeout(r, 150 + Math.random() * 200));
-      }
-    }
-  }
-
-  const throwOn404 = (err) => {
-    if (err.message === 'HTTP_404') {
-      throw new Error(`The provided product URL is invalid or not found (404). Please check the link and try again.`);
-    }
-  };
-
-  try { return await withRetry(() => fetchViaJina(url)); } catch (e) { throwOn404(e); }
-  try { return await withRetry(() => fetchViaCorsProxyIo(url)); } catch (e) { throwOn404(e); }
-  try { return await withRetry(() => fetchViaCodetabs(url)); } catch (e) { throwOn404(e); }
-
-  try { return await withRetry(() => fetchViaAllOrigins(url)); } catch (originsErr) {
-    throwOn404(originsErr);
-    throw new Error(`${siteName} is blocking automated access from this server.`);
-  }
-}

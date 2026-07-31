@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { getMerchant } from '@/lib/crawlers/utils';
+import { getMerchant, validateProductUrl } from '@/lib/crawlers/utils';
 import { scrapeAmazon } from '@/lib/crawlers/amazon';
 import { scrapeFlipkart } from '@/lib/crawlers/flipkart';
 import { scrapeMyntra } from '@/lib/crawlers/myntra';
@@ -73,6 +73,11 @@ async function getOrScrapeProduct(productUrl, force = false) {
   const merchant = getMerchant(productUrl);
   if (!merchant)
     return { success: false, message: 'Unsupported URL. Only Amazon.in, Flipkart.com, and Myntra.com links are accepted.' };
+
+  const validationError = validateProductUrl(productUrl);
+  if (validationError) {
+    return { success: false, message: validationError };
+  }
   
   const normalizedUrl = productUrl.trim().toLowerCase();
   const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
