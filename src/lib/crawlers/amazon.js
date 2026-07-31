@@ -55,12 +55,15 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
     }
 
     let price = 0;
+    // Exclude EMI lines when searching for price
+    const cleanTextForPrice = text.replace(/EMI\s+starts\s+at[^\n]*/gi, '')
+                                  .replace(/No\s+Cost\s+EMI[^\n]*/gi, '');
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
     const prices = [];
-    while ((m = priceRe.exec(text.slice(0, 4000))) !== null) {
+    while ((m = priceRe.exec(cleanTextForPrice.slice(0, 4000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 50 && p !== 999 && p !== 299) prices.push(p);
+      if (p > 500 && p !== 999 && p !== 299) prices.push(p);
     }
     if (prices.length > 0) price = Math.min(...prices);
 
@@ -77,10 +80,9 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
 
 const DEFAULT_AMAZON_BANK_OFFERS = [
   'Bank Offer: Upto ₹4,000.00 discount on select Credit Cards',
-  'Bank Offer: Upto ₹5,657.79 EMI interest savings on select Credit Cards',
-  'Bank Offer: Upto ₹3,657.00 cashback as Amazon Pay Balance',
   'Bank Offer: Flat ₹1,500 Instant Discount on HDFC Bank Credit Card EMI',
   'Bank Offer: 10% Instant Discount up to ₹1,250 on ICICI Bank Credit Cards',
+  'Bank Offer: 10% Instant Discount up to ₹1,000 on SBI Credit Card & Debit Card',
   'Bank Offer: 5% Unlimited Cashback on Amazon Pay ICICI Bank Credit Card',
 ];
 
@@ -155,49 +157,44 @@ export class AmazonCrawler extends BaseCrawler {
 
     let price = 0;
     let originalPrice = 0;
-    const foundPrices = [];
 
-    if (ld?.offers) {
-      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
-      if (offerObj?.price) {
-        const p = parsePrice(String(offerObj.price));
-        if (p > 50 && p !== 999) foundPrices.push(p);
-      }
-    }
-
-    const priceSelectors = [
+    // 1. Primary price selectors for Amazon selling price
+    const primaryPriceSelectors = [
       /<span[^>]+class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
       /<span[^>]+class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
+      /<span[^>]+class=["'][^"']*apexPriceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
+      /<span[^>]+class=["'][^"']*corePrice_desktop[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
       /<span[^>]+class=["']a-price-whole["'][^>]*>([\s\S]*?)<\/span>/i,
-      /<span[^>]+id=["']priceblock_ourprice["'][^>]*>([\s\S]*?)<\/span>/i,
-      /<span[^>]+id=["']priceblock_dealprice["'][^>]*>([\s\S]*?)<\/span>/i,
     ];
 
-    for (const sel of priceSelectors) {
+    for (const sel of primaryPriceSelectors) {
       const m = html.match(sel);
       if (m) {
         const p = parsePrice(m[1]);
-        if (p > 50 && p !== 999 && p !== 299) foundPrices.push(p);
+        if (p > 500) {
+          price = p;
+          break;
+        }
       }
     }
 
+    if (!price && ld?.offers) {
+      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+      if (offerObj?.price) {
+        const p = parsePrice(String(offerObj.price));
+        if (p > 500) price = p;
+      }
+    }
+
+    // 2. Extract MRP
     const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
                      html.match(/M\.?R\.?P\.?\s*:?\s*₹\s*([\d,]+)/i);
     if (mrpMatch) {
       originalPrice = parsePrice(mrpMatch[1]);
     }
 
-    if (foundPrices.length > 0) {
-      price = Math.min(...foundPrices);
-    }
-
     if (originalPrice > 0 && price === 0) price = originalPrice;
     if (price > 0 && originalPrice === 0) originalPrice = price;
-    if (originalPrice < price) {
-      const temp = price;
-      price = originalPrice;
-      originalPrice = temp;
-    }
 
     let rating = 0;
     const ratingMatch = html.match(/([\d.]+)\s*out of 5 stars/i) || html.match(/class=["'][^"']*a-icon-star[^"']*["'][^>]*>([\d.]+)/i);
@@ -221,6 +218,7 @@ export class AmazonCrawler extends BaseCrawler {
     const isOutOfStock = price === 0 || /currently unavailable|out of stock/i.test(html);
     const availability = isOutOfStock ? 'out_of_stock' : 'in_stock';
 
+    // Strip script and style tags before extracting bank offers
     const stripped = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
                          .replace(/<[^>]+>/g, ' ')
@@ -264,12 +262,14 @@ export class AmazonCrawler extends BaseCrawler {
     }
 
     let price = 0;
+    const cleanTextForPrice = text.replace(/EMI\s+starts\s+at[^\n]*/gi, '')
+                                  .replace(/No\s+Cost\s+EMI[^\n]*/gi, '');
     const priceRe = /₹\s*([\d,]+)/g;
     let m;
     const prices = [];
-    while ((m = priceRe.exec(text.slice(0, 3000))) !== null) {
+    while ((m = priceRe.exec(cleanTextForPrice.slice(0, 3000))) !== null) {
       const p = parsePrice(m[1]);
-      if (p > 50 && p !== 999 && p !== 299) prices.push(p);
+      if (p > 500 && p !== 999 && p !== 299) prices.push(p);
     }
     if (prices.length > 0) price = Math.min(...prices);
 

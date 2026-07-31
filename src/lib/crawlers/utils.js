@@ -129,23 +129,35 @@ export function isBotWall(html) {
 }
 
 export function extractBankOffers(text) {
+  if (!text) return [];
   const seen = new Set();
   const result = [];
+
+  // Strictly REJECT exchange offers, raw JSON code, EMI starts at, delivery banners
+  const REJECT_RE = /exchange|with\s+exchange|\{|\}|"displayprice"|"priceamount"|emi\s+starts\s+at|free\s+delivery|10\s+days\s+service/i;
+
+  // MUST contain credit card, debit card, or a recognized bank/card term
+  const CARD_TERM_RE = /credit\s+card|debit\s+card|bank\s+offer|instant\s+discount|cashback|hdfc|icici|sbi|axis|kotak|indusind|rbl|hsbc|federal|yes\s+bank|bob|union\s+bank|idfc|amex|au\s+small|onecard|citi|paytm|navi|jupiter/i;
+
   const patterns = [
     /Bank\s+Offer\s*[:\-]?\s*.{15,350}?(?=Bank Offer|Credit Card Offer|Debit Card Offer|$|\n\n)/gi,
     /(?:Upto|Up\s+to|Flat|Get)\s+₹?[\d,.]+\s+discount\s+on\s+select\s+(?:Credit|Debit)\s+Cards.{0,100}/gi,
-    /(?:Upto|Up\s+to|Flat|Get)\s+(?:₹[\d,.]+|\d+%)\s+(?:discount|cashback|EMI\s+interest\s+savings)[^!\n;]{5,200}/gi,
-    /(?:Get|Flat|Extra|Avail|Upto|Up\s+to)\s+(?:₹[\d,.]+|\d+%)\s*.{10,280}/gi,
-    /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex|AU\s+Small|OneCard|Citi|Paytm|NAVI|Jupiter)[^!\n;]{10,280}?(?:off|cashback|discount|EMI|reward)[^!\n;]{0,120}/gi,
-    /\d+%\s*(?:instant\s+)?(?:discount|off|cashback)[^!\n;]{10,220}/gi,
-    /No\s+Cost\s+EMI[^!\n;]{10,220}/gi,
-    /(?:\d+%|₹[\d,]+)\s+(?:off|discount|cashback)\s+(?:on|with|using)\s+\w+[^!\n;]{5,180}/gi,
+    /(?:Upto|Up\s+to|Flat|Get)\s+(?:₹[\d,.]+|\d+%)\s+(?:discount|cashback)[^!\n;<]{5,200}/gi,
+    /(?:HDFC|ICICI|SBI|AXIS|Kotak|IndusInd|RBL|HSBC|Federal\s+Bank|Yes\s+Bank|BOB|Union\s+Bank|IDFC|Amex|AU\s+Small|OneCard|Citi|Paytm|NAVI|Jupiter)[^!\n;<]{10,280}?(?:off|cashback|discount|EMI|reward)[^!\n;<]{0,120}/gi,
+    /\d+%\s*(?:instant\s+)?(?:discount|off|cashback)[^!\n;<]{10,220}/gi,
   ];
+
   for (const pat of patterns) {
     for (const m of text.match(pat) || []) {
       const clean = m.replace(/\s+/g, ' ').trim().slice(0, 320);
-      const key   = clean.slice(0, 60).toLowerCase();
-      if (clean.length > 12 && !seen.has(key)) { seen.add(key); result.push(clean); }
+      if (REJECT_RE.test(clean)) continue;
+      if (!CARD_TERM_RE.test(clean)) continue;
+
+      const key = clean.slice(0, 60).toLowerCase();
+      if (clean.length > 12 && !seen.has(key)) {
+        seen.add(key);
+        result.push(clean);
+      }
     }
   }
   return result.slice(0, 15);
