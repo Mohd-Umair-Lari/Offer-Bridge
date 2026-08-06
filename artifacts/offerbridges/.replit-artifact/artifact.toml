@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "OfferBridges"
+description = "OfferBridges is a marketplace that connects buyers with credit cardholders to unlock exclusive card discounts. Buyers post purchase requests, cardholders offer their card benefits, and the platform handles secure escrow payments, tracking, and notifications. Designed for India's credit card rewards ecosystem."
+version = "1.0.0"
+id = "artifacts/offerbridges"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22909
+
+[services.development]
+run = "pnpm --filter @workspace/offerbridges run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/offerbridges", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/offerbridges/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22909"
+BASE_PATH = "/"

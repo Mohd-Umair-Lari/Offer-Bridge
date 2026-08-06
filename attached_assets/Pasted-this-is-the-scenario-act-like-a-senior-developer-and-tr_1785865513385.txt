@@ -1,0 +1,33 @@
+this is the scenario act like a senior developer and try to think of a way to dodge this problem and try using different approaches and come out with a solution that does the job as earlier said I wish to build it act like You are a Senior Software Engineer. Your task is to build a clean, scalable, and production-quality web application for crawling e-commerce product pages. Focus on writing maintainable code, modular architecture, and a smooth user experience. Avoid hardcoding values wherever possible, and keep the codebase easy to extend in the future.
+
+The application should allow a user to paste the URL of an e-commerce product page and retrieve structured information about that product. For the initial version, support only Amazon India and Flipkart product pages.
+
+The workflow should be simple and intuitive. The user enters a product URL, submits it, the application validates the URL, identifies the platform automatically, crawls the product page, extracts the required information, and displays the results in a clean format.
+
+The application should extract the following information:
+- Product Name
+- Current Selling Price
+- Original Price (if available)
+- Product Rating (if available)
+- Number of Ratings/Reviews (if available)
+- Product Availability
+- Seller Name (if available)
+- Every available Credit Card and Debit Card discount or bank offer associated with the product.
+
+For card offers, capture all available offers rather than only the first one. The extracted information should include the bank name, whether it is a credit card or debit card offer (if mentioned), and the complete offer description exactly as displayed on the website.
+
+The application should handle dynamic content properly and should be able to extract information even when parts of the page load after the initial page render.
+
+The crawler should be intelligent enough to gracefully handle situations where certain information is missing. Missing fields should never crash the application. Instead, display an appropriate fallback value.
+
+The UI should clearly present all extracted information in a readable and organized layout. The user should immediately understand the product details and available payment offers.
+
+Design the project in a modular manner so that support for additional e-commerce platforms such as Myntra, Ajio, Croma, Reliance Digital, Nykaa, Vijay Sales, and others can be added easily in the future without requiring major changes to the existing codebase.
+
+Implement proper validation so that only valid product URLs are accepted. If the user provides an invalid URL, unsupported website, unavailable product, or inaccessible page, show meaningful and user-friendly error messages instead of generic failures.
+
+Write clean, readable, well-structured code that follows good software engineering practices. Keep responsibilities separated, avoid duplicated logic, and organize the project so future developers can understand and extend it easily.
+
+The application should feel polished rather than like a prototype. Pay attention to usability, maintainability, and overall code quality throughout the implementation.
+
+Finally, before considering the task complete, thoroughly test the application against multiple Amazon and Flipkart product pages to ensure the extracted product details and bank offers are accurate and consistently displayed.
