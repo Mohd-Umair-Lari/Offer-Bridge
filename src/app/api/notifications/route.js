@@ -1,0 +1,51 @@
+import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongodb';
+import { Notification } from '@/lib/models';
+import { getUser } from '@/lib/auth';
+
+export async function GET(req) {
+  try {
+    await connectDB();
+    const user = getUser(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(Number(searchParams.get('limit') || 20), 50);
+
+    const notifs = await Notification.find({ user_id: user.id })
+      .sort({ createdAt: -1 }).limit(limit).lean();
+
+    return NextResponse.json({
+      data: (notifs || []).map(n => ({ ...n, id: n._id.toString(), _id: undefined })),
+      unread: (notifs || []).filter(n => !n.read).length,
+    });
+  } catch (err) {
+    console.error('[notifications GET]', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(req) {
+  try {
+    await connectDB();
+    const user = getUser(req);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+
+    if (body.markAllRead) {
+      await Notification.updateMany({ user_id: user.id, read: false }, { read: true });
+      return NextResponse.json({ success: true });
+    }
+
+    if (body.id) {
+      await Notification.findByIdAndUpdate(body.id, { read: true });
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  } catch (err) {
+    console.error('[notifications PATCH]', err);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
