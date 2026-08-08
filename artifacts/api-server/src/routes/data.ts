@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { connectDB } from '../lib/mongodb';
 import { Request as RequestModel, Offer, Transaction } from '../lib/models';
 import { getUser } from '../lib/authHelpers';
@@ -8,7 +8,7 @@ const router = Router();
 const getModel = (type: string) => ({ requests: RequestModel, offers: Offer, transactions: Transaction }[type]);
 
 // GET /api/data?type=all|requests|offers|transactions[&userId=...]
-router.get('/data', async (req, res) => {
+router.get('/data', async (req: Request, res: Response) => {
   try {
     await connectDB();
     const { type, userId } = req.query as Record<string, string>;
@@ -37,7 +37,7 @@ router.get('/data', async (req, res) => {
 });
 
 // POST /api/data — create
-router.post('/data', async (req, res) => {
+router.post('/data', async (req: Request, res: Response) => {
   try {
     await connectDB();
     const user = getUser(req);
@@ -54,7 +54,7 @@ router.post('/data', async (req, res) => {
 });
 
 // PATCH /api/data — update
-router.patch('/data', async (req, res) => {
+router.patch('/data', async (req: Request, res: Response) => {
   try {
     await connectDB();
     const user = getUser(req);
@@ -79,7 +79,7 @@ router.patch('/data', async (req, res) => {
 });
 
 // DELETE /api/data?type=...&id=...
-router.delete('/data', async (req, res) => {
+router.delete('/data', async (req: Request, res: Response) => {
   try {
     await connectDB();
     const user = getUser(req);

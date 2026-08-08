@@ -5,7 +5,15 @@
     "tsBuildInfoFile": ".tsbuildinfo",
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node"]
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "types": ["node"],
+    "typeRoots": [
+      "../../node_modules/@types",
+      "./node_modules/@types"
+    ]
   },
   "include": ["src"],
   "references": [
@@ -17,3 +25,6 @@
     }
   ]
 }
+
+
+

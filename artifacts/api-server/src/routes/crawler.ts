@@ -19,7 +19,7 @@ async function getDB() {
 
   if (!cache.promise) {
     cache.promise = mongoose
-      .connect(uri, { dbName: DB_NAME, bufferCommands: false, maxPoolSize: 10 })
+      .connect(uri, { dbName: DB_NAME, bufferCommands: false, maxPoolSize: 10 } as any)
       .then((m: any) => m)
       .catch((e: Error) => { cache.promise = null; return null; });
   }
