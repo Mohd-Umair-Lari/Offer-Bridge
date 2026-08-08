@@ -9,9 +9,10 @@ export const metadata = {
   title: "OfferBridges — The Marketplace for Exclusive Card Benefits",
   description:
     "OfferBridges connects buyers with cardholders to unlock exclusive credit card discounts. Secure escrow, verified providers, and real earnings on every deal.",
+  manifest: "/manifest.json",
   icons: {
-    icon: '/logo.png',
-    apple: '/icon-192x192.png',
+    icon: "/logo.png",
+    apple: "/icon-192x192.png",
   },
 };
 
@@ -19,10 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#09090b" />
-        <link rel="icon" type="image/png" href="/logo.png" />
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{var t=localStorage.getItem('ob-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
