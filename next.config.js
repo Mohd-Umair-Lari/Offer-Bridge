@@ -1,29 +1,31 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Allow importing from src/lib/crawlers (JS files without type declarations)
-  transpilePackages: [],
-  // External packages that should not be bundled in server components
-  serverExternalPackages: ['mongoose', 'bcryptjs', 'jsonwebtoken'],
+  serverExternalPackages: ['mongoose', 'bcryptjs', 'jsonwebtoken', 'playwright', 'playwright-core'],
+
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    };
+    return config;
+  },
+
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'm.media-amazon.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'rukminim2.flixcart.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'rukminim1.flixcart.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'assets.myntassets.com',
-      },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      { protocol: 'https', hostname: '*.googleusercontent.com' },
+      { protocol: 'https', hostname: '*.media-amazon.com' },
+      { protocol: 'https', hostname: '*.ssl-images-amazon.com' },
+      { protocol: 'https', hostname: 'rukminim*.flixcart.com' },
+      { protocol: 'https', hostname: 'assets.myntassets.com' },
     ],
   },
+
+  poweredByHeader: false,
+  compress: true,
 };
 
 module.exports = nextConfig;
