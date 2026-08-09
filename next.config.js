@@ -30,6 +30,25 @@ const nextConfig = {
     ],
   },
 
+  // Allow the web manifest and static assets to load without CORS issues
+  // (prevents Vercel SSO from blocking the manifest fetch)
+  async headers() {
+    return [
+      {
+        source: '/manifest.webmanifest',
+        headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }],
+      },
+      {
+        source: '/manifest.json',
+        headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }],
+      },
+      {
+        source: '/:icon(logo|icon-.*).png',
+        headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }],
+      },
+    ];
+  },
+
   poweredByHeader: false,
   compress: true,
 };

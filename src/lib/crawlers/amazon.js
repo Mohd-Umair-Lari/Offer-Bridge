@@ -43,45 +43,58 @@ function extractPriceFromTextHero(text) {
   let price = 0;
   let originalPrice = 0;
 
-  // 1. Savings / deal price line e.g. "₹799.00 with 77 percent savings -77%₹799"
-  const dealSavingsMatch = text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s+with\s+\d+%\s+savings/i)
-    || text.match(/(?:Deal\s+Price|With\s+deal|Price|Payable\s+Amount)\s*[:\s]*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
-  if (dealSavingsMatch) {
-    const p = parsePrice(dealSavingsMatch[1]);
+  // 1. Highest-confidence: explicit buybox/deal price right before delivery/stock info
+  const buyboxContextMatch =
+    text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s*(?:\n[^\n]{0,30}\n)?\s*(?:FREE delivery|In stock|Order within|Delivering to|Add to cart)/i);
+  if (buyboxContextMatch) {
+    const p = parsePrice(buyboxContextMatch[1]);
     if (p > 0) price = p;
   }
 
-  // 2. Look for MRP line e.g. "M.R.P.: ₹3,499.00"
+  // 2. Savings/deal price line e.g. "₹799.00 with 77 percent savings"
+  if (!price) {
+    const dealSavingsMatch =
+      text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)\s+with\s+\d+%\s+savings/i) ||
+      text.match(/(?:Deal\s+Price|With\s+deal|Payable\s+Amount)\s*[:\s]*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
+    if (dealSavingsMatch) {
+      const p = parsePrice(dealSavingsMatch[1]);
+      if (p > 0) price = p;
+    }
+  }
+
+  // 3. MRP / original price
   const mrpMatch = text.match(/(?:M\.?R\.?P\.?|List\s+Price|Original\s+Price)\s*[:\s]*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
   if (mrpMatch) {
     const p = parsePrice(mrpMatch[1]);
     if (p > 0) originalPrice = p;
   }
 
-  // 3. Fallback price from Buybox / Subtotal / Price
+  // 4. Subtotal fallback
   if (!price) {
-    const buyboxPriceMatch = text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)(?:\s*₹\s*[\d,]+(?:\.\d+)?)?\s*(?:\n|\r\n)\s*(?:FREE delivery|In stock|Order within|Delivering to)/i)
-      || text.match(/Subtotal\s*(?:\n|\r\n)\s*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i)
-      || text.match(/Price\s*\(₹[\d,.]+\s*x\)\s*(?:\n|\r\n)\s*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
-    if (buyboxPriceMatch) {
-      const p = parsePrice(buyboxPriceMatch[1]);
+    const subtotalMatch =
+      text.match(/Subtotal\s*(?:\n|\r\n)\s*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i) ||
+      text.match(/Price\s*\(₹[\d,.]+\s*x\)\s*(?:\n|\r\n)\s*(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
+    if (subtotalMatch) {
+      const p = parsePrice(subtotalMatch[1]);
       if (p > 0) price = p;
     }
   }
 
-  // 4. Line by line scanning if still not found
+  // 5. Line-by-line scanning — last resort, strict filters
   if (!price) {
     const lines = text.slice(0, 3500).split('\n');
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (/emi|per\s+month|\/month|monthly\s+payment|x\s+\d+m|save\s+₹|upto|discount|cashback|off\s+on|exchange|protect|warranty|sponsored|fee/i.test(line)) {
-        continue;
-      }
-      const m = line.match(/^(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)$/i)
-        || line.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
+      // Skip lines that clearly belong to EMI tables, savings, discounts, offers, etc.
+      if (/emi|per\s+month|\/month|monthly\s+payment|x\s+\d+m/i.test(line)) continue;
+      if (/save\s+₹|savings?|upto|discount|cashback|off\s+on|exchange|protect|warranty|sponsored|fee|loan|no-cost/i.test(line)) continue;
+      if (/bank\s+offer|credit\s+card|debit\s+card|instant\s+discount|hdfc|icici|sbi|axis/i.test(line)) continue;
+      // Only match standalone price lines (₹X or Rs.X with nothing else)
+      const m = line.match(/^(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{2})?)$/i);
       if (m) {
         const p = parsePrice(m[1]);
-        if (p > 10 && p < 10000000) {
+        // Sanity: must be between ₹50 and ₹1,00,00,000
+        if (p >= 50 && p <= 10000000) {
           price = p;
           break;
         }
@@ -89,8 +102,12 @@ function extractPriceFromTextHero(text) {
     }
   }
 
-  if (price > 0 && !originalPrice) originalPrice = price;
+  // If we found an MRP but no sale price, use MRP as price
   if (originalPrice > 0 && !price) price = originalPrice;
+  // If sale price exists but no MRP, set MRP = sale price
+  if (price > 0 && !originalPrice) originalPrice = price;
+  // Sanity: if sale price > MRP, something is wrong, swap
+  if (originalPrice > 0 && price > originalPrice) originalPrice = price;
 
   return { price, originalPrice };
 }
@@ -209,22 +226,30 @@ export class AmazonCrawler extends BaseCrawler {
     let price = 0;
     let originalPrice = 0;
 
+    // Priority-ordered selectors: specific buybox containers first, then broader fallbacks.
+    // The a-price-whole selector is intentionally LAST because it also matches EMI/card-price spans.
     const primaryPriceSelectors = [
-      /<span[^>]+class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+class=["'][^"']*apexPriceToPay[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+class=["'][^"']*corePrice_desktop[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+id=["']priceblock_dealprice["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+id=["']priceblock_ourprice["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+id=["']priceblock_saleprice["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i,
-      /<span[^>]+class=["']a-price-whole["'][^>]*>([\s\S]*?)<\/span>/i,
+      // Highest confidence: the "price to pay" container used in modern Amazon India layouts
+      /class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      /class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      /class=["'][^"']*apexPriceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      /class=["'][^"']*corePrice_desktop[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      // Legacy priceblock IDs
+      /id=["']priceblock_dealprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      /id=["']priceblock_ourprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      /id=["']priceblock_saleprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+      // Buybox block: look for the first a-price-whole INSIDE the corePriceDisplay section only
+      /id=["']corePriceDisplay[^"']*["'][^>]*>[\s\S]{0,600}?class=["']a-price-whole["'][^>]*>([\d,]+)/i,
+      // Very last resort: any a-price-whole span — may catch EMI, so validate later
+      /class=["']a-price-whole["'][^>]*>([\d,]+)/i,
     ];
 
     for (const sel of primaryPriceSelectors) {
       const m = html.match(sel);
       if (m) {
         const p = parsePrice(m[1]);
-        if (p > 0) {
+        // Sanity: price must be >= ₹10 and <= ₹1 crore
+        if (p >= 10 && p <= 10000000) {
           price = p;
           break;
         }

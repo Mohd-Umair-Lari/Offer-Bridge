@@ -9,7 +9,6 @@ export const metadata = {
   title: "OfferBridges — The Marketplace for Exclusive Card Benefits",
   description:
     "OfferBridges connects buyers with cardholders to unlock exclusive credit card discounts. Secure escrow, verified providers, and real earnings on every deal.",
-  manifest: "/manifest.json",
   icons: {
     icon: "/logo.png",
     apple: "/icon-192x192.png",
