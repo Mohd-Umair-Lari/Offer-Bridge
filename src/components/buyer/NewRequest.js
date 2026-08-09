@@ -22,6 +22,20 @@ const BANKS = [
   'Kotak Mahindra', 'Federal Bank', 'RBL Bank', 'HSBC', 'BOB', 'IDFC FIRST', 'Other',
 ];
 
+export function findMatchingBank(bankStr) {
+  if (!bankStr) return 'Any';
+  const clean = String(bankStr).trim().toLowerCase();
+  if (clean === 'any' || clean === 'all') return 'Any';
+  for (const b of BANKS) {
+    if (b === 'Other' || b === 'Any') continue;
+    const bClean = b.toLowerCase();
+    if (bClean.includes(clean) || clean.includes(bClean.replace(' bank', '').replace(' card', ''))) {
+      return b;
+    }
+  }
+  return 'Other';
+}
+
 const INITIAL = {
   productLink: '',
   title: '',
@@ -41,6 +55,7 @@ const INITIAL = {
   merchant: '',
   isPublic: true,
   requiredCard: 'Any',  // preferred bank for the offer (saved as required_card)
+  otherCardCompany: '', // custom card company when 'Other' selected
   manualCardBank: '',     // manual card entry — bank
   manualCardDiscount: '',     // manual card entry — ₹ discount amount
 };
@@ -417,6 +432,9 @@ export default function NewRequest({ onCreated }) {
       setCrawlStep('done');
       setTimeout(() => setCrawlStep(null), 2200);
 
+      const extractedBank = best_card?.bank || '';
+      const matchedBank = findMatchingBank(extractedBank);
+
       setForm(prev => ({
         ...prev,
         title: product.title || '',
@@ -430,6 +448,8 @@ export default function NewRequest({ onCreated }) {
         merchant: merchant || '',
         rawOffers: raw_offers || [],
         bankOffers: bank_offers || [],
+        requiredCard: matchedBank !== 'Any' ? matchedBank : (prev.requiredCard || 'Any'),
+        otherCardCompany: matchedBank === 'Other' ? extractedBank : (prev.otherCardCompany || ''),
         bestCardInfo: best_card?.discount_amount > 0 ? {
           bank: best_card.bank || '',
           discount_amount: best_card.discount_amount || 0,
@@ -455,6 +475,9 @@ export default function NewRequest({ onCreated }) {
     if (!form.category) errs.category = 'Select a category';
     if (!form.deadline) errs.deadline = 'Set a deadline';
     if (!form.description.trim()) errs.description = 'Add a brief description';
+    if (form.requiredCard === 'Other' && !form.otherCardCompany.trim()) {
+      errs.otherCardCompany = 'Please specify the card company / bank name';
+    }
     return errs;
   };
 
@@ -463,6 +486,10 @@ export default function NewRequest({ onCreated }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({}); setDbError(null); setLoading(true);
+
+    const finalCardRequirement = form.requiredCard === 'Other' && form.otherCardCompany
+      ? form.otherCardCompany.trim()
+      : (form.requiredCard || 'Any');
 
     try {
       await api.create('requests', {
@@ -477,7 +504,7 @@ export default function NewRequest({ onCreated }) {
         raw_offers: form.rawOffers,
         merchant: form.merchant,
         is_public: form.isPublic,
-        required_card: form.requiredCard || 'Any',
+        required_card: finalCardRequirement,
         status: 'pending',
         best_card_info: form.bestCardInfo ? {
           card_name: form.bestCardInfo.card_name,
@@ -974,6 +1001,24 @@ export default function NewRequest({ onCreated }) {
                   className={inputCls('description')} style={{ resize: 'none' }} />
               </Field>
             </div>
+
+            <AnimatePresence>
+              {form.requiredCard === 'Other' && (
+                <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                  <Field label="Card Company / Bank Name" icon={CreditCard} error={errors.otherCardCompany}
+                    hint="Specify bank (e.g. OneCard, IndusInd, Amex, Scapia)">
+                    <input
+                      id="req-other-card-company"
+                      type="text"
+                      value={form.otherCardCompany}
+                      onChange={set('otherCardCompany')}
+                      placeholder="Enter Bank or Card Issuer name (e.g. OneCard, Amex, IndusInd)"
+                      className={inputCls('otherCardCompany')}
+                    />
+                  </Field>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 

@@ -18,27 +18,39 @@ function useOfferState() {
   return [states, set];
 }
 
+/** Normalise a bank name for fuzzy comparison:
+ *  strips common suffixes, lowercases, trims.
+ *  "HDFC Bank" → "hdfc"   "SBI Card" → "sbi"   "IndusInd Bank" → "indusind"
+ */
+function normaliseBank(str) {
+  if (!str) return '';
+  return String(str)
+    .toLowerCase()
+    .replace(/\b(bank|card|finance|financial|limited|ltd|first|small)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function isEligibleForRequest(req, myOffers) {
   if (!myOffers?.length) return false;
   const requiredBank = req.required_card || req.best_card_info?.bank;
   if (!requiredBank || requiredBank === 'Any') return true;
-  
+  const normRequired = normaliseBank(requiredBank);
   return myOffers.some(o => {
     if (!o.bank) return false;
-    const b1 = o.bank.toLowerCase().trim();
-    const b2 = requiredBank.toLowerCase().trim();
-    return b1.includes(b2) || b2.includes(b1);
+    const normMine = normaliseBank(o.bank);
+    return normMine.includes(normRequired) || normRequired.includes(normMine);
   });
 }
 
 function getMatchingOffer(req, myOffers) {
   const requiredBank = req.required_card || req.best_card_info?.bank;
   if (requiredBank && requiredBank !== 'Any') {
+    const normRequired = normaliseBank(requiredBank);
     const bankMatch = myOffers.find(o => {
       if (!o.bank) return false;
-      const b1 = o.bank.toLowerCase().trim();
-      const b2 = requiredBank.toLowerCase().trim();
-      return b1.includes(b2) || b2.includes(b1);
+      const normMine = normaliseBank(o.bank);
+      return normMine.includes(normRequired) || normRequired.includes(normMine);
     });
     if (bankMatch) return bankMatch;
   }

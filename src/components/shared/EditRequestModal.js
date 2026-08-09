@@ -5,7 +5,7 @@ import { X, Calendar, Tag, AlignLeft, Globe, CreditCard, Save, DollarSign, Trash
 import { api } from '@/lib/api';
 
 const CATEGORIES = ['Electronics','Fashion & Clothing','Beauty & Skincare','Home & Kitchen','Books & Stationery','Sports & Fitness','Toys & Games','Groceries','Health & Wellness','Footwear','Accessories','Gaming','Mobile & Tablets','Appliances','Other'];
-const BANKS = ['Any', 'HDFC Bank', 'SBI Card', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra'];
+const BANKS = ['Any', 'HDFC Bank', 'ICICI Bank', 'SBI Card', 'Axis Bank', 'Kotak Mahindra', 'Federal Bank', 'RBL Bank', 'HSBC', 'BOB', 'IDFC FIRST', 'Other'];
 
 function Field({ label, icon: Icon, error, children }) {
   return (
@@ -47,6 +47,8 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
 
   useEffect(() => {
     if (req) {
+      const card = req.required_card || 'Any';
+      const inBanks = BANKS.includes(card);
       setForm({
         title: req.title || '',
         amount: req.amount || '',
@@ -54,7 +56,8 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
         deadline: req.deadline ? req.deadline.split('T')[0] : '',
         description: req.description || '',
         productLink: req.product_link || '',
-        requiredCard: req.required_card || 'Any',
+        requiredCard: inBanks ? card : 'Other',
+        otherCardCompany: inBanks ? '' : card,
         isPublic: req.is_public !== false,
       });
     }
@@ -84,6 +87,10 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
     
     setErrors({}); setDbError(null); setLoading(true);
     try {
+      const finalCard = form.requiredCard === 'Other' && form.otherCardCompany
+        ? form.otherCardCompany.trim()
+        : form.requiredCard;
+
       const res = await api.update('requests', req.id || req._id, {
         title:         form.title.trim(),
         amount:        Number(form.amount),
@@ -91,7 +98,7 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
         deadline:      form.deadline,
         description:   form.description.trim(),
         product_link:  form.productLink,
-        required_card: form.requiredCard,
+        required_card: finalCard,
         is_public:     form.isPublic,
       });
       setSuccess(true);
@@ -215,6 +222,23 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
                       className={inputCls('deadline')} />
                   </Field>
                 </div>
+
+                <AnimatePresence>
+                  {form.requiredCard === 'Other' && (
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                      <Field label="Card Company / Bank Name" icon={CreditCard}>
+                        <input
+                          id="edit-req-other-card-company"
+                          type="text"
+                          value={form.otherCardCompany || ''}
+                          onChange={set('otherCardCompany')}
+                          placeholder="Enter Bank or Card Issuer name (e.g. OneCard, Amex, IndusInd)"
+                          className="input-dark"
+                        />
+                      </Field>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <Field label="Description" icon={AlignLeft} error={errors.description}>
                   <textarea id="edit-req-description" value={form.description} onChange={set('description')} rows={4}

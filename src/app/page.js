@@ -51,7 +51,7 @@ function getNavSections(role) {
       ]},
       { label: 'Provider', items: [
         { id: 'browse',   label: 'Marketplace', icon: ShoppingBag },
-        { id: 'my-cards', label: 'My Cards',        icon: CreditCard },
+        { id: 'my-cards', label: 'My Cards',    icon: CreditCard },
       ]},
     ];
     default: return [{ label: 'Buyer', items: BUYER_NAV }];
@@ -64,7 +64,10 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
   const myRequests     = db.requests.filter(r => r.user_id === user?.id);
   const myOffers       = db.offers.filter(o => o.user_id === user?.id);
   const marketRequests = db.requests.filter(r => r.user_id !== user?.id);
+  // provider_id transactions for CardholderDashboard / tracking
   const myTransactions = db.transactions.filter(t => t.provider_id === user?.id);
+  // all transactions where this user is involved (buyer OR provider) for deduplication in BrowseRequests
+  const myAllTransactions = db.transactions.filter(t => t.provider_id === user?.id || t.buyer_id === user?.id);
 
   if (activeTab === 'dashboard') {
     if (role === 'admin')             return <AdminOverview requests={db.requests} offers={db.offers} transactions={db.transactions} />;
@@ -73,7 +76,7 @@ function renderContent(role, activeTab, db, onRefresh, user, onPaymentAction, on
     return <BuyerDashboard requests={myRequests} onPaymentAction={onPaymentAction} onRefresh={onRefresh} refreshKey={refreshKey} />;
   }
   if (activeTab === 'new-request')  return <NewRequest onCreated={onRefresh} />;
-  if (activeTab === 'browse' || activeTab === 'marketplace') return <BrowseRequests requests={marketRequests} offers={myOffers} transactions={myTransactions} />;
+  if (activeTab === 'browse' || activeTab === 'marketplace') return <BrowseRequests requests={marketRequests} offers={myOffers} transactions={myAllTransactions} />;
   if (activeTab === 'my-cards')     return <MyCards offers={myOffers} userId={user?.id} onRefresh={onRefresh} />;
   return <div className="text-center py-20" style={{ color: 'var(--text-dim)' }}>Coming soon</div>;
 }
