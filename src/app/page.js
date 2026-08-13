@@ -7,7 +7,7 @@ import { SkeletonDashboard } from '@/components/shared/SkeletonLoaders';
 import {
   LayoutGrid, ShoppingBag, PlusCircle, CreditCard,
   Search, PanelLeftClose, PanelLeftOpen, ChevronDown, ChevronRight,
-  Settings, LogOut, Sun, Moon, Command, X, Wallet
+  Settings, LogOut, Sun, Moon, Command, X, Wallet, Menu
 } from 'lucide-react';
 
 import LandingPage from '@/components/landing/LandingPage';
@@ -200,38 +200,130 @@ function UserMenu({ displayName, role, onSignOut, onOpenSettings }) {
   );
 }
 
-// ── Mobile bottom navigation bar ───────────────────────────────
-function MobileNav({ navSections, activeTab, onTab, onSettings }) {
-  // Flatten all nav items from all sections
-  const items = navSections.flatMap(s => s.items);
-  // Add settings as last item
-  const allItems = [
-    ...items,
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
-
+// ── Mobile Slide-Over Navigation Drawer ─────────────────────────
+function MobileDrawer({ isOpen, onClose, navSections, activeTab, onTab, onSettings, onSignOut, displayName, role }) {
   return (
-    <nav className="mobile-nav md:hidden">
-      {allItems.map(item => {
-        const Icon = item.icon;
-        const isActive = activeTab === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => item.id === 'settings' ? onSettings() : onTab(item.id)}
-            className={`mobile-nav-item${isActive ? ' active' : ''}`}
-            aria-label={item.label}
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm md:hidden"
+          />
+
+          {/* Drawer Sheet */}
+          <motion.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            className="fixed top-0 left-0 bottom-0 w-[290px] max-w-[85vw] z-50 flex flex-col p-4 md:hidden shadow-2xl"
+            style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}
           >
-            <Icon
-              size={20}
-              strokeWidth={isActive ? 2 : 1.5}
-              style={{ color: isActive ? 'var(--text)' : 'var(--text-dim)' }}
-            />
-            <span className="mobile-nav-label">{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
+            {/* User Profile Header */}
+            <div className="flex items-center justify-between pb-3.5 mb-3" style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm shrink-0"
+                  style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                  {displayName?.[0]?.toUpperCase() ?? 'U'}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold truncate leading-tight" style={{ color: 'var(--text)' }}>
+                    {displayName || 'OfferBridges'}
+                  </span>
+                  <span className="text-[11px] leading-tight truncate mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                    {ROLE_LABELS[role] ?? role}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Navigation Categories & Links */}
+            <div className="flex-1 overflow-y-auto space-y-4 py-2">
+              {navSections.map(({ label, items }) => (
+                <div key={label} className="space-y-1">
+                  <span className="px-2.5 text-[11px] font-bold tracking-wider uppercase" style={{ color: 'var(--text-dim)' }}>
+                    {label}
+                  </span>
+                  <div className="space-y-0.5 mt-1">
+                    {items.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                            onTab(item.id);
+                            onClose();
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-colors text-left"
+                          style={{
+                            background: isActive ? 'var(--surface2)' : 'transparent',
+                            color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                            fontWeight: isActive ? 600 : 400,
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon size={18} style={{ color: isActive ? 'var(--text)' : 'var(--text-dim)' }} />
+                            <span>{item.label}</span>
+                          </div>
+                          {isActive && (
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--primary)' }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="pt-3 mt-auto space-y-1" style={{ borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => {
+                  onSettings();
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left"
+                style={{
+                  background: activeTab === 'settings' ? 'var(--surface2)' : 'transparent',
+                  color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: activeTab === 'settings' ? 600 : 400,
+                }}
+              >
+                <Settings size={18} style={{ color: activeTab === 'settings' ? 'var(--text)' : 'var(--text-dim)' }} />
+                <span>Account Settings</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onClose();
+                  onSignOut();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors text-left"
+                style={{ color: '#ef4444' }}
+              >
+                <LogOut size={18} />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -242,6 +334,7 @@ export default function OfferBridges() {
   const [db, setDb] = useState({ requests: [], offers: [], transactions: [] });
   const [dbLoading, setDbLoading] = useState(true);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -534,10 +627,22 @@ export default function OfferBridges() {
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         
-        <header className="h-14 flex items-center px-3 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
+        <header className="h-14 flex items-center px-3 sm:px-4 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
           style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
-            {/* Desktop sidebar toggle — hidden on mobile */}
+            {/* Mobile hamburger drawer toggle */}
+            <button
+              id="mobile-menu-toggle-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex md:hidden p-1.5 -ml-1 rounded-lg transition-colors items-center justify-center"
+              style={{ color: 'var(--text-muted)' }}
+              title="Open Navigation"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu size={20} strokeWidth={1.75} />
+            </button>
+
+            {/* Desktop sidebar toggle */}
             <button
               onClick={() => setDesktopCollapsed(!desktopCollapsed)}
               className="hidden md:flex p-1.5 rounded-md transition-colors"
@@ -551,7 +656,7 @@ export default function OfferBridges() {
               )}
             </button>
 
-            {/* Mobile: logo mark + current page title */}
+            {/* Brand / Page Title */}
             <div className="flex items-center gap-2">
               <div
                 className="flex md:hidden w-7 h-7 rounded-lg items-center justify-center shrink-0"
@@ -559,15 +664,18 @@ export default function OfferBridges() {
               >
                 <Wallet size={13} />
               </div>
-              <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: 'var(--text-muted)' }}>
                 <span className="hidden md:inline truncate">OfferBridges</span>
                 <span className="hidden md:inline">/</span>
-                <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{activeTabTitle}</span>
+                <span className="font-semibold truncate max-w-[140px] sm:max-w-none" style={{ color: 'var(--text)' }}>
+                  {activeTabTitle}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Desktop Search bar */}
             <div
               onClick={() => setIsSearchOpen(true)}
               className="hidden md:flex items-center gap-2 w-64 h-8 rounded-md px-3 text-xs cursor-pointer transition-colors"
@@ -578,106 +686,122 @@ export default function OfferBridges() {
               <kbd className="text-[10px] font-mono px-1 rounded" style={{ background: 'var(--surface3)', color: 'var(--text-dim)' }}>⌘K</kbd>
             </div>
 
+            {/* Mobile Search Button */}
+            <button
+              onClick={() => setIsSearchOpen(true)}
+              className="flex md:hidden w-8 h-8 rounded-lg items-center justify-center transition-colors"
+              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+              title="Search"
+              aria-label="Search"
+            >
+              <Search size={15} />
+            </button>
+
             <NotificationBell onPaymentAction={openPaymentModal} onTrackingAction={openTrackingModal} />
             <ThemeToggle />
             <UserMenu displayName={displayName} role={role} onSignOut={handleSignOut} onOpenSettings={() => setActiveTab('settings')} />
           </div>
         </header>
 
-        <main className="mobile-main-scroll flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
-            <div className="max-w-6xl mx-auto">
-              {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
-                <SkeletonDashboard />
-              ) : (
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activeTab}
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {renderContent(role, activeTab, db, fetchAll, user, openPaymentModal, openTrackingModal, dashRefreshKey)}
-                  </motion.div>
-                </AnimatePresence>
-              )}
-            </div>
-          </main>
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-8" style={{ background: 'var(--bg)' }}>
+          <div className="max-w-6xl mx-auto">
+            {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
+              <SkeletonDashboard />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderContent(role, activeTab, db, fetchAll, user, openPaymentModal, openTrackingModal, dashRefreshKey)}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
+        </main>
 
-        {/* Mobile bottom navigation — only visible on small screens */}
-        <MobileNav
+        {/* Slide-over Mobile Navigation Drawer */}
+        <MobileDrawer
+          isOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
           navSections={navSections}
           activeTab={activeTab}
           onTab={handleTab}
           onSettings={() => setActiveTab('settings')}
+          onSignOut={handleSignOut}
+          displayName={displayName}
+          role={role}
         />
-        </div>
-
-        {isSearchOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm px-4">
-            <div className="fixed inset-0" onClick={() => setIsSearchOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: -10 }}
-              className="relative w-full max-w-xl rounded-xl shadow-2xl overflow-hidden z-50"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            >
-              <div className="flex items-center px-4" style={{ borderBottom: '1px solid var(--border)' }}>
-                <Search className="w-[18px] h-[18px] mr-3 shrink-0" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
-                <input
-                  autoFocus
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 bg-transparent py-4 outline-none text-sm"
-                  style={{ color: 'var(--text)' }}
-                  placeholder="Search requests, cards, or actions..."
-                />
-                <kbd
-                  onClick={() => setIsSearchOpen(false)}
-                  className="hidden sm:inline-flex items-center justify-center h-5 px-1.5 ml-2 text-[10px] font-mono rounded cursor-pointer transition-colors"
-                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
-                >
-                  ESC
-                </kbd>
-                <button
-                  onClick={() => setIsSearchOpen(false)}
-                  className="ml-3 p-1 rounded transition-colors"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <X className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                </button>
-              </div>
-              <div className="p-4 max-h-80 overflow-y-auto">
-                {searchQuery.trim() ? (
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider px-2" style={{ color: 'var(--text-dim)' }}>Results</p>
-                    {db.requests
-                      .filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .slice(0, 5)
-                      .map(r => (
-                        <div
-                          key={r.id}
-                          onClick={() => { setActiveTab('browse'); setIsSearchOpen(false); }}
-                          className="p-2.5 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{r.title}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--surface2)', color: 'var(--text-dim)' }}>{r.category}</span>
-                        </div>
-                      ))}
-                  </div>
-                ) : (
-                  <div className="p-6 flex flex-col items-center justify-center text-center">
-                    <Command className="w-6 h-6 mb-2" style={{ color: 'var(--text-dim)' }} strokeWidth={1.5} />
-                    <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Type a command or search requests...</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
       </div>
+
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] sm:pt-[15vh] bg-black/70 backdrop-blur-sm px-4">
+          <div className="fixed inset-0" onClick={() => setIsSearchOpen(false)} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -10 }}
+            className="relative w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden z-50"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+          >
+            <div className="flex items-center px-4" style={{ borderBottom: '1px solid var(--border)' }}>
+              <Search className="w-[18px] h-[18px] mr-3 shrink-0" style={{ color: 'var(--text-muted)' }} strokeWidth={1.5} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent py-4 outline-none text-sm"
+                style={{ color: 'var(--text)' }}
+                placeholder="Search requests, cards, or actions..."
+              />
+              <kbd
+                onClick={() => setIsSearchOpen(false)}
+                className="hidden sm:inline-flex items-center justify-center h-5 px-1.5 ml-2 text-[10px] font-mono rounded cursor-pointer transition-colors"
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
+              >
+                ESC
+              </kbd>
+              <button
+                onClick={() => setIsSearchOpen(false)}
+                className="ml-3 p-1 rounded transition-colors"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <X className="w-[18px] h-[18px]" strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="p-4 max-h-80 overflow-y-auto">
+              {searchQuery.trim() ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider px-2" style={{ color: 'var(--text-dim)' }}>Results</p>
+                  {db.requests
+                    .filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .slice(0, 5)
+                    .map(r => (
+                      <div
+                        key={r.id}
+                        onClick={() => { setActiveTab('browse'); setIsSearchOpen(false); }}
+                        className="p-2.5 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>{r.title}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--surface2)', color: 'var(--text-dim)' }}>{r.category}</span>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="p-6 flex flex-col items-center justify-center text-center">
+                  <Command className="w-6 h-6 mb-2" style={{ color: 'var(--text-dim)' }} strokeWidth={1.5} />
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Type a command or search requests...</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
   );
 }

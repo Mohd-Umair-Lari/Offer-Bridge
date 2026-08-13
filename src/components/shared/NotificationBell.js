@@ -104,7 +104,7 @@ export default function NotificationBell({ onPaymentAction, onTrackingAction }) 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.18 }}
-              className="absolute right-0 top-full mt-2 w-80 z-50 rounded-2xl overflow-hidden"
+              className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full mt-0 sm:mt-2 w-[calc(100vw-24px)] sm:w-80 max-w-sm z-50 rounded-2xl overflow-hidden shadow-2xl"
               style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}>
 
               <div className="px-4 py-3 flex items-center justify-between"
