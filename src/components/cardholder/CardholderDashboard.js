@@ -17,6 +17,8 @@ const STATUS_META = {
   completed:         { label: 'Completed',   cls: 'badge-success', dot: '#10b981' },
   tracking_pending:  { label: 'Ship Now!',   cls: 'badge-danger',  dot: '#ef4444' },
   tracking_submitted:{ label: 'Shipped',     cls: 'badge-cyan',    dot: '#06b6d4' },
+  refunded:          { label: 'Refunded',    cls: 'badge-danger',  dot: '#ef4444' },
+  cancelled:         { label: 'Cancelled',   cls: 'badge-neutral', dot: '#6b7280' },
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -333,8 +335,8 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
                 'tracking_pending': { label: 'Ship Now!', cls: 'badge-danger', color: '#ef4444' },
                 'tracking_submitted': { label: 'Shipped', cls: 'badge-cyan', color: '#06b6d4' },
                 'completed': { label: 'Completed', cls: 'badge-success', color: '#10b981' },
-                'refunded': { label: 'Refunded', cls: 'badge-error', color: '#ef4444' },
-                'cancelled': { label: 'Cancelled', cls: 'badge-muted', color: '#6b7280' },
+                'refunded': { label: 'Refunded', cls: 'badge-danger', color: '#ef4444' },
+                'cancelled': { label: 'Cancelled', cls: 'badge-neutral', color: '#6b7280' },
               };
               const meta = statusMap[tx.status] || { label: tx.status, cls: 'badge-muted', color: '#6b7280' };
               const isCompleted = tx.status === 'completed';

@@ -23,7 +23,7 @@ const RequestSchema = new mongoose.Schema({
   description:   { type: String, default: '' },
   product_link:  { type: String, default: '' },
   is_public:     { type: Boolean, default: true },
-  status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled'], default: 'pending' },
+  status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled', 'refunded'], default: 'pending' },
   best_card_info: {
     card_id:         { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
     card_name:       { type: String,  default: '' },

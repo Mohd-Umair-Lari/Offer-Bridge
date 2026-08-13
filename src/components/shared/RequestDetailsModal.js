@@ -8,6 +8,8 @@ const STATUS_CLS = {
   pending:   'badge-warning',
   matched:   'badge-info',
   completed: 'badge-success',
+  refunded:  'badge-danger',
+  cancelled: 'badge-neutral',
 };
 
 const CATEGORIES = ['Electronics','Fashion & Clothing','Beauty & Skincare','Home & Kitchen','Books & Stationery','Sports & Fitness','Toys & Games','Groceries','Health & Wellness','Footwear','Accessories','Gaming','Mobile & Tablets','Appliances','Other'];
@@ -52,7 +54,8 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
 
   if (!req) return null;
 
-  const canEdit = req.status !== 'completed';
+  // Editing is stripped when request is matched or completed, and enabled when pending or refunded
+  const canEdit = req.status === 'pending' || req.status === 'refunded' || req.status === 'cancelled';
 
   const set = (field) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -77,7 +80,7 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
     
     setLoading(true);
     try {
-      const res = await api.update('requests', req.id || req._id, {
+      const payload = {
         title:         form.title.trim(),
         amount:        Number(form.amount),
         category:      form.category,
@@ -86,7 +89,15 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
         product_link:  form.productLink,
         required_card: form.requiredCard,
         is_public:     form.isPublic,
-      });
+      };
+
+      // If re-initializing from refunded or cancelled, reset to pending
+      if (req.status === 'refunded' || req.status === 'cancelled') {
+        payload.status = 'pending';
+        payload.pushed_at = new Date().toISOString();
+      }
+
+      const res = await api.update('requests', req.id || req._id, payload);
       setSaveSuccess(true);
       setTimeout(() => {
         setIsEditing(false);
@@ -233,6 +244,32 @@ export default function RequestDetailsModal({ req, onClose, onUpdated }) {
               </div>
             ) : (
               <div className="space-y-5">
+                {req.status === 'refunded' && (
+                  <div className="rounded-xl p-4 flex items-start gap-3"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                    <AlertCircle size={18} style={{ color: '#ef4444' }} className="shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: '#ef4444' }}>Payment Refunded (Deadline Missed)</p>
+                      <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                        The matched provider did not submit shipping tracking within 24 hours. Your full escrow payment of <strong>₹{Number(req.amount).toLocaleString('en-IN')}</strong> was refunded. You can click <strong>Edit Request</strong> below to re-publish it to the marketplace.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {req.status === 'matched' && (
+                  <div className="rounded-xl p-4 flex items-start gap-3"
+                    style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)' }}>
+                    <ShieldCheck size={18} style={{ color: '#3b82f6' }} className="shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: '#3b82f6' }}>Deal In Progress</p>
+                      <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                        This request is actively matched with a verified cardholder. Editing is locked while the transaction and escrow are active.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-2xl p-5 flex items-center justify-between"
                   style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <div>

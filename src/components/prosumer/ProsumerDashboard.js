@@ -13,12 +13,14 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
 const STATUS_META = {
-  pending:          { label: 'Pending',   cls: 'badge-warning', dot: '#f59e0b' },
-  matched:          { label: 'Matched',   cls: 'badge-info',    dot: '#3b82f6' },
-  completed:        { label: 'Completed', cls: 'badge-success', dot: '#10b981' },
-  pending_payment:  { label: 'Pay Now',   cls: 'badge-danger',  dot: '#ef4444' },
-  tracking_pending: { label: 'Ship Now',  cls: 'badge-danger',  dot: '#ef4444' },
-  tracking_submitted:{ label: 'Shipped', cls: 'badge-cyan',    dot: '#06b6d4' },
+  pending:           { label: 'Pending',   cls: 'badge-warning', dot: '#f59e0b' },
+  matched:           { label: 'Matched',   cls: 'badge-info',    dot: '#3b82f6' },
+  completed:         { label: 'Completed', cls: 'badge-success', dot: '#10b981' },
+  pending_payment:   { label: 'Pay Now',   cls: 'badge-danger',  dot: '#ef4444' },
+  tracking_pending:  { label: 'Ship Now',  cls: 'badge-danger',  dot: '#ef4444' },
+  tracking_submitted:{ label: 'Shipped',   cls: 'badge-cyan',    dot: '#06b6d4' },
+  refunded:          { label: 'Refunded',  cls: 'badge-danger',  dot: '#ef4444' },
+  cancelled:         { label: 'Cancelled', cls: 'badge-neutral', dot: '#6b7280' },
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -329,14 +331,17 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
                       ₹{Number(req.amount).toLocaleString('en-IN')}
                     </p>
                     <span className={`badge ${meta.cls} shrink-0 text-[10px]`}>{meta.label}</span>
-                    {req.status !== 'completed' && (
+                    {(req.status === 'pending' || req.status === 'refunded' || req.status === 'cancelled') && (
                       <motion.button
                         onClick={() => setEditingReq(req)}
                         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                         className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
-                        style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
-                        title="Edit request">
-                        <Tag size={12} />
+                        style={{
+                          color: req.status === 'refunded' ? '#ef4444' : '#3b82f6',
+                          background: req.status === 'refunded' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)'
+                        }}
+                        title={req.status === 'refunded' ? "Edit & Re-publish request" : "Edit request"}>
+                        {req.status === 'refunded' ? <RefreshCw size={12} /> : <Tag size={12} />}
                       </motion.button>
                     )}
                   </motion.div>

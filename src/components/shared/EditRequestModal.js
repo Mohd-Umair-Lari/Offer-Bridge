@@ -91,7 +91,7 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
         ? form.otherCardCompany.trim()
         : form.requiredCard;
 
-      const res = await api.update('requests', req.id || req._id, {
+      const payload = {
         title:         form.title.trim(),
         amount:        Number(form.amount),
         category:      form.category,
@@ -100,7 +100,15 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
         product_link:  form.productLink,
         required_card: finalCard,
         is_public:     form.isPublic,
-      });
+      };
+
+      // If request was refunded or cancelled, re-initialize it to pending status
+      if (req.status === 'refunded' || req.status === 'cancelled') {
+        payload.status = 'pending';
+        payload.pushed_at = new Date().toISOString();
+      }
+
+      const res = await api.update('requests', req.id || req._id, payload);
       setSuccess(true);
       setTimeout(() => {
         if (onUpdated) onUpdated(res?.data ?? null);
@@ -135,6 +143,8 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
 
   if (!req) return null;
 
+  const isRefundedOrCancelled = req.status === 'refunded' || req.status === 'cancelled';
+
   return (
     <AnimatePresence>
       <motion.div
@@ -156,8 +166,14 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
 
           <div className="px-6 py-5 flex items-start justify-between" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
             <div>
-              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Edit Request</h2>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>Update your purchase request details</p>
+              <h2 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
+                {isRefundedOrCancelled ? 'Edit & Re-publish Request' : 'Edit Request'}
+              </h2>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>
+                {isRefundedOrCancelled
+                  ? 'Update details to re-initialize your request in the marketplace'
+                  : 'Update your purchase request details'}
+              </p>
             </div>
             <button onClick={() => !loading && !deleting && onClose()} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-dim)' }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--surface3)'}
@@ -173,8 +189,14 @@ export default function EditRequestModal({ req, onClose, onUpdated }) {
                   style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
                   <Save size={32} style={{ color: '#10b981' }} />
                 </div>
-                <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>Request Updated!</h3>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your request has been saved with the new details.</p>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text)' }}>
+                  {isRefundedOrCancelled ? 'Request Re-published!' : 'Request Updated!'}
+                </h3>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {isRefundedOrCancelled
+                    ? 'Your request is now live in the marketplace for providers to match.'
+                    : 'Your request has been saved with the new details.'}
+                </p>
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
