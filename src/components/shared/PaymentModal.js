@@ -1,170 +1,108 @@
 "use client";
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, Clock, Zap, Lock, ArrowRight } from 'lucide-react';
+import { X, ShieldCheck, Clock, Lock, CreditCard } from 'lucide-react';
+import { api } from '@/lib/api';
 
-export default function PaymentModal({ tx, onClose }) {
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+export default function PaymentModal({ tx, onClose, onSuccess }) {
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState('');
   if (!tx) return null;
 
   const total = Number(tx.amount);
 
+  const handlePayment = async () => {
+    setError('');
+    setPaying(true);
+
+    try {
+      const checkoutLoaded = await loadRazorpay();
+      if (!checkoutLoaded) throw new Error('Could not load Razorpay Checkout. Please check your connection and try again.');
+
+      const { data } = await api.createCheckoutOrder(tx.id || tx._id);
+      const razorpay = new window.Razorpay({
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: 'OfferBridges',
+        description: tx.product_title || 'Marketplace payment',
+        order_id: data.orderId,
+        handler: async (payment) => {
+          try {
+            await api.verifyCheckoutPayment(tx.id || tx._id, payment);
+            onSuccess?.();
+          } catch (verifyError) {
+            setError(verifyError.message || 'Payment was received but could not be verified. Please contact support.');
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setPaying(false),
+        },
+        theme: { color: '#7c3aed' },
+      });
+
+      razorpay.on('payment.failed', (response) => {
+        setError(response.error?.description || 'Payment failed. Please try again.');
+        setPaying(false);
+      });
+      razorpay.open();
+    } catch (paymentError) {
+      setError(paymentError.message || 'Could not start payment. Please try again.');
+      setPaying(false);
+    }
+  };
+
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      >
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="absolute inset-0"
-          style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-          onClick={onClose}
-        />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }} onClick={!paying ? onClose : undefined} />
 
-        {/* Modal */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 24 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.92, y: 24 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-          className="relative w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            boxShadow: '0 40px 100px rgba(0,0,0,0.9)',
-          }}
-        >
-          {/* Header */}
-          <div
-            className="px-6 py-5 flex items-center justify-between"
-            style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}
-          >
+        <motion.div initial={{ opacity: 0, scale: 0.92, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.92, y: 24 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} className="relative w-full max-w-md rounded-2xl overflow-hidden flex flex-col" style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 40px 100px rgba(0,0,0,0.9)' }}>
+          <div className="px-6 py-5 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
             <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ background: 'var(--primary)', color: 'var(--bg)' }}
-              >
-                <ShieldCheck size={18} />
-              </div>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--primary)', color: 'var(--bg)' }}><ShieldCheck size={18} /></div>
               <div>
-                <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  Secure Escrow Payment
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>
-                  Protected by OfferBridges Escrow
-                </p>
+                <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>Secure payment</p>
+                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Processed by Razorpay</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg transition"
-              style={{ color: 'var(--text-dim)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface3)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <X size={18} />
-            </button>
+            <button onClick={onClose} disabled={paying} className="p-1.5 rounded-lg transition disabled:opacity-50" style={{ color: 'var(--text-dim)' }}><X size={18} /></button>
           </div>
 
-          {/* Body */}
           <div className="p-6 space-y-5">
-
-            {/* Coming Soon Banner */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex flex-col items-center text-center gap-4 py-4"
-            >
-              {/* Icon */}
-              <div className="relative">
-                <div
-                  className="w-20 h-20 rounded-3xl flex items-center justify-center"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(245,158,11,0.05) 100%)',
-                    border: '1px solid rgba(245,158,11,0.3)',
-                  }}
-                >
-                  <Clock size={34} style={{ color: '#f59e0b' }} />
-                </div>
-                <span
-                  className="absolute -top-1.5 -right-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: '#f59e0b', color: '#000' }}
-                >
-                  SOON
-                </span>
-              </div>
-
-              <div>
-                <p className="font-bold text-xl" style={{ color: 'var(--text)' }}>
-                  Payment Coming Soon
-                </p>
-                <p className="text-sm mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                  We&rsquo;re building a secure escrow payment system. It will be live shortly — stay tuned!
-                </p>
-              </div>
-            </motion.div>
-
-            {/* Transaction summary */}
-            <div
-              className="rounded-xl p-4"
-              style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
-            >
-              <p
-                className="text-[10px] uppercase tracking-wider mb-1"
-                style={{ color: 'var(--text-dim)' }}
-              >
-                This transaction
-              </p>
-              <p className="font-bold text-2xl tabular-nums" style={{ color: 'var(--text)' }}>
-                ₹{total.toLocaleString('en-IN')}
-              </p>
-              {tx.product_title && (
-                <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
-                  {tx.product_title}
-                </p>
-              )}
+            <div className="rounded-xl p-4" style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>Amount to pay</p>
+              <p className="font-bold text-2xl tabular-nums" style={{ color: 'var(--text)' }}>₹{total.toLocaleString('en-IN')}</p>
+              {tx.product_title && <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>{tx.product_title}</p>}
             </div>
 
-            {/* What to expect */}
             <div className="space-y-2.5">
               {[
-                { icon: Lock, color: '#10b981', label: 'Funds held in escrow until both sides confirm' },
-                { icon: Zap, color: '#3b82f6', label: 'Instant release to provider on delivery' },
-                { icon: ShieldCheck, color: '#a855f7', label: 'Auto-refund if provider misses 24h deadline' },
-              ].map(({ icon: Icon, color, label }) => (
-                <div key={label} className="flex items-center gap-3">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: `${color}14`, border: `1px solid ${color}22` }}
-                  >
-                    <Icon size={13} style={{ color }} />
-                  </div>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {label}
-                  </p>
-                </div>
-              ))}
+                { icon: Lock, color: '#10b981', label: 'Your payment is securely processed by Razorpay' },
+                { icon: Clock, color: '#3b82f6', label: 'The provider has 24 hours to submit tracking details' },
+                { icon: ShieldCheck, color: '#a855f7', label: 'You will be notified as the order progresses' },
+              ].map(({ icon: Icon, color, label }) => <div key={label} className="flex items-center gap-3"><div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}14`, border: `1px solid ${color}22` }}><Icon size={13} style={{ color }} /></div><p className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</p></div>)}
             </div>
 
-            {/* Close CTA */}
-            <motion.button
-              id="payment-close-btn"
-              onClick={onClose}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.97 }}
-              className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-              style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }}
-            >
-              Got it — check back soon <ArrowRight size={15} />
-            </motion.button>
+            {error && <p className="text-xs rounded-lg px-3 py-2" style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.1)' }}>{error}</p>}
 
-            <p className="text-[10px] text-center" style={{ color: 'var(--text-dim)' }}>
-              Payment processing is under active development and will be available soon.
-            </p>
+            <motion.button id="razorpay-pay-btn" onClick={handlePayment} disabled={paying} whileHover={{ scale: paying ? 1 : 1.01 }} whileTap={{ scale: paying ? 1 : 0.97 }} className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60" style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+              <CreditCard size={16} /> {paying ? 'Opening secure checkout…' : `Pay ₹${total.toLocaleString('en-IN')}`}
+            </motion.button>
           </div>
         </motion.div>
       </motion.div>

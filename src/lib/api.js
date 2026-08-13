@@ -38,7 +38,11 @@ export const api = {
   repushRequest: (id)              => request('/api/data', { method: 'PATCH', body: JSON.stringify({ type: 'requests', id, pushed_at: new Date().toISOString() }) }),
 
   initiatePayment: (request_id, offer_id)        => request('/api/payment', { method: 'POST', body: JSON.stringify({ request_id, offer_id }) }),
-  confirmPayment:  (tx_id, upi_ref)              => request('/api/payment', { method: 'PUT',  body: JSON.stringify({ tx_id, upi_ref }) }),
+  createCheckoutOrder: (tx_id) => request('/api/payment', { method: 'PUT', body: JSON.stringify({ action: 'create-order', tx_id }) }),
+  verifyCheckoutPayment: (tx_id, payment) => request('/api/payment', {
+    method: 'PUT',
+    body: JSON.stringify({ action: 'verify-payment', tx_id, ...payment }),
+  }),
   submitTracking:  (tx_id, tracking_id, courier) => request('/api/payment/tracking', { method: 'POST', body: JSON.stringify({ tx_id, tracking_id, courier }) }),
   getTransactions: (userId)                      => request(`/api/payment?userId=${userId}`),
   runRefundCheck:  ()                            => request('/api/payment/refund-check'),
