@@ -200,6 +200,41 @@ function UserMenu({ displayName, role, onSignOut, onOpenSettings }) {
   );
 }
 
+// ── Mobile bottom navigation bar ───────────────────────────────
+function MobileNav({ navSections, activeTab, onTab, onSettings }) {
+  // Flatten all nav items from all sections
+  const items = navSections.flatMap(s => s.items);
+  // Add settings as last item
+  const allItems = [
+    ...items,
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
+  return (
+    <nav className="mobile-nav md:hidden">
+      {allItems.map(item => {
+        const Icon = item.icon;
+        const isActive = activeTab === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => item.id === 'settings' ? onSettings() : onTab(item.id)}
+            className={`mobile-nav-item${isActive ? ' active' : ''}`}
+            aria-label={item.label}
+          >
+            <Icon
+              size={20}
+              strokeWidth={isActive ? 2 : 1.5}
+              style={{ color: isActive ? 'var(--text)' : 'var(--text-dim)' }}
+            />
+            <span className="mobile-nav-label">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function OfferBridges() {
   const { user, role, displayName, loading: authLoading, signOut, needsOnboarding } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
@@ -499,12 +534,13 @@ export default function OfferBridges() {
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
         
-        <header className="h-14 flex items-center px-4 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
+        <header className="h-14 flex items-center px-3 md:px-6 justify-between shrink-0 z-30 transition-colors duration-300"
           style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {/* Desktop sidebar toggle — hidden on mobile */}
             <button
               onClick={() => setDesktopCollapsed(!desktopCollapsed)}
-              className="p-1.5 rounded-md transition-colors"
+              className="hidden md:flex p-1.5 rounded-md transition-colors"
               style={{ color: 'var(--text-muted)' }}
               title="Toggle Sidebar"
             >
@@ -514,11 +550,20 @@ export default function OfferBridges() {
                 <PanelLeftClose className="w-[18px] h-[18px]" strokeWidth={1.5} />
               )}
             </button>
-            
-            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <span className="truncate">OfferBridges</span>
-              <span>/</span>
-              <span className="font-medium truncate" style={{ color: 'var(--text)' }}>{activeTabTitle}</span>
+
+            {/* Mobile: logo mark + current page title */}
+            <div className="flex items-center gap-2">
+              <div
+                className="flex md:hidden w-7 h-7 rounded-lg items-center justify-center shrink-0"
+                style={{ background: 'var(--primary)', color: 'var(--bg)' }}
+              >
+                <Wallet size={13} />
+              </div>
+              <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <span className="hidden md:inline truncate">OfferBridges</span>
+                <span className="hidden md:inline">/</span>
+                <span className="font-semibold truncate" style={{ color: 'var(--text)' }}>{activeTabTitle}</span>
+              </div>
             </div>
           </div>
 
@@ -539,7 +584,7 @@ export default function OfferBridges() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
+        <main className="mobile-main-scroll flex-1 overflow-y-auto p-4 md:p-8" style={{ background: 'var(--bg)' }}>
             <div className="max-w-6xl mx-auto">
               {dbLoading && !db.requests.length && activeTab !== 'settings' ? (
                 <SkeletonDashboard />
@@ -558,6 +603,14 @@ export default function OfferBridges() {
               )}
             </div>
           </main>
+
+        {/* Mobile bottom navigation — only visible on small screens */}
+        <MobileNav
+          navSections={navSections}
+          activeTab={activeTab}
+          onTab={handleTab}
+          onSettings={() => setActiveTab('settings')}
+        />
         </div>
 
         {isSearchOpen && (
