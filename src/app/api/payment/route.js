@@ -210,13 +210,69 @@ export async function PUT(req) {
 
     const tx = await Transaction.findById(tx_id);
     if (!tx) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+
+    // ── Provider Action: Withdraw Proposed Offer (Awaiting Buyer Payment) ─────
+    if (action === 'withdraw-offer') {
+      if (tx.provider_id.toString() !== user.id) return NextResponse.json({ error: 'Forbidden: only the provider can withdraw this offer' }, { status: 403 });
+      if (tx.status !== 'pending_payment') {
+        return NextResponse.json({ error: 'Cannot withdraw offer: payment has already been secured by the buyer' }, { status: 400 });
+      }
+
+      tx.status = 'cancelled';
+      await tx.save();
+
+      // Reset the request back to pending so other providers can match it
+      if (tx.request_id) {
+        await Request.findByIdAndUpdate(tx.request_id, {
+          status: 'pending',
+          pushed_at: new Date(),
+        });
+      }
+
+      // Notify the buyer
+      await Notification.create({
+        user_id: tx.buyer_id,
+        type: 'info',
+        title: 'Offer Withdrawn',
+        message: `${tx.provider_name || 'The cardholder'} withdrew their offer for "${tx.product_title}". Your request is back in the marketplace for new offers.`,
+        tx_id: tx._id.toString(),
+      });
+
+      // Notify the provider
+      await Notification.create({
+        user_id: tx.provider_id,
+        type: 'info',
+        title: 'Offer Withdrawn',
+        message: `You successfully withdrew your proposed offer for "${tx.product_title}".`,
+        tx_id: tx._id.toString(),
+      });
+
+      return NextResponse.json({ success: true, data: { ...tx.toObject(), id: tx._id.toString() } });
+    }
+
+    // ── Buyer Actions (create-order, verify-payment) ───────────────────────────
     if (tx.buyer_id.toString() !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     if (action === 'create-order') {
       if (tx.status !== 'pending_payment') return NextResponse.json({ error: 'This payment is no longer available' }, { status: 409 });
 
       let orderId = tx.razorpay_order_id;
-      if (!orderId) {
+      let orderValid = false;
+
+      // Verify if the cached order exists and matches the active Razorpay credentials
+      if (orderId) {
+        try {
+          const existingOrder = await razorpayRequest(`/orders/${orderId}`);
+          if (existingOrder && existingOrder.status === 'created' && Number(existingOrder.amount) === Math.round(Number(tx.amount) * 100)) {
+            orderValid = true;
+          }
+        } catch {
+          // If fetching order fails (e.g. key changed between test and live, or order expired), invalidate
+          orderValid = false;
+        }
+      }
+
+      if (!orderValid) {
         const order = await razorpayRequest('/orders', {
           method: 'POST',
           body: JSON.stringify({
@@ -232,9 +288,10 @@ export async function PUT(req) {
         await tx.save();
       }
 
+      const activeConfig = razorpayConfig();
       return NextResponse.json({
         data: {
-          keyId: razorpayConfig().keyId,
+          keyId: activeConfig.keyId,
           orderId,
           amount: Math.round(Number(tx.amount) * 100),
           currency: 'INR',

@@ -43,6 +43,10 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify({ action: 'verify-payment', tx_id, ...payment }),
   }),
+  withdrawProposal: (tx_id) => request('/api/payment', {
+    method: 'PUT',
+    body: JSON.stringify({ action: 'withdraw-offer', tx_id }),
+  }),
   submitTracking:  (tx_id, tracking_id, courier) => request('/api/payment/tracking', { method: 'POST', body: JSON.stringify({ tx_id, tracking_id, courier }) }),
   getTransactions: (userId)                      => request(`/api/payment?userId=${userId}`),
   runRefundCheck:  ()                            => request('/api/payment/refund-check'),

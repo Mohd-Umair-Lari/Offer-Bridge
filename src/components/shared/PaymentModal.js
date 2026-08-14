@@ -74,6 +74,9 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
       setLoading(false);
 
       // 2. Open Razorpay checkout
+      const prefill = {};
+      if (tx.buyer_name) prefill.name = tx.buyer_name;
+
       const options = {
         key:         keyId,
         amount:      amt,
@@ -81,17 +84,13 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
         name:        'OfferBridges',
         description: tx.product_title || 'Purchase',
         order_id:    orderId,
-        prefill: {
-          name:  tx.buyer_name  || '',
-          email: '',
-          contact: '',
-        },
-        theme: { color: '#ffffff', backdrop_color: 'rgba(0,0,0,0.85)' },
+        prefill,
+        theme: { color: '#10b981' },
         modal: {
           backdropclose: false,
-          escape: false,
+          escape: true,
           ondismiss: () => {
-            setStep('summary');
+            setStep('cancelled');
           },
         },
         handler: async (response) => {
@@ -113,8 +112,8 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
 
       rzpRef.current = new window.Razorpay(options);
       rzpRef.current.on('payment.failed', (resp) => {
-        setError(resp.error?.description || 'Payment failed. Please try again.');
-        setStep('error');
+        setError(resp.error?.description || 'Payment was declined or cancelled.');
+        setStep('failed');
       });
       rzpRef.current.open();
 
@@ -305,6 +304,50 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
               </motion.div>
             )}
 
+            {/* ── CANCELLED STATE ASSURANCE ─────────────────────────────── */}
+            {step === 'cancelled' && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="py-2 space-y-4">
+                <div className="flex flex-col items-center gap-3 py-3 text-center">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                    <ShieldCheck size={28} style={{ color: '#f59e0b' }} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg" style={{ color: 'var(--text)' }}>Payment Incomplete</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      Checkout window was closed before completion.
+                    </p>
+                  </div>
+                  <div className="rounded-xl p-4 w-full text-left space-y-2"
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                      <Check size={14} /> Zero Deductions Assurance
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      No money was deducted from your account. Your order request remains safe and awaiting payment. You can complete the checkout whenever you are ready.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <motion.button
+                    onClick={() => { setStep('summary'); setError(''); }}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm"
+                    style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                    Pay ₹{total.toLocaleString('en-IN')} Now
+                  </motion.button>
+                  <motion.button
+                    onClick={onClose}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm"
+                    style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    Close
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+
             {/* ── DONE ─────────────────────────────────────────────────── */}
             {step === 'done' && (
               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
@@ -332,29 +375,39 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
               </motion.div>
             )}
 
-            {/* ── ERROR state fallback ──────────────────────────────────── */}
-            {step === 'error' && (
+            {/* ── FAILED / ERROR state ─────────────────────────────────── */}
+            {(step === 'failed' || step === 'error') && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="py-4 space-y-4">
-                <div className="flex flex-col items-center gap-3 py-4">
+                className="py-2 space-y-4">
+                <div className="flex flex-col items-center gap-3 py-3 text-center">
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                     style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
                     <AlertCircle size={28} style={{ color: '#ef4444' }} />
                   </div>
-                  <p className="font-bold text-base" style={{ color: 'var(--text)' }}>Payment Failed</p>
-                  <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>{error}</p>
+                  <div>
+                    <p className="font-bold text-base" style={{ color: 'var(--text)' }}>Payment Not Completed</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{error || 'Transaction was declined or interrupted.'}</p>
+                  </div>
+                  <div className="rounded-xl p-3.5 w-full text-left"
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      If any amount was debited by your issuing bank, it will be automatically reversed to your account within 3–5 working days.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => { setStep('summary'); setError(''); }}
-                    className="flex-1 py-3 rounded-xl font-semibold text-sm"
+                <div className="flex gap-2.5">
+                  <motion.button onClick={() => { setStep('summary'); setError(''); }}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm"
                     style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
                     Try Again
-                  </button>
-                  <button onClick={onClose}
+                  </motion.button>
+                  <motion.button onClick={onClose}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
                     className="flex-1 py-3 rounded-xl font-semibold text-sm"
                     style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                     Close
-                  </button>
+                  </motion.button>
                 </div>
               </motion.div>
             )}
