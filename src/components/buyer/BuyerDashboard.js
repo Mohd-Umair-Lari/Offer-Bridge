@@ -19,7 +19,8 @@ const STATUS_META = {
   completed:        { label: 'Completed', cls: 'badge-success', dot: '#10b981' },
   pending_payment:  { label: 'Pay Now',   cls: 'badge-danger',  dot: '#ef4444' },
   tracking_pending: { label: 'In Transit',cls: 'badge-cyan',    dot: '#06b6d4' },
-  refunded:         { label: 'Refunded',  cls: 'badge-neutral', dot: '#6b7280' },
+  refunded:         { label: 'Refunded',  cls: 'badge-danger',  dot: '#ef4444' },
+  cancelled:        { label: 'Cancelled', cls: 'badge-neutral', dot: '#6b7280' },
 };
 
 const CATEGORY_COLORS = {
@@ -33,6 +34,71 @@ const CATEGORY_COLORS = {
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
 const item      = { hidden: { opacity: 0, y: 14 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } };
 
+function RefundedBanner({ req, onEdit, onDelete }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleDelete = async () => {
+    setLoading(true);
+    await onDelete(req);
+    setLoading(false);
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 60, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="relative rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 sm:gap-4 overflow-hidden"
+      style={{ background: 'var(--surface2)', border: '1px solid rgba(239,68,68,0.35)' }}>
+
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shrink-0 flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+          <AlertCircle size={18} />
+        </div>
+        <div className="sm:hidden flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Payment Refunded</p>
+          <p className="text-xs font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
+            {req.title}
+          </p>
+        </div>
+      </div>
+
+      <div className="hidden sm:block flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Payment Refunded (Deadline Missed)</p>
+        </div>
+        <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text)' }}>
+          Provider failed to submit tracking within 24h — ₹{Number(req.amount).toLocaleString('en-IN')} was refunded to you
+        </p>
+        <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-semibold" style={{ color: 'var(--text)' }}>{req.title}</span>
+          {' · '}Re-publish to find a new provider or permanently delete this request.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+        <motion.button
+          onClick={() => onEdit(req)}
+          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}
+          className="flex-1 sm:flex-initial btn-primary text-xs px-4 py-2 flex items-center justify-center gap-1.5">
+          <RefreshCw size={12} /> Edit &amp; Re-publish
+        </motion.button>
+        <motion.button
+          onClick={handleDelete}
+          disabled={loading}
+          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}
+          className="flex-1 sm:flex-initial text-xs px-3.5 py-2 rounded-xl font-semibold transition justify-center flex items-center"
+          style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+          Delete
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
 function PayBanner({ tx, onPay, onDismiss }) {
   return (
     <motion.div
@@ -41,20 +107,28 @@ function PayBanner({ tx, onPay, onDismiss }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
+      className="relative rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 sm:gap-4 overflow-hidden"
       style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.03) 50%,transparent 60%)', backgroundSize: '200% 100%', animation: 'shimmer 3s infinite' }} />
 
-      <motion.div
-        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.2, repeat: Infinity }}
-        className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
-        <CreditCard size={18} />
-      </motion.div>
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.2, repeat: Infinity }}
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shrink-0 flex items-center justify-center"
+          style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+          <CreditCard size={18} />
+        </motion.div>
+        <div className="sm:hidden flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#f59e0b' }}>Action Required</p>
+          <p className="text-xs font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
+            Complete your escrow payment
+          </p>
+        </div>
+      </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="hidden sm:block flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#f59e0b' }}>Action Required</p>
         </div>
@@ -71,8 +145,8 @@ function PayBanner({ tx, onPay, onDismiss }) {
       <motion.button
         id={`pay-now-${tx.id || tx._id}`}
         onClick={() => onPay(tx)}
-        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
-        className="shrink-0 btn-primary text-sm px-5 py-2.5">
+        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}
+        className="w-full sm:w-auto shrink-0 btn-primary text-sm px-5 py-2.5 justify-center">
         <Zap size={14} /> Pay ₹{Number(tx.amount).toLocaleString('en-IN')}
       </motion.button>
     </motion.div>
@@ -87,17 +161,25 @@ function TrackingBanner({ tx, onViewTracking }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
+      className="relative rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 sm:gap-4 overflow-hidden"
       style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
-      <motion.div
-        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-        className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'var(--surface3)' }}>
-        <Truck size={18} style={{ color: 'var(--text)' }} />
-      </motion.div>
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shrink-0 flex items-center justify-center"
+          style={{ background: 'var(--surface3)' }}>
+          <Truck size={18} style={{ color: 'var(--text)' }} />
+        </motion.div>
+        <div className="sm:hidden flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#10b981' }}>Order Placed</p>
+          <p className="text-xs font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
+            Shipped with tracking available
+          </p>
+        </div>
+      </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="hidden sm:block flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#10b981' }}>Order Placed</p>
         </div>
@@ -112,10 +194,10 @@ function TrackingBanner({ tx, onViewTracking }) {
 
       <motion.button
         onClick={() => onViewTracking(tx)}
-        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
-        className="shrink-0 text-white text-sm px-5 py-2.5 rounded-xl font-semibold transition"
+        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}
+        className="w-full sm:w-auto shrink-0 text-white text-sm px-5 py-2.5 rounded-xl font-semibold transition justify-center flex items-center"
         style={{ background: 'var(--surface3)', border: '1px solid var(--border)' }}>
-        <LinkIcon size={14} className="inline mr-1" /> View Tracking
+        <LinkIcon size={14} className="inline mr-1.5" /> View Tracking
       </motion.button>
     </motion.div>
   );
@@ -143,17 +225,25 @@ function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, x: 60, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-      className="relative rounded-2xl p-5 flex items-center gap-4 overflow-hidden"
+      className="relative rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3.5 sm:gap-4 overflow-hidden"
       style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
 
-      <motion.div
-        animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
-        className="w-11 h-11 rounded-2xl shrink-0 flex items-center justify-center"
-        style={{ background: 'var(--surface3)' }}>
-        <Clock size={18} style={{ color: 'var(--text)' }} />
-      </motion.div>
+      <div className="flex items-center gap-3 w-full sm:w-auto">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2, repeat: Infinity }}
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shrink-0 flex items-center justify-center"
+          style={{ background: 'var(--surface3)' }}>
+          <Clock size={18} style={{ color: 'var(--text)' }} />
+        </motion.div>
+        <div className="sm:hidden flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Unmatched Expired</p>
+          <p className="text-xs font-bold leading-tight truncate" style={{ color: 'var(--text)' }}>
+            {req.title}
+          </p>
+        </div>
+      </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="hidden sm:block flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <p className="text-xs font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>Unmatched Request Expired (48h)</p>
         </div>
@@ -167,7 +257,7 @@ function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
         </p>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
         <motion.button
           onClick={handleRepushClick}
           disabled={loading}
@@ -235,14 +325,18 @@ function RequestRow({ req, index, onViewDetails, onEdit }) {
       </span>
 
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-        {req.status !== 'completed' && (
+        {/* Strip edit option when request is matched with a provider or completed */}
+        {(req.status === 'pending' || req.status === 'refunded' || req.status === 'cancelled') && (
           <motion.button
             onClick={() => onEdit(req)}
             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
             className="shrink-0 p-1.5 rounded-lg transition"
-            style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
-            title="Edit request">
-            <Tag size={13} />
+            style={{
+              color: req.status === 'refunded' ? '#ef4444' : '#3b82f6',
+              background: req.status === 'refunded' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)'
+            }}
+            title={req.status === 'refunded' ? "Edit & Re-publish request" : "Edit request"}>
+            {req.status === 'refunded' ? <RefreshCw size={13} /> : <Tag size={13} />}
           </motion.button>
         )}
         <motion.button
@@ -305,6 +399,7 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
   const pending      = requests.filter(r => r.status === 'pending').length;
   const matched      = requests.filter(r => r.status === 'matched').length;
   const completed    = requests.filter(r => r.status === 'completed').length;
+  const refunded     = requests.filter(r => r.status === 'refunded').length;
   const totalSpend   = requests.filter(r => r.status === 'completed').reduce((s, r) => s + Number(r.amount), 0);
   const totalSavings = Math.round(totalSpend * 0.12);
 
@@ -346,6 +441,8 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
     return (Date.now() - startTime) >= 48 * 60 * 60 * 1000;
   });
 
+  const refundedRequests = requests.filter(r => r.status === 'refunded');
+
   return (
     <div className="space-y-7 max-w-5xl">
       {selectedReq && <RequestDetailsModal req={selectedReq} onClose={() => setSelectedReq(null)} onUpdated={handleRequestUpdated} />}
@@ -377,6 +474,22 @@ export default function BuyerDashboard({ requests = [], onPaymentAction, onRefre
           <RefreshCw size={13} /> Refresh
         </motion.button>
       </motion.div>
+
+      {/* Refunded Requests Banner Area */}
+      <AnimatePresence mode="popLayout">
+        {refundedRequests.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+            {refundedRequests.map(req => (
+              <RefundedBanner
+                key={req.id || req._id}
+                req={req}
+                onEdit={setEditingReq}
+                onDelete={handleRevokeRequest}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence mode="popLayout">
         {expiredRequests.length > 0 && (

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   DollarSign, Star, TrendingUp, Clock, CheckCircle2, Truck,
   AlertCircle, ExternalLink, CreditCard, Activity, RefreshCw,
-  ShieldCheck, BarChart2, Zap, Banknote, ArrowUpRight, Package,
+  ShieldCheck, BarChart2, Zap, Banknote, ArrowUpRight, Package, X,
 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import NotificationFeed from '@/components/shared/NotificationFeed';
@@ -17,6 +17,8 @@ const STATUS_META = {
   completed:         { label: 'Completed',   cls: 'badge-success', dot: '#10b981' },
   tracking_pending:  { label: 'Ship Now!',   cls: 'badge-danger',  dot: '#ef4444' },
   tracking_submitted:{ label: 'Shipped',     cls: 'badge-cyan',    dot: '#06b6d4' },
+  refunded:          { label: 'Refunded',    cls: 'badge-danger',  dot: '#ef4444' },
+  cancelled:         { label: 'Cancelled',   cls: 'badge-neutral', dot: '#6b7280' },
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -142,7 +144,102 @@ function OfferRow({ offer, index }) {
   );
 }
 
-export default function CardholderDashboard({ offers: offersProp, transactions: txsProp = [], requests: allReqs = [], onTrackingAction, refreshKey = 0 }) {
+function ProposedOfferRow({ tx, onWithdraw }) {
+  const [confirming, setConfirming] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  const handleWithdraw = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      await onWithdraw(tx);
+    } finally {
+      setWithdrawing(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <motion.div
+      variants={item}
+      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 transition-all"
+      style={{ borderBottom: '1px solid var(--border2)' }}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+
+      <div className="flex items-start gap-3.5 flex-1 min-w-0">
+        <div className="w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center font-bold text-sm"
+          style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+          <Clock size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-bold truncate" style={{ color: 'var(--text)' }}>{tx.product_title}</p>
+            <span className="badge badge-warning text-[10px] shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block mr-1" />
+              Awaiting Buyer Payment
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: 'var(--text-dim)' }}>
+            <span>Buyer: <strong style={{ color: 'var(--text)' }}>{tx.buyer_name || 'Buyer'}</strong></span>
+            {tx.category && <span>· {tx.category}</span>}
+            {tx.createdAt && (
+              <span>· Sent {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0"
+        style={{ borderTop: '1px solid var(--border2)', borderColor: 'var(--border2)' }}>
+        <div className="text-left sm:text-right">
+          <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text)' }}>
+            ₹{Number(tx.amount).toLocaleString('en-IN')}
+          </p>
+          <p className="text-[11px] font-semibold" style={{ color: '#10b981' }}>
+            +₹{Number(tx.provider_earning || 0).toLocaleString('en-IN')} earning
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {confirming ? (
+            <div className="flex items-center gap-1.5">
+              <motion.button
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+                className="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition flex items-center gap-1"
+                style={{ background: '#ef4444' }}>
+                {withdrawing ? 'Withdrawing…' : 'Confirm Withdraw'}
+              </motion.button>
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={withdrawing}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-semibold transition"
+                style={{ background: 'var(--surface3)', color: 'var(--text-dim)' }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <motion.button
+              onClick={() => setConfirming(true)}
+              whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+              title="Withdraw this proposal before the buyer completes payment">
+              <X size={13} /> Withdraw Offer
+            </motion.button>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+export default function CardholderDashboard({ offers: offersProp, transactions: txsProp = [], requests: allReqs = [], onTrackingAction, onRefresh, refreshKey = 0 }) {
   const { user } = useAuth();
   const [trackingTxs, setTrackingTxs] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -165,19 +262,31 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
 
   const handleSubmit = (tx) => { if (onTrackingAction) onTrackingAction(tx.id || tx._id, tx); };
 
+  const handleWithdrawProposal = async (tx) => {
+    try {
+      await api.withdrawProposal(tx.id || tx._id);
+      fetchTrackingTxs();
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Withdraw proposal error]', e);
+    }
+  };
+
   const myOffers    = offersProp || [];
   const allTxs      = txsProp || [];
   
-  const matchedTxs    = allTxs.filter(t => t.status !== 'completed' && t.status !== 'refunded' && t.status !== 'cancelled');
-  const completedTxs  = allTxs.filter(t => t.status === 'completed');
-  const totalEarned   = completedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
-  const pendingEarned = matchedTxs.reduce((s, t)   => s + Number(t.provider_earning || 0), 0);
+  const proposedOffers = allTxs.filter(t => t.status === 'pending_payment' && t.provider_id === user?.id);
+  const activeDeals    = allTxs.filter(t => (t.status === 'tracking_pending' || t.status === 'tracking_submitted') && t.provider_id === user?.id);
+  const matchedTxs     = [...proposedOffers, ...activeDeals];
+  const completedTxs   = allTxs.filter(t => t.status === 'completed' && t.provider_id === user?.id);
+  const totalEarned    = completedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
+  const pendingEarned  = matchedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
 
   const stats = [
     { label: 'Active Cards',     value: myOffers.length,                              sub: 'listed in marketplace',  icon: CreditCard,   iconClass: 'stat-purple',  delay: 0,    live: true },
-    { label: 'Matched Deals',    value: matchedTxs.length,                            sub: 'in progress',            icon: ArrowUpRight, iconClass: 'stat-info',    delay: 0.07 },
+    { label: 'Proposed Offers',  value: proposedOffers.length,                        sub: 'awaiting buyer pay',     icon: Clock,        iconClass: 'stat-warning', delay: 0.07 },
     { label: 'Total Earned',     value: `₹${Math.round(totalEarned).toLocaleString('en-IN')}`,  sub: 'from completed deals', icon: Banknote,     iconClass: 'stat-success', delay: 0.14 },
-    { label: 'Pending Earnings', value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`,sub: 'from active deals',    icon: TrendingUp,   iconClass: 'stat-warning', delay: 0.21 },
+    { label: 'Pending Earnings', value: `₹${Math.round(pendingEarned).toLocaleString('en-IN')}`,sub: 'active + proposed',   icon: TrendingUp,   iconClass: 'stat-info',    delay: 0.21 },
   ];
 
   const timeAgo = lastUpdated
@@ -199,7 +308,7 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
             Manage your card offers &amp; deals · Updated {timeAgo}
           </p>
         </div>
-        <motion.button onClick={fetchTrackingTxs}
+        <motion.button onClick={() => { fetchTrackingTxs(); if (onRefresh) onRefresh(); }}
           whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition"
           style={{ background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
@@ -228,6 +337,44 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
         className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </motion.div>
+
+      {/* ── PROPOSED OFFERS (Awaiting Buyer Payment) ─────────────────────── */}
+      <AnimatePresence mode="popLayout">
+        {proposedOffers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="card overflow-hidden"
+            style={{ background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <div className="px-6 py-5 flex items-center justify-between"
+              style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(245,158,11,0.06) 0%,transparent 100%)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Clock size={16} style={{ color: '#f59e0b' }} />
+                </div>
+                <div>
+                  <h2 className="font-bold" style={{ color: 'var(--text)' }}>Proposed Offers</h2>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                    {proposedOffers.length} offer{proposedOffers.length > 1 ? 's' : ''} awaiting buyer checkout · withdrawable anytime before payment
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <motion.div variants={container} initial="hidden" animate="visible">
+              {proposedOffers.map(tx => (
+                <ProposedOfferRow
+                  key={tx.id || tx._id}
+                  tx={tx}
+                  onWithdraw={handleWithdrawProposal}
+                />
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
@@ -333,8 +480,8 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
                 'tracking_pending': { label: 'Ship Now!', cls: 'badge-danger', color: '#ef4444' },
                 'tracking_submitted': { label: 'Shipped', cls: 'badge-cyan', color: '#06b6d4' },
                 'completed': { label: 'Completed', cls: 'badge-success', color: '#10b981' },
-                'refunded': { label: 'Refunded', cls: 'badge-error', color: '#ef4444' },
-                'cancelled': { label: 'Cancelled', cls: 'badge-muted', color: '#6b7280' },
+                'refunded': { label: 'Refunded', cls: 'badge-danger', color: '#ef4444' },
+                'cancelled': { label: 'Cancelled', cls: 'badge-neutral', color: '#6b7280' },
               };
               const meta = statusMap[tx.status] || { label: tx.status, cls: 'badge-muted', color: '#6b7280' };
               const isCompleted = tx.status === 'completed';

@@ -1,8 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const srcDir = path.join(__dirname, '..', '.migration-backup', 'public');
-const destDir = path.join(__dirname, '..', 'public');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const srcDir = path.join(scriptDir, '..', '.migration-backup', 'public');
+const destDir = path.join(scriptDir, '..', 'public');
 
 if (fs.existsSync(srcDir)) {
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });

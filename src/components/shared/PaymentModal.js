@@ -1,260 +1,417 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, ShieldCheck, Smartphone, Copy, Check,
-  Loader2, Package, Tag, ExternalLink, Zap,
+  X, ShieldCheck, Package, Tag, ExternalLink,
+  Loader2, AlertCircle, Check, Clock, IndianRupee,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
-const ESCROW_UPI = process.env.NEXT_PUBLIC_ESCROW_UPI || 'offerbridge@upi';
+// ─── Razorpay SDK loader (loads once, cached on window) ──────────────────────
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
 
-export default function PaymentModal({ tx, onClose, onSuccess }) {
-  const [step, setStep]       = useState('summary');
-  const [copied, setCopied]   = useState(false);
-  const [countdown, setCountdown] = useState(3);
+// ─── Status badge ─────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const map = {
+    pending_payment:    { label: 'Awaiting Payment', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    tracking_pending:   { label: 'Payment Confirmed', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    tracking_submitted: { label: 'Order Placed',      color: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+    completed:          { label: 'Completed',          color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    refunded:           { label: 'Refunded',           color: '#ef4444', bg: 'rgba(239,68,68,0.1)'  },
+  };
+  const s = map[status] || { label: status, color: 'var(--text-dim)', bg: 'var(--surface2)' };
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+      style={{ background: s.bg, color: s.color }}>
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
+      {s.label}
+    </span>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
+  const [tx, setTx]           = useState(initialTx);
+  const [step, setStep]       = useState('summary');   // summary | paying | done | error
   const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const rzpRef                = useRef(null);
 
-  useEffect(() => {
-    if (step !== 'simulating') return;
-    if (countdown === 0) {
-      confirmPayment();
-      return;
-    }
-    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [step, countdown]);
+  useEffect(() => { return () => rzpRef.current?.close(); }, []);
 
   if (!tx) return null;
 
-  const total   = Number(tx.amount);
-  const feeAmt  = Math.round(total * 0.02);
-  const upiDeep = `upi://pay?pa=${ESCROW_UPI}&pn=OfferBridges+Escrow&am=${total}&cu=INR&tn=OfferBridges_${tx.id || tx._id}`;
+  const total       = Number(tx.amount);
+  const paise       = Math.round(total * 100);
+  const savings     = Number(tx.customer_savings || 0);
+  const feeAmt      = Number(tx.platform_commission || Math.round(total * 0.02));
+  const alreadyPaid = ['tracking_pending', 'tracking_submitted', 'completed'].includes(tx.status);
 
-  const copyUPI = () => {
-    navigator.clipboard.writeText(ESCROW_UPI);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  const startSimulation = () => {
-    setCountdown(3);
-    setStep('simulating');
-  };
-
-  const confirmPayment = async () => {
-    const fakeRef = `SIM${Date.now()}`;
+  // ── Launch Razorpay checkout ───────────────────────────────────────────────
+  async function handlePay() {
+    setError('');
+    setLoading(true);
     try {
-      await api.confirmPayment(tx.id || tx._id, fakeRef);
-      setStep('done');
-      setTimeout(() => { onSuccess?.(); onClose?.(); }, 2200);
-    } catch (e) {
-      setError(e.message || 'Confirmation failed. Please try again.');
-      setStep('summary');
-    }
-  };
+      const sdkLoaded = await loadRazorpay();
+      if (!sdkLoaded) throw new Error('Could not load payment gateway. Please check your connection.');
 
+      // 1. Create / fetch the Razorpay order on our server
+      const res = await api.createCheckoutOrder(tx.id || tx._id);
+      const { keyId, orderId, amount: amt, currency } = res.data;
+
+      if (!keyId || !orderId) throw new Error('Payment configuration missing. Please contact support.');
+
+      setStep('paying');
+      setLoading(false);
+
+      // 2. Open Razorpay checkout
+      const prefill = {};
+      if (tx.buyer_name) prefill.name = tx.buyer_name;
+
+      const options = {
+        key:         keyId,
+        amount:      amt,
+        currency:    currency || 'INR',
+        name:        'OfferBridges',
+        description: tx.product_title || 'Purchase',
+        order_id:    orderId,
+        prefill,
+        theme: { color: '#10b981' },
+        modal: {
+          backdropclose: false,
+          escape: true,
+          ondismiss: () => {
+            setStep('cancelled');
+          },
+        },
+        handler: async (response) => {
+          // 3. Verify on our server
+          try {
+            await api.verifyCheckoutPayment(tx.id || tx._id, {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_signature:  response.razorpay_signature,
+            });
+            setStep('done');
+            setTimeout(() => { onSuccess?.(); onClose?.(); }, 2500);
+          } catch (e) {
+            setError(e.message || 'Payment verification failed. Please contact support with your payment ID.');
+            setStep('error');
+          }
+        },
+      };
+
+      rzpRef.current = new window.Razorpay(options);
+      rzpRef.current.on('payment.failed', (resp) => {
+        setError(resp.error?.description || 'Payment was declined or cancelled.');
+        setStep('failed');
+      });
+      rzpRef.current.open();
+
+    } catch (e) {
+      setError(e.message || 'Something went wrong. Please try again.');
+      setStep('error');
+      setLoading(false);
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      >
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="absolute inset-0"
-          style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}
-          onClick={step === 'simulating' ? undefined : onClose} />
+          style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(14px)' }}
+          onClick={step === 'paying' ? undefined : onClose}
+        />
 
+        {/* Card */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: 24 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 24 }}
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           className="relative w-full max-w-md rounded-2xl overflow-hidden flex flex-col"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 40px 100px rgba(0,0,0,0.9)' }}>
-
-          <div className="px-6 py-5 flex items-center justify-between"
+          style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 40px 100px rgba(0,0,0,0.9)' }}
+        >
+          {/* Header */}
+          <div className="px-5 py-4 flex items-center justify-between"
             style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
-                <ShieldCheck size={18} />
+                <ShieldCheck size={17} />
               </div>
               <div>
                 <p className="font-bold text-sm" style={{ color: 'var(--text)' }}>Secure Escrow Payment</p>
-                <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Protected by OfferBridges Escrow</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-dim)' }}>Protected by OfferBridges · Razorpay</p>
               </div>
             </div>
-            {step !== 'simulating' && (
-              <button onClick={onClose} className="p-1.5 rounded-lg transition" style={{ color: 'var(--text-dim)' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+            {step !== 'paying' && (
+              <button onClick={onClose} className="p-1.5 rounded-lg transition"
+                style={{ color: 'var(--text-dim)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface3)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <X size={18} />
+                <X size={17} />
               </button>
             )}
           </div>
 
-          <div className="p-6 overflow-y-auto max-h-[78vh]">
+          {/* Body */}
+          <div className="p-5 overflow-y-auto max-h-[80vh] space-y-4">
 
-            {step === 'summary' && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-                <div className="rounded-2xl p-5"
+            {/* ── SUMMARY ───────────────────────────────────────────────── */}
+            {(step === 'summary' || step === 'paying') && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+
+                {/* Status */}
+                <div className="flex items-center justify-between">
+                  <StatusBadge status={tx.status} />
+                  {tx.razorpay_payment_id && (
+                    <span className="text-[10px] font-mono" style={{ color: 'var(--text-dim)' }}>
+                      ID: {tx.razorpay_payment_id.slice(-8)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Product card */}
+                <div className="rounded-xl p-4"
                   style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center"
+                    <div className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center"
                       style={{ background: 'var(--surface3)', border: '1px solid var(--border)' }}>
-                      <Package size={18} style={{ color: 'var(--text)' }} />
+                      <Package size={16} style={{ color: 'var(--text-muted)' }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-sm leading-tight" style={{ color: 'var(--text)' }}>{tx.product_title}</p>
-                      {tx.category && (
-                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: 'var(--surface3)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                          <Tag size={9} /> {tx.category}
-                        </span>
-                      )}
-                      {tx.product_link && (
-                        <a href={tx.product_link} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 mt-1.5 text-[10px] underline" style={{ color: 'var(--primary)' }}>
-                          <ExternalLink size={9} /> View product
-                        </a>
-                      )}
+                      <p className="font-semibold text-sm leading-tight" style={{ color: 'var(--text)' }}>
+                        {tx.product_title || 'Purchase'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {tx.category && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                            style={{ background: 'var(--surface3)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                            <Tag size={8} />{tx.category}
+                          </span>
+                        )}
+                        {tx.product_link && (
+                          <a href={tx.product_link} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px]"
+                            style={{ color: 'var(--primary)' }}>
+                            <ExternalLink size={9} /> View product
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Amount to Pay</p>
-                    <p className="text-3xl font-bold tabular-nums mt-0.5" style={{ color: 'var(--text)' }}>₹{total.toLocaleString('en-IN')}</p>
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>Held in escrow until order is confirmed</p>
+                  {/* Amount */}
+                  <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div className="flex items-baseline gap-1">
+                      <IndianRupee size={18} style={{ color: 'var(--text)', strokeWidth: 2 }} />
+                      <span className="text-3xl font-bold tabular-nums" style={{ color: 'var(--text)' }}>
+                        {total.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                      Held in escrow — released to provider after order confirmation
+                    </p>
                   </div>
                 </div>
 
+                {/* Breakdown */}
                 <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-                  <div className="px-4 py-2.5" style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border2)' }}>
-                    <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>Payment Breakdown</p>
+                  <div className="px-4 py-2.5" style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                    <p className="text-[11px] font-semibold" style={{ color: 'var(--text)' }}>Breakdown</p>
                   </div>
                   {[
-                    ['Product Amount', `₹${total.toLocaleString('en-IN')}`],
-                    ['Provider', tx.provider_name || '—'],
-                    ['Platform Fee', `₹${feeAmt.toLocaleString('en-IN')} (2%) — from provider's share`],
-                  ].map(([label, value]) => (
+                    ['You Pay',             `₹${total.toLocaleString('en-IN')}`,   'var(--text)'],
+                    ['Your Savings (card benefit)', savings > 0 ? `−₹${savings.toLocaleString('en-IN')}` : '—', '#10b981'],
+                    ['Platform Fee (from provider)', `₹${feeAmt.toLocaleString('en-IN')} (2%)`, 'var(--text-dim)'],
+                    ['Provider',            tx.provider_name || '—',                'var(--text-dim)'],
+                  ].map(([label, value, color]) => (
                     <div key={label} className="flex items-center justify-between px-4 py-2.5"
                       style={{ borderBottom: '1px solid var(--border2)' }}>
                       <span className="text-xs" style={{ color: 'var(--text-dim)' }}>{label}</span>
-                      <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{value}</span>
+                      <span className="text-xs font-semibold" style={{ color }}>{value}</span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs" style={{ color: 'var(--text-dim)' }}>You Pay</span>
-                    <span className="text-sm font-bold gradient-text">₹{total.toLocaleString('en-IN')}</span>
-                  </div>
                 </div>
 
-                <div className="rounded-xl p-4 flex items-center justify-between gap-3"
-                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                  <div>
-                    <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>Escrow UPI ID</p>
-                    <p className="font-bold text-base" style={{ color: 'var(--primary)' }}>{ESCROW_UPI}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <motion.button onClick={copyUPI} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      className="p-2 rounded-lg flex items-center gap-1.5 text-xs font-medium"
-                      style={{ background: copied ? 'rgba(16,185,129,0.12)' : 'var(--surface3)', color: copied ? '#10b981' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                      {copied ? <><Check size={12} />Copied</> : <><Copy size={12} />Copy</>}
-                    </motion.button>
-                    <motion.a href={upiDeep} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                      className="p-2 rounded-lg flex items-center gap-1.5 text-xs font-medium"
-                      style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)' }}>
-                      <Smartphone size={12} /> Open App
-                    </motion.a>
-                  </div>
-                </div>
-
-                <div className="rounded-xl p-4 flex gap-3 items-start"
-                  style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                  <ShieldCheck size={15} style={{ color: '#10b981' }} className="shrink-0 mt-0.5" />
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                    Your payment is held in escrow and <strong style={{ color: '#10b981' }}>100% refunded</strong> if the
-                    provider fails to submit a tracking ID within <strong style={{ color: '#10b981' }}>24 hours</strong>.
+                {/* Escrow guarantee */}
+                <div className="rounded-xl p-3.5 flex gap-2.5 items-start"
+                  style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.18)' }}>
+                  <ShieldCheck size={14} style={{ color: '#10b981' }} className="shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                    Funds are held securely in escrow.{' '}
+                    <strong style={{ color: '#10b981' }}>100% auto-refunded</strong> if the
+                    provider doesn't submit a tracking ID within <strong style={{ color: '#10b981' }}>24 hours</strong>.
                   </p>
                 </div>
 
+                {/* Error */}
                 {error && (
-                  <p className="text-xs rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
-                    {error}
-                  </p>
+                  <div className="rounded-xl px-4 py-3 flex gap-2.5 items-start"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <AlertCircle size={14} style={{ color: '#ef4444' }} className="shrink-0 mt-0.5" />
+                    <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
+                  </div>
                 )}
 
-                <motion.button id="payment-proceed-btn" onClick={startSimulation}
-                  whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
-                  className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
-                  style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
-                  <Zap size={16} /> Pay ₹{total.toLocaleString('en-IN')} via UPI
-                </motion.button>
+                {/* CTA */}
+                {!alreadyPaid ? (
+                  <motion.button
+                    id="razorpay-pay-btn"
+                    onClick={handlePay}
+                    disabled={loading || step === 'paying'}
+                    whileHover={{ scale: loading ? 1 : 1.01 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ background: 'var(--primary)', color: 'var(--bg)' }}
+                  >
+                    {loading ? (
+                      <><Loader2 size={16} className="animate-spin" /> Preparing checkout…</>
+                    ) : step === 'paying' ? (
+                      <><Loader2 size={16} className="animate-spin" /> Razorpay checkout open…</>
+                    ) : (
+                      <>Pay ₹{total.toLocaleString('en-IN')} via Razorpay</>
+                    )}
+                  </motion.button>
+                ) : (
+                  <div className="rounded-xl py-3 flex items-center justify-center gap-2"
+                    style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                    <Check size={15} style={{ color: '#10b981' }} />
+                    <span className="text-sm font-semibold" style={{ color: '#10b981' }}>Payment already received</span>
+                  </div>
+                )}
 
                 <p className="text-[10px] text-center" style={{ color: 'var(--text-dim)' }}>
-                  Payment is simulated (demo mode) — no real money is transferred
+                  Secured by Razorpay · 256-bit SSL · PCI-DSS compliant
                 </p>
               </motion.div>
             )}
 
-            {step === 'simulating' && (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="py-10 flex flex-col items-center gap-6 text-center">
-
-                <div className="relative">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-                    className="w-20 h-20 rounded-full border-4 border-transparent"
-                    style={{ borderTopColor: 'var(--primary)', borderRightColor: 'var(--border)' }} />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Smartphone size={28} style={{ color: 'var(--primary)' }} />
+            {/* ── CANCELLED STATE ASSURANCE ─────────────────────────────── */}
+            {step === 'cancelled' && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="py-2 space-y-4">
+                <div className="flex flex-col items-center gap-3 py-3 text-center">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                    <ShieldCheck size={28} style={{ color: '#f59e0b' }} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-lg" style={{ color: 'var(--text)' }}>Payment Incomplete</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      Checkout window was closed before completion.
+                    </p>
+                  </div>
+                  <div className="rounded-xl p-4 w-full text-left space-y-2"
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                      <Check size={14} /> Zero Deductions Assurance
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      No money was deducted from your account. Your order request remains safe and awaiting payment. You can complete the checkout whenever you are ready.
+                    </p>
                   </div>
                 </div>
-
-                <div>
-                  <p className="font-bold text-lg" style={{ color: 'var(--text)' }}>Redirecting to UPI…</p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                    Processing payment of <strong style={{ color: 'var(--primary)' }}>₹{total.toLocaleString('en-IN')}</strong>
-                  </p>
-                  <p className="text-xs mt-2" style={{ color: 'var(--text-dim)' }}>
-                    Confirming in <strong style={{ color: '#f59e0b' }}>{countdown}s</strong>…
-                  </p>
-                </div>
-
-                <div className="w-full rounded-xl p-3"
-                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Paying to <strong style={{ color: 'var(--primary)' }}>{ESCROW_UPI}</strong> · Secured in escrow
-                  </p>
+                <div className="flex gap-2.5">
+                  <motion.button
+                    onClick={() => { setStep('summary'); setError(''); }}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm"
+                    style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                    Pay ₹{total.toLocaleString('en-IN')} Now
+                  </motion.button>
+                  <motion.button
+                    onClick={onClose}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm"
+                    style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    Close
+                  </motion.button>
                 </div>
               </motion.div>
             )}
 
+            {/* ── DONE ─────────────────────────────────────────────────── */}
             {step === 'done' && (
               <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                className="py-10 text-center space-y-5">
+                className="py-8 text-center space-y-4">
                 <motion.div
                   initial={{ scale: 0 }} animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 18 }}
                   className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', boxShadow: '0 0 50px rgba(16,185,129,0.5)' }}>
-                  <Check size={36} className="text-white" />
+                  style={{ background: 'linear-gradient(135deg,#10b981 0%,#059669 100%)', boxShadow: '0 0 50px rgba(16,185,129,0.4)' }}>
+                  <Check size={36} className="text-white" strokeWidth={2.5} />
                 </motion.div>
                 <div>
                   <p className="font-bold text-xl" style={{ color: 'var(--text)' }}>Payment Confirmed!</p>
-                  <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
-                    ₹{total.toLocaleString('en-IN')} is now secured in escrow.
+                  <p className="text-sm mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    ₹{total.toLocaleString('en-IN')} is secured in escrow.
                   </p>
                 </div>
-                <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div className="rounded-xl p-4"
+                  style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
                   <p className="text-xs" style={{ color: '#10b981' }}>
-                    The provider has been notified and has 24 hours to submit a tracking ID.
-                    If they miss the deadline, your payment is fully refunded — no cuts.
+                    The provider has been notified and has <strong>24 hours</strong> to submit a tracking ID.
+                    If they miss the deadline, your payment is <strong>fully refunded</strong>.
                   </p>
                 </div>
               </motion.div>
             )}
+
+            {/* ── FAILED / ERROR state ─────────────────────────────────── */}
+            {(step === 'failed' || step === 'error') && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="py-2 space-y-4">
+                <div className="flex flex-col items-center gap-3 py-3 text-center">
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                    <AlertCircle size={28} style={{ color: '#ef4444' }} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-base" style={{ color: 'var(--text)' }}>Payment Not Completed</p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{error || 'Transaction was declined or interrupted.'}</p>
+                  </div>
+                  <div className="rounded-xl p-3.5 w-full text-left"
+                    style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                      If any amount was debited by your issuing bank, it will be automatically reversed to your account within 3–5 working days.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2.5">
+                  <motion.button onClick={() => { setStep('summary'); setError(''); }}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm"
+                    style={{ background: 'var(--primary)', color: 'var(--bg)' }}>
+                    Try Again
+                  </motion.button>
+                  <motion.button onClick={onClose}
+                    whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm"
+                    style={{ background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    Close
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+
           </div>
         </motion.div>
       </motion.div>

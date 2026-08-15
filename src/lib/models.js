@@ -23,7 +23,7 @@ const RequestSchema = new mongoose.Schema({
   description:   { type: String, default: '' },
   product_link:  { type: String, default: '' },
   is_public:     { type: Boolean, default: true },
-  status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled'], default: 'pending' },
+  status:        { type: String, enum: ['pending', 'matched', 'completed', 'cancelled', 'refunded'], default: 'pending' },
   best_card_info: {
     card_id:         { type: mongoose.Schema.Types.ObjectId, ref: 'Offer' },
     card_name:       { type: String,  default: '' },
@@ -66,6 +66,10 @@ const TransactionSchema = new mongoose.Schema({
   product_link: { type: String, default: '' },
   category:     { type: String, default: '' },
   upi_ref:      { type: String, default: '' },
+  razorpay_order_id:   { type: String, unique: true, sparse: true },
+  razorpay_payment_id: { type: String, unique: true, sparse: true },
+  razorpay_signature:  { type: String, default: '' },
+  payment_provider:    { type: String, default: '' },
   tracking_id:  { type: String, default: '' },
   courier:      { type: String, default: '' },
   
@@ -104,6 +108,13 @@ const NotificationSchema = new mongoose.Schema({
   read:       { type: Boolean, default: false },
 }, { timestamps: true });
 
+// Keeps Razorpay webhooks idempotent when the provider retries delivery.
+const PaymentEventSchema = new mongoose.Schema({
+  provider: { type: String, required: true },
+  event_id: { type: String, required: true, unique: true },
+  type:     { type: String, required: true },
+}, { timestamps: true });
+
 RequestSchema.index({ user_id: 1, status: 1 });
 RequestSchema.index({ status: 1, is_public: 1 });
 OfferSchema.index({ user_id: 1, status: 1 });
@@ -117,3 +128,4 @@ export const Request      = mongoose.models.Request      || mongoose.model('Requ
 export const Offer        = mongoose.models.Offer        || mongoose.model('Offer', OfferSchema);
 export const Transaction  = mongoose.models.Transaction  || mongoose.model('Transaction', TransactionSchema);
 export const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
+export const PaymentEvent = mongoose.models.PaymentEvent || mongoose.model('PaymentEvent', PaymentEventSchema);

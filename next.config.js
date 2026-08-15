@@ -5,11 +5,13 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   serverExternalPackages: ['mongoose', 'bcryptjs', 'jsonwebtoken', 'playwright', 'playwright-core'],
 
+  // Turbopack is the default in Next.js 16. Setting an empty config silences the
+  // warning that arises when a webpack config is present alongside it.
+  turbopack: {},
+
+  // Keep the webpack config for non-Turbopack environments (e.g. CI or older builds)
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -31,7 +33,6 @@ const nextConfig = {
   },
 
   // Allow the web manifest and static assets to load without CORS issues
-  // (prevents Vercel SSO from blocking the manifest fetch)
   async headers() {
     return [
       {

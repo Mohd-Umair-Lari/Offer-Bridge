@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
-import { Transaction, Notification } from '@/lib/models';
+import { Request, Transaction, Notification } from '@/lib/models';
 
 export async function GET() {
   try {
@@ -17,6 +17,11 @@ export async function GET() {
       tx.status      = 'refunded';
       tx.refunded_at = now;
       await tx.save();
+
+      // Update the request status so both buyer and provider models reflect the refund
+      if (tx.request_id) {
+        await Request.findByIdAndUpdate(tx.request_id, { status: 'refunded' });
+      }
 
       await Notification.create({
         user_id: tx.buyer_id,

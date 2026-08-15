@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingDown, TrendingUp, CheckCircle2, Clock, CreditCard,
   ShoppingBag, Truck, Zap, AlertCircle, Activity, RefreshCw,
-  ArrowUpRight, Banknote, Package, BarChart2, ShieldCheck, Tag,
+  ArrowUpRight, Banknote, Package, BarChart2, ShieldCheck, Tag, X,
 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import EditRequestModal from '@/components/shared/EditRequestModal';
@@ -13,12 +13,14 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 
 const STATUS_META = {
-  pending:          { label: 'Pending',   cls: 'badge-warning', dot: '#f59e0b' },
-  matched:          { label: 'Matched',   cls: 'badge-info',    dot: '#3b82f6' },
-  completed:        { label: 'Completed', cls: 'badge-success', dot: '#10b981' },
-  pending_payment:  { label: 'Pay Now',   cls: 'badge-danger',  dot: '#ef4444' },
-  tracking_pending: { label: 'Ship Now',  cls: 'badge-danger',  dot: '#ef4444' },
-  tracking_submitted:{ label: 'Shipped', cls: 'badge-cyan',    dot: '#06b6d4' },
+  pending:           { label: 'Pending',   cls: 'badge-warning', dot: '#f59e0b' },
+  matched:           { label: 'Matched',   cls: 'badge-info',    dot: '#3b82f6' },
+  completed:         { label: 'Completed', cls: 'badge-success', dot: '#10b981' },
+  pending_payment:   { label: 'Pay Now',   cls: 'badge-danger',  dot: '#ef4444' },
+  tracking_pending:  { label: 'Ship Now',  cls: 'badge-danger',  dot: '#ef4444' },
+  tracking_submitted:{ label: 'Shipped',   cls: 'badge-cyan',    dot: '#06b6d4' },
+  refunded:          { label: 'Refunded',  cls: 'badge-danger',  dot: '#ef4444' },
+  cancelled:         { label: 'Cancelled', cls: 'badge-neutral', dot: '#6b7280' },
 };
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.06 } } };
@@ -140,10 +142,90 @@ function UnmatchedExpireBanner({ req, onRepush, onRevoke }) {
   );
 }
 
+function ProposedOfferRow({ tx, onWithdraw }) {
+  const [confirming, setConfirming] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  const handleWithdraw = async () => {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      await onWithdraw(tx);
+    } finally {
+      setWithdrawing(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <motion.div
+      variants={item}
+      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 transition-all"
+      style={{ borderBottom: '1px solid var(--border2)' }}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center font-bold text-xs"
+          style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+          <Clock size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-bold truncate" style={{ color: 'var(--text)' }}>{tx.product_title}</p>
+            <span className="badge badge-warning text-[10px] shrink-0">Awaiting Buyer</span>
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
+            Buyer: <strong style={{ color: 'var(--text)' }}>{tx.buyer_name || 'Buyer'}</strong> · ₹{Number(tx.amount).toLocaleString('en-IN')}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto shrink-0">
+        <p className="text-xs font-semibold" style={{ color: '#10b981' }}>
+          +₹{Number(tx.provider_earning || 0).toLocaleString('en-IN')} earning
+        </p>
+
+        {confirming ? (
+          <div className="flex items-center gap-1.5">
+            <motion.button
+              onClick={handleWithdraw}
+              disabled={withdrawing}
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+              style={{ background: '#ef4444' }}>
+              {withdrawing ? '…' : 'Confirm'}
+            </motion.button>
+            <button
+              onClick={() => setConfirming(false)}
+              disabled={withdrawing}
+              className="px-2 py-1 rounded-lg text-xs font-semibold"
+              style={{ background: 'var(--surface3)', color: 'var(--text-dim)' }}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <motion.button
+            onClick={() => setConfirming(true)}
+            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.95 }}
+            className="px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <X size={12} /> Withdraw
+          </motion.button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ProsumerDashboard({ requests=[], offers:offersProp=[], onPaymentAction, onTrackingAction, onRefresh, refreshKey=0 }) {
   const { user } = useAuth();
   const [editingReq, setEditingReq] = useState(null);
   const [pendingTxs, setPendingTxs]   = useState([]);
+  const [proposedTxs, setProposedTxs] = useState([]);
   const [trackingTxs, setTrackingTxs] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
   const pollRef = useRef(null);
@@ -154,6 +236,7 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
       const res = await api.getTransactions(user.id);
       const data = res.data || [];
       setPendingTxs(data.filter(t => t.status === 'pending_payment' && t.buyer_id === user.id));
+      setProposedTxs(data.filter(t => t.status === 'pending_payment' && t.provider_id === user.id));
       setTrackingTxs(data.filter(t => (t.status === 'tracking_pending' || t.status === 'payment_received') && t.provider_id === user.id));
       setLastUpdated(new Date());
     } catch {}
@@ -164,6 +247,16 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
     pollRef.current = setInterval(fetchTxs, 20_000);
     return () => clearInterval(pollRef.current);
   }, [fetchTxs, refreshKey]);
+
+  const handleWithdrawProposal = async (tx) => {
+    try {
+      await api.withdrawProposal(tx.id || tx._id);
+      fetchTxs();
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      console.error('[Withdraw proposal error]', e);
+    }
+  };
 
   const myOffers = offersProp;
 
@@ -289,6 +382,44 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
         {stats.map(s => <StatCard key={s.label} {...s} />)}
       </motion.div>
 
+      {/* ── PROPOSED OFFERS (Awaiting Buyer Payment) ─────────────────────── */}
+      <AnimatePresence mode="popLayout">
+        {proposedTxs.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="card overflow-hidden"
+            style={{ background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <div className="px-5 py-4 flex items-center justify-between"
+              style={{ borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg,rgba(245,158,11,0.06) 0%,transparent 100%)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Clock size={15} style={{ color: '#f59e0b' }} />
+                </div>
+                <div>
+                  <h2 className="font-bold text-sm" style={{ color: 'var(--text)' }}>Proposed Offers (As Provider)</h2>
+                  <p className="text-[11px]" style={{ color: 'var(--text-dim)' }}>
+                    {proposedTxs.length} offer{proposedTxs.length > 1 ? 's' : ''} awaiting buyer payment · withdrawable anytime before checkout
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <motion.div variants={container} initial="hidden" animate="visible">
+              {proposedTxs.map(tx => (
+                <ProposedOfferRow
+                  key={tx.id || tx._id}
+                  tx={tx}
+                  onWithdraw={handleWithdrawProposal}
+                />
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="grid lg:grid-cols-2 gap-5">
         <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.28 }}
           className="card overflow-hidden">
@@ -329,14 +460,17 @@ export default function ProsumerDashboard({ requests=[], offers:offersProp=[], o
                       ₹{Number(req.amount).toLocaleString('en-IN')}
                     </p>
                     <span className={`badge ${meta.cls} shrink-0 text-[10px]`}>{meta.label}</span>
-                    {req.status !== 'completed' && (
+                    {(req.status === 'pending' || req.status === 'refunded' || req.status === 'cancelled') && (
                       <motion.button
                         onClick={() => setEditingReq(req)}
                         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
                         className="shrink-0 p-1.5 rounded-lg transition opacity-0 group-hover:opacity-100"
-                        style={{ color: '#3b82f6', background: 'rgba(59,130,246,0.1)' }}
-                        title="Edit request">
-                        <Tag size={12} />
+                        style={{
+                          color: req.status === 'refunded' ? '#ef4444' : '#3b82f6',
+                          background: req.status === 'refunded' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)'
+                        }}
+                        title={req.status === 'refunded' ? "Edit & Re-publish request" : "Edit request"}>
+                        {req.status === 'refunded' ? <RefreshCw size={12} /> : <Tag size={12} />}
                       </motion.button>
                     )}
                   </motion.div>
