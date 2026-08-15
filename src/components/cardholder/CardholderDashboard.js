@@ -277,9 +277,10 @@ export default function CardholderDashboard({ offers: offersProp, transactions: 
   
   const proposedOffers = allTxs.filter(t => t.status === 'pending_payment' && t.provider_id === user?.id);
   const activeDeals    = allTxs.filter(t => (t.status === 'tracking_pending' || t.status === 'tracking_submitted') && t.provider_id === user?.id);
+  const matchedTxs     = [...proposedOffers, ...activeDeals];
   const completedTxs   = allTxs.filter(t => t.status === 'completed' && t.provider_id === user?.id);
   const totalEarned    = completedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
-  const pendingEarned  = [...proposedOffers, ...activeDeals].reduce((s, t) => s + Number(t.provider_earning || 0), 0);
+  const pendingEarned  = matchedTxs.reduce((s, t) => s + Number(t.provider_earning || 0), 0);
 
   const stats = [
     { label: 'Active Cards',     value: myOffers.length,                              sub: 'listed in marketplace',  icon: CreditCard,   iconClass: 'stat-purple',  delay: 0,    live: true },
