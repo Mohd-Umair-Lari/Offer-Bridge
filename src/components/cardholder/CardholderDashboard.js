@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   DollarSign, Star, TrendingUp, Clock, CheckCircle2, Truck,
   AlertCircle, ExternalLink, CreditCard, Activity, RefreshCw,
-  ShieldCheck, BarChart2, Zap, Banknote, ArrowUpRight, Package,
+  ShieldCheck, BarChart2, Zap, Banknote, ArrowUpRight, Package, X,
 } from 'lucide-react';
 import StatCard from '@/components/shared/StatCard';
 import NotificationFeed from '@/components/shared/NotificationFeed';
