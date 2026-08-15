@@ -12,6 +12,33 @@ const TYPE_META = {
   info:     { icon: Info,         color: '#10b981', bg: 'rgba(16,185,129,0.12)'  },
 };
 
+function cleanNotifMessage(msg) {
+  if (!msg) return '';
+  let cleaned = msg.replace(/"([^"]+)"/g, (match, p1) => {
+    let shortName = p1.split(/\||–|-/)[0].trim();
+    if (shortName.length > 30) shortName = shortName.slice(0, 27) + '…';
+    return `"${shortName}"`;
+  });
+  cleaned = cleaned.replace(/Payment of (₹[0-9,]+) for (".*?") is held in escrow\. Submit the tracking ID within 24 hours or the payment will be refunded\./gi, '$1 in escrow for $2. Submit tracking within 24h.');
+  cleaned = cleaned.replace(/Payment for (".*?") was verified\. Submit the tracking ID within 24 hours\./gi, 'Payment verified for $1. Submit tracking within 24h.');
+  cleaned = cleaned.replace(/Your payment for (".*?") was verified\. The provider now has 24 hours to submit tracking details\./gi, 'Payment verified for $1. Provider has 24h to ship.');
+  cleaned = cleaned.replace(/The provider did not submit a tracking ID within 24 hours for (".*?")\. Your full payment of (₹[0-9,]+) has been refunded — no deductions\./gi, 'Refund of $2 processed for $1.');
+  cleaned = cleaned.replace(/You failed to submit a tracking ID for (".*?") within 24 hours\. The payment has been refunded to the buyer\./gi, 'Order for $1 refunded to buyer.');
+  return cleaned;
+}
+
+function cleanNotifTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/^🚀\s*/, '')
+    .replace(/^💰\s*/, '')
+    .replace(/^💳\s*/, '')
+    .replace(/^📦\s*/, '')
+    .replace(/^⚠️\s*/, '')
+    .replace(/—\s*Place the Order Now/i, '— Place Order')
+    .replace(/Action Required:\s*/i, '');
+}
+
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const s  = Math.floor(diff / 1000);
@@ -121,12 +148,16 @@ export default function NotificationFeed({ onPaymentAction, onTrackingAction, co
                     <Icon size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-2 mb-1">
-                      <p className="text-sm font-semibold leading-tight line-clamp-2" style={{ color: n.read ? 'var(--text)' : 'var(--text-bright)' }}>{n.title}</p>
+                    <div className="flex justify-between items-start gap-2 mb-0.5">
+                      <p className="text-xs font-semibold leading-tight truncate" style={{ color: n.read ? 'var(--text)' : 'var(--text-bright)' }}>
+                        {cleanNotifTitle(n.title)}
+                      </p>
                       {!n.read && <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" style={{ background: 'var(--primary)', boxShadow: '0 0 8px var(--primary)' }} />}
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{n.message}</p>
-                    <p className="text-[10px] mt-2 font-medium" style={{ color: 'var(--text-dim)' }}>{timeAgo(n.createdAt)}</p>
+                    <p className="text-[11px] leading-snug line-clamp-2" style={{ color: 'var(--text-muted)' }}>
+                      {cleanNotifMessage(n.message)}
+                    </p>
+                    <p className="text-[10px] mt-1 font-medium" style={{ color: 'var(--text-dim)' }}>{timeAgo(n.createdAt)}</p>
                   </div>
                 </div>
               </motion.div>

@@ -3,6 +3,78 @@ import { connectDB } from '@/lib/mongodb';
 import { User, Request, Offer, Transaction, Notification } from '@/lib/models';
 import { getUser } from '@/lib/auth';
 
+<<<<<<< Updated upstream
+=======
+export const runtime = 'nodejs';
+
+function razorpayConfig() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) return null;
+  return { keyId, keySecret };
+}
+
+async function razorpayRequest(path, options = {}) {
+  const config = razorpayConfig();
+  if (!config) throw new Error('Payments are not configured yet. Add Razorpay test keys to the server environment.');
+
+  const response = await fetch(`https://api.razorpay.com/v1${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error?.description || 'Razorpay request failed');
+  return body;
+}
+
+async function markPaymentCaptured(tx, { paymentId, orderId, signature = '' }) {
+  const now = new Date();
+  const updated = await Transaction.findOneAndUpdate(
+    {
+      _id: tx._id,
+      status: { $in: ['pending_payment', 'payment_received'] },
+    },
+    {
+      $set: {
+        status: 'tracking_pending',
+        payment_provider: 'razorpay',
+        razorpay_order_id: orderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature,
+        payment_at: now,
+        tracking_due_at: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      },
+    },
+    { new: true },
+  );
+
+  if (!updated) return tx;
+
+  await Notification.create([
+    {
+      user_id: updated.provider_id,
+      type: 'action',
+      title: 'Payment Secured — Ship Order',
+      message: `₹${updated.amount.toLocaleString('en-IN')} held in escrow for "${updated.product_title}". Submit tracking ID within 24h.`,
+      tx_id: updated._id.toString(),
+    },
+    {
+      user_id: updated.buyer_id,
+      type: 'info',
+      title: 'Payment Confirmed',
+      message: `₹${updated.amount.toLocaleString('en-IN')} secured in escrow for "${updated.product_title}". Provider has 24h to ship.`,
+      tx_id: updated._id.toString(),
+    },
+  ]);
+
+  return updated;
+}
+
+>>>>>>> Stashed changes
 export async function GET(req) {
   try {
     await connectDB();
@@ -103,8 +175,8 @@ export async function POST(req) {
     await Notification.create({
       user_id: requestDoc.user_id,
       type:    'payment',
-      title:   '💳 Action Required: Complete Payment',
-      message: `${providerDoc?.fullName || 'A provider'} made an offer for "${requestDoc.title}". Pay ₹${amount.toLocaleString('en-IN')} to secure your order.`,
+      title:   'Offer Received — Pay Now',
+      message: `${providerDoc?.fullName || 'A provider'} matched "${requestDoc.title}". Pay ₹${amount.toLocaleString('en-IN')} to secure order.`,
       tx_id:   tx._id.toString(),
     });
 
