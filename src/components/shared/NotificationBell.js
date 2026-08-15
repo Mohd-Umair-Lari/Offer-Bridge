@@ -12,6 +12,33 @@ const TYPE_META = {
   info:     { icon: Info,         color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
 };
 
+function cleanNotifMessage(msg) {
+  if (!msg) return '';
+  let cleaned = msg.replace(/"([^"]+)"/g, (match, p1) => {
+    let shortName = p1.split(/\||–|-/)[0].trim();
+    if (shortName.length > 30) shortName = shortName.slice(0, 27) + '…';
+    return `"${shortName}"`;
+  });
+  cleaned = cleaned.replace(/Payment of (₹[0-9,]+) for (".*?") is held in escrow\. Submit the tracking ID within 24 hours or the payment will be refunded\./gi, '$1 in escrow for $2. Submit tracking within 24h.');
+  cleaned = cleaned.replace(/Payment for (".*?") was verified\. Submit the tracking ID within 24 hours\./gi, 'Payment verified for $1. Submit tracking within 24h.');
+  cleaned = cleaned.replace(/Your payment for (".*?") was verified\. The provider now has 24 hours to submit tracking details\./gi, 'Payment verified for $1. Provider has 24h to ship.');
+  cleaned = cleaned.replace(/The provider did not submit a tracking ID within 24 hours for (".*?")\. Your full payment of (₹[0-9,]+) has been refunded — no deductions\./gi, 'Refund of $2 processed for $1.');
+  cleaned = cleaned.replace(/You failed to submit a tracking ID for (".*?") within 24 hours\. The payment has been refunded to the buyer\./gi, 'Order for $1 refunded to buyer.');
+  return cleaned;
+}
+
+function cleanNotifTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/^🚀\s*/, '')
+    .replace(/^💰\s*/, '')
+    .replace(/^💳\s*/, '')
+    .replace(/^📦\s*/, '')
+    .replace(/^⚠️\s*/, '')
+    .replace(/—\s*Place the Order Now/i, '— Place Order')
+    .replace(/Action Required:\s*/i, '');
+}
+
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const s  = Math.floor(diff / 1000);
@@ -161,8 +188,12 @@ export default function NotificationBell({ onPaymentAction, onTrackingAction }) 
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold leading-snug" style={{ color: 'var(--text)' }}>{n.title}</p>
-                        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{n.message}</p>
+                        <p className="text-xs font-semibold leading-snug truncate" style={{ color: 'var(--text)' }}>
+                          {cleanNotifTitle(n.title)}
+                        </p>
+                        <p className="text-[11px] mt-0.5 leading-snug line-clamp-2" style={{ color: 'var(--text-muted)' }}>
+                          {cleanNotifMessage(n.message)}
+                        </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>{timeAgo(n.createdAt)}</p>
                           {isClickable && (

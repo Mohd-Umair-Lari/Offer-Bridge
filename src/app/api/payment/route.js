@@ -57,15 +57,15 @@ async function markPaymentCaptured(tx, { paymentId, orderId, signature = '' }) {
     {
       user_id: updated.provider_id,
       type: 'action',
-      title: 'Payment received — place the order',
-      message: `Payment for "${updated.product_title}" was verified. Submit the tracking ID within 24 hours.`,
+      title: 'Payment Secured — Ship Order',
+      message: `₹${updated.amount.toLocaleString('en-IN')} held in escrow for "${updated.product_title}". Submit tracking ID within 24h.`,
       tx_id: updated._id.toString(),
     },
     {
       user_id: updated.buyer_id,
       type: 'info',
-      title: 'Payment confirmed',
-      message: `Your payment for "${updated.product_title}" was verified. The provider now has 24 hours to submit tracking details.`,
+      title: 'Payment Confirmed',
+      message: `₹${updated.amount.toLocaleString('en-IN')} secured in escrow for "${updated.product_title}". Provider has 24h to ship.`,
       tx_id: updated._id.toString(),
     },
   ]);
@@ -185,8 +185,8 @@ export async function POST(req) {
     await Notification.create({
       user_id: requestDoc.user_id,
       type:    'payment',
-      title:   '💳 Action Required: Complete Payment',
-      message: `${providerDoc?.fullName || 'A provider'} made an offer for "${requestDoc.title}". Pay ₹${amount.toLocaleString('en-IN')} to secure your order.`,
+      title:   'Offer Received — Pay Now',
+      message: `${providerDoc?.fullName || 'A provider'} matched "${requestDoc.title}". Pay ₹${amount.toLocaleString('en-IN')} to secure order.`,
       tx_id:   tx._id.toString(),
     });
 

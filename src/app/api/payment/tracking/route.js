@@ -34,8 +34,8 @@ export async function POST(req) {
     await Notification.create({
       user_id: tx.buyer_id,
       type:    'tracking',
-      title:   '📦 Order Placed — Tracking ID Available',
-      message: `Your order "${tx.product_title}" has been placed. Tracking: ${tracking_id}${courier ? ' via ' + courier : ''}. The deal is complete!`,
+      title:   'Order Shipped',
+      message: `Tracking ID ${tracking_id}${courier ? ' (' + courier + ')' : ''} added for "${tx.product_title}".`,
       tx_id:   tx._id.toString(),
     });
 
@@ -43,8 +43,8 @@ export async function POST(req) {
     await Notification.create({
       user_id: tx.provider_id,
       type:    'info',
-      title:   '💸 Payment Released',
-      message: `Escrow payment of ₹${releasedAmount.toLocaleString('en-IN')} for "${tx.product_title}" has been released to your account.`,
+      title:   'Payment Released',
+      message: `₹${releasedAmount.toLocaleString('en-IN')} released for "${tx.product_title}".`,
       tx_id:   tx._id.toString(),
     });
 
