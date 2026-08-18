@@ -12,11 +12,25 @@ const nextConfig = {
   turbopack: {},
 
   // Keep the webpack config for non-Turbopack environments (e.g. CI or older builds)
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, 'src'),
     };
+
+    // Playwright cannot run in Vercel serverless functions and must never be
+    // bundled. Mark it as an external so webpack skips it entirely. A runtime
+    // error is thrown by scraper.js if it is called in that environment.
+    config.externals = [
+      ...(Array.isArray(config.externals) ? config.externals : config.externals ? [config.externals] : []),
+      ({ request }, callback) => {
+        if (request === 'playwright' || request === 'playwright-core') {
+          return callback(null, `commonjs ${request}`);
+        }
+        callback();
+      },
+    ];
+
     return config;
   },
 
