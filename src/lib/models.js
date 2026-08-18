@@ -12,6 +12,8 @@ const UserSchema = new mongoose.Schema({
   onboarding_complete: { type: Boolean, default: true },
   phone:               { type: String, default: '' },
   age:                 { type: String, default: '' },
+  reset_token:         { type: String, default: null },
+  reset_token_expires: { type: Date,   default: null },
 }, { timestamps: true });
 
 const RequestSchema = new mongoose.Schema({

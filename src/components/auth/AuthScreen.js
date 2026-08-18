@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/authContext';
-import { Wallet, Eye, EyeOff, ArrowLeft, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Wallet, Eye, EyeOff, ArrowLeft, Mail, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
 
 const IconGoogle = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" {...props}>
@@ -23,6 +23,41 @@ export default function AuthScreen({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // ── Forgot Password State ───────────────────────────────────────────────
+  const [forgotMode, setForgotMode] = useState(false); // 'idle' → 'form' state
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotError('');
+    if (!forgotEmail.trim() || !/\S+@\S+\.\S+/.test(forgotEmail)) {
+      setForgotError('Please enter a valid email address.');
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok && data.error) {
+        setForgotError(data.error);
+      } else {
+        setForgotSent(true);
+      }
+    } catch {
+      setForgotError('Network error. Please try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
@@ -90,10 +125,12 @@ export default function AuthScreen({ onBack }) {
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight text-white">
-              {isSignUp ? 'Create Account' : 'Welcome Back'}
+              {forgotMode ? 'Reset Password' : isSignUp ? 'Create Account' : 'Welcome Back'}
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
-              {isSignUp
+              {forgotMode
+                ? 'Enter your email and we\'ll send a reset link.'
+                : isSignUp
                 ? 'Enter your details to create your account.'
                 : 'Enter your credentials to access your account.'}
             </p>
@@ -117,7 +154,56 @@ export default function AuthScreen({ onBack }) {
           {/* Card Content */}
           <div className="mt-6 flex flex-col gap-3">
 
-            {!showEmailForm ? (
+            {/* ── Forgot Password Panel ── */}
+            {forgotMode && showEmailForm && (
+              <AnimatePresence mode="wait">
+                {!forgotSent ? (
+                  <motion.form key="forgot-form"
+                    initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }}
+                    onSubmit={handleForgotSubmit} className="flex flex-col gap-3">
+                    <div>
+                      <label className="block text-[11px] font-medium text-zinc-400 mb-1">Email address</label>
+                      <input
+                        type="email" value={forgotEmail} onChange={e => { setForgotEmail(e.target.value); setForgotError(''); }}
+                        placeholder="name@example.com" autoFocus required
+                        className="w-full h-9 px-3 rounded-lg bg-[#09090b] border border-white/10 text-xs text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30 transition"
+                      />
+                    </div>
+                    {forgotError && (
+                      <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                        <AlertCircle size={13} className="shrink-0" />{forgotError}
+                      </div>
+                    )}
+                    <button type="submit" disabled={forgotLoading}
+                      className="w-full h-9 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                      {forgotLoading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> : <><Mail size={13} /> Send Reset Link</>}
+                    </button>
+                    <button type="button" onClick={() => { setForgotMode(false); setForgotEmail(''); setForgotError(''); }}
+                      className="text-zinc-400 hover:text-white transition text-[11px] flex items-center gap-1 justify-center mt-1">
+                      <ArrowLeft size={11} /> Back to sign in
+                    </button>
+                  </motion.form>
+                ) : (
+                  <motion.div key="forgot-sent"
+                    initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                    className="flex flex-col items-center text-center gap-3 py-4">
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                      <CheckCircle2 size={22} className="text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white mb-1">Check your inbox</p>
+                      <p className="text-[11px] text-zinc-400 leading-relaxed">A reset link was sent to <span className="text-zinc-200">{forgotEmail}</span>. It expires in 1 hour.</p>
+                    </div>
+                    <button type="button" onClick={() => { setForgotMode(false); setForgotEmail(''); setForgotSent(false); }}
+                      className="text-zinc-400 hover:text-white transition text-[11px] flex items-center gap-1 mt-1">
+                      <ArrowLeft size={11} /> Back to sign in
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
+
+            {!forgotMode && !showEmailForm ? (
               <>
                 {/* Primary Google Action */}
                 <button
@@ -175,7 +261,7 @@ export default function AuthScreen({ onBack }) {
                   </button>
                 </div>
               </>
-            ) : (
+            ) : !forgotMode ? (
               /* Expanded Email/Password Form */
               <motion.form
                 initial={{ opacity: 0, x: 12 }}
@@ -229,6 +315,12 @@ export default function AuthScreen({ onBack }) {
                     </button>
                   </div>
                   {errors.password && <p className="text-[10px] text-red-400 mt-1">{errors.password}</p>}
+                  {!isSignUp && (
+                    <button type="button" onClick={() => { setForgotMode(true); setForgotSent(false); setForgotError(''); setForgotEmail(form.email || ''); }}
+                      className="text-[10px] text-zinc-500 hover:text-white transition mt-1 text-right w-full">
+                      Forgot password?
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -251,7 +343,7 @@ export default function AuthScreen({ onBack }) {
                     onClick={() => setShowEmailForm(false)}
                     className="text-zinc-400 hover:text-white transition flex items-center gap-1"
                   >
-                    <ArrowLeft size={12} /> Back to options
+                    <ArrowLeft size={12} /> Back
                   </button>
                   <button
                     type="button"
@@ -262,11 +354,11 @@ export default function AuthScreen({ onBack }) {
                     }}
                     className="text-white hover:underline font-medium"
                   >
-                    {isSignUp ? 'Already have account?' : 'Need an account?'}
+                    {isSignUp ? 'Sign in instead' : 'Create account'}
                   </button>
                 </div>
               </motion.form>
-            )}
+            ) : null}
           </div>
         </motion.div>
 
