@@ -27,21 +27,37 @@ export function AuthProvider({ children }) {
     if (sessionStatus === 'loading') return;
     if (sessionStatus !== 'authenticated' || !session) return;
 
-    const existing = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
-    if (existing && user) return;
+    // session.oauth_id is set by the NextAuth JWT→session callbacks.
+    // session.user holds { name, email, image } from the provider.
+    const oauthId   = session.oauth_id;
+    const provider  = session.provider || 'github'; // NextAuth sets this via jwt callback
+    const userEmail = session.user?.email || '';
+    const userName  = session.user?.name  || '';
+    const userImage = session.user?.image || '';
 
-    const { provider, oauth_id, user: oauthUser } = session;
-    if (!oauth_id) return;
+    // Must have both an oauth_id and an email to create/link a DB account
+    if (!oauthId || !userEmail) {
+      console.warn('[Auth] OAuth session missing oauth_id or email', { oauthId, userEmail, session });
+      setLoading(false);
+      return;
+    }
+
+    // If we already have a valid local token AND user, skip re-syncing
+    const existing = typeof window !== 'undefined' ? localStorage.getItem('gz-token') : null;
+    if (existing && user) {
+      setLoading(false);
+      return;
+    }
 
     fetch('/api/auth/oauth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        provider:  provider    || 'google',
-        oauth_id:  oauth_id,
-        email:     oauthUser?.email  || '',
-        name:      oauthUser?.name   || '',
-        picture:   oauthUser?.image  || '',
+        provider,
+        oauth_id: oauthId,
+        email:    userEmail,
+        name:     userName,
+        picture:  userImage,
       }),
     })
       .then(r => r.json())
@@ -49,9 +65,11 @@ export function AuthProvider({ children }) {
         if (data.token) {
           setToken(data.token);
           setUser(data.user);
+        } else if (data.error) {
+          console.error('[Auth] OAuth bridge error:', data.error);
         }
       })
-      .catch(console.error)
+      .catch(err => console.error('[Auth] OAuth fetch failed:', err))
       .finally(() => setLoading(false));
   }, [sessionStatus, session]); // eslint-disable-line react-hooks/exhaustive-deps
 

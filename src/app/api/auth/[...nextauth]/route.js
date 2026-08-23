@@ -29,18 +29,24 @@ const handler = NextAuth({
     async jwt({ token, account, profile }) {
       if (account && profile) {
         token.provider = account.provider;
-        token.oauth_id = account.providerAccountId;
-        token.picture  = profile.picture || profile.avatar_url || token.picture;
-        token.name     = profile.name    || token.name;
+        // GitHub uses 'id' (number), Google uses 'sub' — providerAccountId works for both
+        token.oauth_id = String(account.providerAccountId);
+        // GitHub profile has avatar_url; Google has picture
+        token.picture  = profile.avatar_url || profile.picture || token.picture;
+        token.name     = profile.name    || profile.login || token.name;
         token.email    = profile.email   || token.email;
       }
       return token;
     },
 
     async session({ session, token }) {
-      session.provider = token.provider;
-      session.oauth_id = token.oauth_id;
-      if (session.user) session.user.image = token.picture;
+      session.provider = token.provider  || null;
+      session.oauth_id = token.oauth_id  || null;
+      if (session.user) {
+        session.user.image = token.picture || session.user.image;
+        // Ensure name is populated from token if missing
+        if (!session.user.name && token.name) session.user.name = token.name;
+      }
       return session;
     },
   },

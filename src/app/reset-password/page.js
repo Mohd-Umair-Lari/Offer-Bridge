@@ -72,10 +72,10 @@ function ResetPasswordForm() {
         setFormError(data.error || 'Failed to reset password. Please try again.');
         return;
       }
-      // Auto-sign in
+      // Auto-sign in using the correct token key used throughout the app
       if (data.token) {
-        localStorage.setItem('authToken', data.token);
-        if (data.user) localStorage.setItem('authUser', JSON.stringify(data.user));
+        localStorage.setItem('gz-token', data.token);
+        if (data.user) localStorage.setItem('gz-user', JSON.stringify(data.user));
       }
       setPhase('success');
     } catch {
