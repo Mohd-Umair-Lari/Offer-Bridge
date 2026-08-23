@@ -1,5 +1,12 @@
 const path = require('path');
 
+// Automatically set NEXTAUTH_URL for Vercel preview deployments.
+// VERCEL_URL is injected by Vercel for every deployment (no trailing slash, no protocol).
+// On production, NEXTAUTH_URL is already set explicitly in env vars and takes priority.
+if (process.env.VERCEL_URL && !process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {

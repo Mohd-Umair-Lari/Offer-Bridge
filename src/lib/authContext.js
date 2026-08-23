@@ -96,7 +96,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signInWithOAuth = useCallback((provider) => {
-    nextAuthSignIn(provider, { callbackUrl: window.location.href });
+    // Use origin only — avoids NextAuth rejecting preview-branch URLs as untrusted
+    const callbackUrl = typeof window !== 'undefined' ? window.location.origin : '/';
+    nextAuthSignIn(provider, { callbackUrl });
   }, []);
 
   const signOut = useCallback(async () => {
