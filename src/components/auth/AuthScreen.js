@@ -249,17 +249,6 @@ export default function AuthScreen({ onBack }) {
                     <span>Continue with Github</span>
                   </button>
                 </div>
-
-                {/* Skip Action Button */}
-                <div className="mt-2 pt-2 border-t border-white/5">
-                  <button
-                    type="button"
-                    onClick={onBack || (() => window.location.href = '/')}
-                    className="w-full h-10 rounded-lg bg-black/40 hover:bg-black/70 border border-white/10 text-zinc-300 font-medium text-xs flex items-center justify-center transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
-                  >
-                    Skip for now
-                  </button>
-                </div>
               </>
             ) : !forgotMode ? (
               /* Expanded Email/Password Form */
