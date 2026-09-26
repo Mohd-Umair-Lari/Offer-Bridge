@@ -1,37 +1,35 @@
-const requiredEnvVars = [
-  'MONGODB_URI',
-  'JWT_SECRET',
-  'NEXTAUTH_SECRET',
-];
+// Production configuration. All required secrets must be supplied via the
+// environment — there are no insecure development fallbacks.
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'NEXTAUTH_SECRET'];
+
+const missing = requiredEnvVars.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  throw new Error(
+    `Missing required environment variables: ${missing.join(', ')}. ` +
+    `Set them in the deployment environment before starting the app.`,
+  );
+}
 
 const optionalEnvVars = {
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL || process.env.APP_URL,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || '',
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || '',
-  NODE_ENV: process.env.NODE_ENV || 'development',
+  NODE_ENV: process.env.NODE_ENV || 'production',
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-  STRIPE_PUBLIC_KEY: process.env.STRIPE_PUBLIC_KEY || '',
-  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
-  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
-  SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || 'noreply@offerbridge.com',
-  SENTRY_DSN: process.env.SENTRY_DSN || '',
-  API_RATE_LIMIT: parseInt(process.env.API_RATE_LIMIT || '100', 10),
-  SESSION_TIMEOUT: parseInt(process.env.SESSION_TIMEOUT || '86400', 10),
-  PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || '',
 };
 
 export const config = {
   mongodb: {
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/offerbridge',
+    uri: process.env.MONGODB_URI,
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'dev-secret-key-do-not-use-in-production',
+    secret: process.env.JWT_SECRET,
     expiresIn: '7d',
   },
   nextauth: {
-    secret: process.env.NEXTAUTH_SECRET || 'dev-nextauth-secret-do-not-use-in-production',
+    secret: process.env.NEXTAUTH_SECRET,
     url: optionalEnvVars.NEXTAUTH_URL,
     google: {
       clientId: optionalEnvVars.GOOGLE_CLIENT_ID,
@@ -45,27 +43,18 @@ export const config = {
   app: {
     env: optionalEnvVars.NODE_ENV,
     isProduction: optionalEnvVars.NODE_ENV === 'production',
-    isDevelopment: optionalEnvVars.NODE_ENV === 'development',
     logLevel: optionalEnvVars.LOG_LEVEL,
   },
   payment: {
-    stripe: {
-      publicKey: optionalEnvVars.STRIPE_PUBLIC_KEY,
-      secretKey: optionalEnvVars.STRIPE_SECRET_KEY,
+    razorpay: {
+      keyId: process.env.RAZORPAY_KEY_ID || '',
+      keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+      webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
     },
-    webhookSecret: optionalEnvVars.PAYMENT_WEBHOOK_SECRET,
     feeSplit: { customer: 0.50, provider: 0.35, platform: 0.15 },
   },
   email: {
-    sendgridApiKey: optionalEnvVars.SENDGRID_API_KEY,
-    fromEmail: optionalEnvVars.SENDGRID_FROM_EMAIL,
-  },
-  monitoring: {
-    sentryDsn: optionalEnvVars.SENTRY_DSN,
-  },
-  security: {
-    apiRateLimit: optionalEnvVars.API_RATE_LIMIT,
-    sessionTimeout: optionalEnvVars.SESSION_TIMEOUT,
+    resendApiKey: process.env.RESEND_API_KEY || '',
   },
 };
 

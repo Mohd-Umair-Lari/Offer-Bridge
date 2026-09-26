@@ -3,6 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models';
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
+import { config } from '@/lib/config';
 
 export const runtime = 'nodejs';
 
@@ -40,7 +41,7 @@ export async function POST(request) {
       reset_token_expires: expiresAt,
     });
 
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+    const resetUrl = `${config.nextauth.url}/reset-password?token=${token}`;
 
     await resend.emails.send({
       from: FROM_EMAIL,

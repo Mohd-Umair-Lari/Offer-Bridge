@@ -3,10 +3,11 @@ import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { config } from '@/lib/config';
 
 export const runtime = 'nodejs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
+const JWT_SECRET = config.jwt.secret;
 
 function makeToken(user) {
   return jwt.sign(
