@@ -205,15 +205,14 @@ export default function AuthScreen({ onBack }) {
 
             {!forgotMode && !showEmailForm ? (
               <>
-                {/* Primary Google Action */}
+                {/* Primary Email Action */}
                 <button
-                  id="oauth-google"
                   type="button"
-                  onClick={() => signInWithOAuth('google')}
+                  onClick={() => setShowEmailForm(true)}
                   className="w-full h-10 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs flex items-center justify-center gap-2.5 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] shadow-sm"
                 >
-                  <IconGoogle />
-                  <span>Continue with Google</span>
+                  <Mail size={16} />
+                  <span>Continue with Email</span>
                 </button>
 
                 {/* OR Separator */}
@@ -228,14 +227,15 @@ export default function AuthScreen({ onBack }) {
 
                 {/* Secondary Actions */}
                 <div className="flex flex-col gap-2">
-                  {/* Email Login Button */}
+                  {/* Google Login Button */}
                   <button
+                    id="oauth-google"
                     type="button"
-                    onClick={() => setShowEmailForm(true)}
+                    onClick={() => signInWithOAuth('google')}
                     className="w-full h-10 rounded-lg bg-[#222226] hover:bg-[#2b2b30] border border-white/5 text-white font-medium text-xs flex items-center justify-center gap-2.5 transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]"
                   >
-                    <Mail size={16} />
-                    <span>Continue with Email</span>
+                    <IconGoogle />
+                    <span>Continue with Google</span>
                   </button>
 
                   {/* GitHub Login Button */}
