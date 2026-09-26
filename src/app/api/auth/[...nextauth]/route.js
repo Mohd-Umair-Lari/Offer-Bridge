@@ -51,7 +51,7 @@ const handler = NextAuth({
     },
   },
 
-  secret: config.nextauth?.secret || process.env.NEXTAUTH_SECRET || 'dev-secret-key-change-in-production',
+  secret: config.nextauth.secret,
   session: { strategy: 'jwt' },
 });
 

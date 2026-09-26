@@ -4,7 +4,7 @@ import { connectDB } from '@/lib/mongodb';
 import { User } from '@/lib/models';
 import { config } from '@/lib/config';
 
-const JWT_SECRET = config.jwt?.secret || process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
+const JWT_SECRET = config.jwt.secret;
 
 function makeToken(user) {
   return jwt.sign(
