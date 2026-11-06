@@ -38,13 +38,6 @@ function extractBestFlipkartPrice(priceCandidates) {
   return 0;
 }
 
-const DEFAULT_FLIPKART_BANK_OFFERS = [
-  'Bank Offer: 10% Instant Discount on HDFC Bank Credit Card EMI Transactions up to ₹1,500',
-  'Bank Offer: 10% Instant Discount on ICICI Bank Credit and Debit Card Transactions',
-  'Bank Offer: 5% Cashback on Flipkart Axis Bank Credit Card',
-  'Bank Offer: 10% Instant Discount on SBI Credit Card EMI Transactions',
-];
-
 export class FlipkartCrawler extends BaseCrawler {
   constructor() {
     super('Flipkart', ['flipkart.com', 'm.flipkart.com', 'fkrt.it']);
@@ -82,9 +75,7 @@ export class FlipkartCrawler extends BaseCrawler {
     }
 
     result.title = cleanExtractedTitle(result.title, productUrl);
-    if (!result.rawOffers || result.rawOffers.length === 0) {
-      result.rawOffers = DEFAULT_FLIPKART_BANK_OFFERS;
-    }
+    result.rawOffers = Array.isArray(result.rawOffers) ? result.rawOffers : [];
     result.bankOffers = parseStructuredBankOffers(result.rawOffers);
 
     return this.normalizeProductData(result);

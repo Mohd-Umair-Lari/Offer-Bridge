@@ -15,6 +15,7 @@ export function getMerchant(url) {
     if (h.includes('amazon') || h.includes('amzn.')) return 'amazon';
     if (h.includes('flipkart') || h.includes('fkrt.')) return 'flipkart';
     if (h.includes('myntra')) return 'myntra';
+    if (h.includes('meesho')) return 'meesho';
   } catch {}
   return null;
 }
@@ -78,6 +79,15 @@ export function validateProductUrl(url) {
       const itemMatch = url.match(/\/p\/(itm[a-zA-Z0-9]{11,15})/i) || url.match(/[?&]pid=([a-zA-Z0-9]{12,20})/i);
       if (!itemMatch) {
         return 'The Flipkart link is incomplete or missing the full Product ID (e.g. /p/itm6ac6485515ae4). Please copy and paste the complete URL from your browser address bar.';
+      }
+    }
+
+    if (merchant === 'meesho') {
+      // Meesho product URLs normally contain a numeric product id, but short
+      // links and newer URL shapes do not always expose it in the pathname.
+      // Accept the canonical host and let the crawler validate the response.
+      if (!/meesho\.com/i.test(new URL(url).hostname)) {
+        return 'Please use a valid Meesho product URL.';
       }
     }
   } catch {}
@@ -518,7 +528,7 @@ export async function autoResolveUrl(productUrl) {
   const merchant = getMerchant(productUrl);
   if (!merchant) return productUrl;
 
-  const domain = merchant === 'amazon' ? 'amazon.in' : merchant === 'flipkart' ? 'flipkart.com' : 'myntra.com';
+  const domain = merchant === 'amazon' ? 'amazon.in' : merchant === 'flipkart' ? 'flipkart.com' : merchant === 'myntra' ? 'myntra.com' : 'meesho.com';
   const slug = extractSlugKeywords(productUrl);
   if (!slug) return productUrl;
 
@@ -541,6 +551,9 @@ export async function autoResolveUrl(productUrl) {
       if (match) {
         return `https://www.flipkart.com/${match[1]}`;
       }
+    } else if (merchant === 'meesho') {
+      const match = text.match(/meesho\.com\/[^"'\s)]*\/p\/(?:[A-Za-z0-9_-]+|[0-9]+)/i);
+      if (match) return `https://www.meesho.com/${match[0].split('meesho.com/')[1]}`;
     }
   } catch (e) {}
 
@@ -579,7 +592,7 @@ async function fetchAmazonDirect(url) {
 
 export async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
-  const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : 'Myntra';
+  const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : merchant === 'myntra' ? 'Myntra' : 'Meesho';
 
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {}

@@ -2,6 +2,7 @@
 import { AmazonCrawler } from './amazon.js';
 import { FlipkartCrawler } from './flipkart.js';
 import { MyntraCrawler } from './myntra.js';
+import { MeeshoCrawler } from './meesho.js';
 
 class CrawlerRegistry {
   constructor() {
@@ -9,6 +10,7 @@ class CrawlerRegistry {
     this.register(new AmazonCrawler());
     this.register(new FlipkartCrawler());
     this.register(new MyntraCrawler());
+    this.register(new MeeshoCrawler());
   }
 
   register(crawler) {
@@ -31,7 +33,7 @@ class CrawlerRegistry {
   async scrape(url) {
     const crawler = this.findCrawler(url);
     if (!crawler) {
-      throw new Error('Unsupported merchant URL. Currently supported: Amazon India, Flipkart, and Myntra.');
+      throw new Error('Unsupported merchant URL. Currently supported: Amazon India, Flipkart, Myntra, and Meesho.');
     }
     const rawData = await crawler.scrape(url);
     return crawler.normalizeProductData ? crawler.normalizeProductData(rawData) : rawData;

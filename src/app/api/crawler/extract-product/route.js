@@ -33,7 +33,7 @@ async function getModel() {
     const schema = new mongoose.Schema(
       {
         url:           { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-        domain:        { type: String, enum: ['amazon', 'flipkart', 'myntra'], required: true },
+        domain:        { type: String, enum: ['amazon', 'flipkart', 'myntra', 'meesho'], required: true },
         title:         { type: String, required: true },
         price:         { type: Number, required: true },
         originalPrice: { type: Number, default: 0 },
@@ -114,7 +114,7 @@ async function getOrScrapeProduct(productUrl, force = false) {
 
   const merchant = getMerchant(targetUrl);
   if (!merchant)
-    return { success: false, message: 'Unsupported URL. Only Amazon.in, Flipkart.com, and Myntra.com links are accepted.' };
+    return { success: false, message: 'Unsupported URL. Supported merchants are Amazon, Flipkart, Myntra, and Meesho.' };
 
   const validationError = validateProductUrl(targetUrl);
   if (validationError) {

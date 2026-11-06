@@ -143,14 +143,6 @@ async function fetchAmazonMetadataViaDDG(asin, url) {
   return null;
 }
 
-const DEFAULT_AMAZON_BANK_OFFERS = [
-  'Bank Offer: Upto ₹4,000.00 discount on select Credit Cards',
-  'Bank Offer: Flat ₹1,500 Instant Discount on HDFC Bank Credit Card EMI',
-  'Bank Offer: 10% Instant Discount up to ₹1,250 on ICICI Bank Credit Cards',
-  'Bank Offer: 10% Instant Discount up to ₹1,000 on SBI Credit Card & Debit Card',
-  'Bank Offer: 5% Unlimited Cashback on Amazon Pay ICICI Bank Credit Card',
-];
-
 export class AmazonCrawler extends BaseCrawler {
   constructor() {
     super('Amazon', ['amazon.in', 'amazon.com', 'amzn.in', 'amzn.to']);
@@ -210,9 +202,7 @@ export class AmazonCrawler extends BaseCrawler {
 
     result.title = cleanExtractedTitle(result.title, productUrl);
 
-    if (!result.rawOffers || result.rawOffers.length === 0) {
-      result.rawOffers = DEFAULT_AMAZON_BANK_OFFERS;
-    }
+    result.rawOffers = Array.isArray(result.rawOffers) ? result.rawOffers : [];
     result.bankOffers = parseStructuredBankOffers(result.rawOffers);
 
     return this.normalizeProductData(result);
