@@ -41,7 +41,8 @@ export function cleanExtractedTitle(title, urlStr) {
   const INVALID_TITLES = [
     'unknown product', 'amazon.in', 'page not found', 'buy products online at best price',
     'something went wrong', 'live content', 'duckduckgo', 'shopping cart', 'login', 'flipkart',
-    'online shopping site in india', 'e-commerce product'
+    'online shopping site in india', 'online shopping india', 'buy mobiles', 'buy electronics',
+    'buy products online', 'e-commerce product'
   ];
 
   const t = (title || '').trim();

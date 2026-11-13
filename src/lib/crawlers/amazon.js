@@ -202,6 +202,10 @@ export class AmazonCrawler extends BaseCrawler {
 
     result.title = cleanExtractedTitle(result.title, productUrl);
 
+    if (result.title === 'E-Commerce Product' || (!result.price && result.availability !== 'out_of_stock')) {
+      throw new Error('Amazon product details could not be extracted. The link may be expired, blocked, or not a product page.');
+    }
+
     result.rawOffers = Array.isArray(result.rawOffers) ? result.rawOffers : [];
     result.bankOffers = parseStructuredBankOffers(result.rawOffers);
 

@@ -13,6 +13,7 @@ import {
   isPlainText,
   sanitizeUrl,
   cleanExtractedTitle,
+  extractTitleFromSlug,
 } from './utils.js';
 
 function flipkartSlugKeywords(url) {
@@ -123,6 +124,7 @@ function parseFlipkart(html, productUrl) {
       html.match(/<h1[^>]*>\s*<span[^>]*>([\s\S]*?)<\/span>/i)?.[1]
         ?.replace(/<[^>]+>/g, '').trim() ||
       extractOG(html, 'title') ||
+      extractTitleFromSlug(productUrl) ||
       '';
   }
 
@@ -189,9 +191,13 @@ function parseFlipkart(html, productUrl) {
     if (imgMatch) image = imgMatch[1];
   }
 
-  const finalTitle = decodeHTML(title);
+  let finalTitle = decodeHTML(title);
   if (finalTitle.toLowerCase().includes('buy products online at best price')) {
     throw new Error('Flipkart blocked the request and returned a generic homepage. Please try again.');
+  }
+
+  if (!isUsefulFlipkartTitle(finalTitle, slugKws)) {
+    finalTitle = extractTitleFromSlug(productUrl);
   }
 
   const rawOffers = extractBankOffers(stripped);

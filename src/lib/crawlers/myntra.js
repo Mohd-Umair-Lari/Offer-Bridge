@@ -9,6 +9,10 @@ import {
   deepFind,
   isPlainText,
   sanitizeUrl,
+  extractJsonLD,
+  extractOG,
+  extractTitleFromSlug,
+  cleanExtractedTitle,
 } from './utils.js';
 
 export class MyntraCrawler extends BaseCrawler {
@@ -27,6 +31,10 @@ export class MyntraCrawler extends BaseCrawler {
       } else {
         result = parseMyntra(html, productUrl);
       }
+    }
+    result.title = cleanExtractedTitle(result.title, productUrl);
+    if (result.title === 'E-Commerce Product' || (!result.price && result.availability !== 'out_of_stock')) {
+      throw new Error('Myntra product details could not be extracted. The link may be expired, blocked, or not a product page.');
     }
     return this.normalizeProductData(result);
   }
@@ -91,23 +99,24 @@ async function fetchMyntraInternalApi(styleId, productUrl) {
 }
 
 function parseMyntra(html, productUrl) {
+  const ld = extractJsonLD(html) || {};
   let title = '';
   const titleMatch = html.match(/<h1[^>]*class=["'][^"']*pdp-title["'][^>]*>([\s\S]*?)<\/h1>/i) ||
                      html.match(/<h1[^>]*class=["'][^"']*pdp-name["'][^>]*>([\s\S]*?)<\/h1>/i);
   if (titleMatch) title = decodeHTML(titleMatch[1].replace(/<[^>]+>/g, ''));
 
-  if (!title) {
-    const metaTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-    if (metaTitle) {
-      title = decodeHTML(metaTitle[1].split('|')[0].replace('Buy', '').trim());
-    }
-  }
+  if (!title) title = ld.name || extractOG(html, 'title');
+  if (!title) title = extractTitleFromSlug(productUrl);
 
   let price = 0;
   const priceMatch = html.match(/class=["'][^"']*pdp-price["'][^>]*>(?:<strong>)?(?:Rs\.?)?\s*([\d,]+)/i);
   if (priceMatch) {
     const p = parsePrice(priceMatch[1]);
     if (p > 0) price = p;
+  }
+  if (!price && ld.offers) {
+    const offer = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+    price = parsePrice(offer?.price || offer?.lowPrice || 0);
   }
 
   let image = '';
@@ -125,7 +134,7 @@ function parseMyntra(html, productUrl) {
     url: productUrl,
     title,
     price,
-    originalPrice: price,
+    originalPrice: Math.max(price, parsePrice(ld.offers?.highPrice || 0)),
     rating: 0,
     reviewCount: 0,
     availability: price > 0 ? 'in_stock' : 'out_of_stock',
@@ -145,6 +154,7 @@ function parseFromTextMyntra(text, productUrl) {
   if (titleMeta?.[1]?.trim().length > 5) {
     title = titleMeta[1].trim();
   }
+  if (!title) title = extractTitleFromSlug(productUrl);
 
   let price = 0;
   const priceRe = /₹\s*([\d,]+)/g;
