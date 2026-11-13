@@ -28,6 +28,13 @@ function flipkartSlugKeywords(url) {
   return [];
 }
 
+function isUsefulFlipkartTitle(value, slugKws = []) {
+  if (typeof value !== 'string' || value.trim().length < 6) return false;
+  const title = value.trim().toLowerCase();
+  if (/^(flipkart|buy|online shopping|home|login|cart|product details)/i.test(title)) return false;
+  return !slugKws.length || slugKws.some((keyword) => title.includes(keyword));
+}
+
 function extractBestFlipkartPrice(priceCandidates) {
   for (const c of priceCandidates) {
     const p = parsePrice(String(c));
@@ -106,7 +113,7 @@ function parseFlipkart(html, productUrl) {
           for (const t of titleCandidates) {
             if (typeof t === 'string' && t.length > 3) {
               const score = slugKws.length > 0 ? slugKws.reduce((acc, kw) => acc + (t.toLowerCase().includes(kw) ? 1 : 0), 0) : 1;
-              if (score > bestScore) { bestScore = score; title = t; }
+              if (score > bestScore && isUsefulFlipkartTitle(t, slugKws)) { bestScore = score; title = t; }
             }
           }
           if (slugKws.length > 0 && bestScore === 0) title = '';
@@ -258,7 +265,7 @@ async function fetchFlipkartInternalApi(productUrl) {
           }
         }
       }
-      if (slugKws.length > 0 && bestScore === 0) title = ''; 
+      if (!isUsefulFlipkartTitle(title, slugKws)) title = '';
       
       const priceCandidates = deepFindAll(json, ['specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice']);
       price = extractBestFlipkartPrice(priceCandidates);
@@ -274,7 +281,7 @@ async function fetchFlipkartInternalApi(productUrl) {
       const extraOffers = extractBankOffers(jsonStr.replace(/\\n/g, ' ').replace(/\\"/g, '"'));
       rawOffers = [...new Set([...rawOffers, ...extraOffers])];
 
-      if (price > 0 && title && title.length > 3) {
+      if (price > 0 && isUsefulFlipkartTitle(title, slugKws)) {
         return {
           url: productUrl,
           title: decodeHTML(title),

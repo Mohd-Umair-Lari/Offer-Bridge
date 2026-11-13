@@ -68,16 +68,19 @@ async function evaluateOffers(price, rawOffers, bankOffers = []) {
 
   let bestBank = '';
   let bestDiscount = 0;
-  let bestDesc = (bankOffers?.[0]?.description || rawOffers?.[0] || 'Bank Offer Available');
+  let bestDesc = 'No card discount available';
 
   for (const bo of (bankOffers || [])) {
     if (/exchange|trade\s*in|old\s+device|old\s+phone/i.test(bo.description || '')) continue;
 
-    let amt = bo.discountAmount || 0;
-    if (!amt && bo.discountPercent && price > 0) {
-      amt = Math.round((price * bo.discountPercent) / 100);
-    }
-    if (amt > bestDiscount && amt < price) {
+    const percentAmount = bo.discountPercent && price > 0
+      ? Math.round((price * bo.discountPercent) / 100)
+      : 0;
+    // A parsed rupee value is generally the offer cap ("up to ₹X"). The
+    // percentage is the actual discount when both are present.
+    let amt = percentAmount ? Math.min(percentAmount, bo.discountAmount || percentAmount) : (bo.discountAmount || 0);
+    amt = Math.max(0, Math.min(price, Math.round(amt)));
+    if (amt > bestDiscount) {
       bestDiscount = amt;
       bestBank = bo.bank !== 'Other Bank' ? bo.bank : '';
       bestDesc = bo.description;
@@ -87,24 +90,21 @@ async function evaluateOffers(price, rawOffers, bankOffers = []) {
   if (bestDiscount === 0 && rawOffers.length > 0) {
     for (const raw of rawOffers) {
       if (/exchange|trade\s*in|old\s+device|old\s+phone/i.test(raw)) continue;
-      const match = raw.match(/(?:discount|cashback|save|off|upto)\s+(?:of\s+)?(?:₹|Rs\.?)\s*([\d,]+)/i) ||
+      const fixed = raw.match(/(?:discount|cashback|save|off|upto|up\s+to)\s+(?:of\s+)?(?:₹|Rs\.?)\s*([\d,]+)/i) ||
                     raw.match(/(?:₹|Rs\.?)\s*([\d,]+)\s*(?:off|discount|cashback)/i);
-      if (match) {
-        const val = parseInt(match[1].replace(/,/g, ''), 10) || 0;
-        if (val > 0 && val < price) {
-          bestDiscount = val;
-          bestDesc = raw;
-          break;
-        }
-      }
+      const percent = raw.match(/(\d+(?:\.\d+)?)\s*%/);
+      const cap = fixed ? parseInt(fixed[1].replace(/,/g, ''), 10) || 0 : 0;
+      const pct = percent ? Math.round(price * parseFloat(percent[1]) / 100) : 0;
+      const val = Math.min(price, pct ? Math.min(pct, cap || pct) : cap);
+      if (val > bestDiscount) { bestDiscount = val; bestDesc = raw; }
     }
   }
 
   return {
-    bestOfferBank: bestBank || 'Bank Offer',
+    bestOfferBank: bestDiscount > 0 ? (bestBank || 'Bank Offer') : '',
     discountAmount: bestDiscount,
     finalPriceAfterDiscount: Math.max(0, price - bestDiscount),
-    offerDescription: bestDesc,
+    offerDescription: bestDiscount > 0 ? bestDesc : 'No card discount available',
   };
 }
 

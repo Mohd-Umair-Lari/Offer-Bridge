@@ -76,6 +76,7 @@ export function validateProductUrl(url) {
     }
 
     if (merchant === 'flipkart') {
+      if (/fkrt\.it$/i.test(new URL(url).hostname)) return null;
       const itemMatch = url.match(/\/p\/(itm[a-zA-Z0-9]{11,15})/i) || url.match(/[?&]pid=([a-zA-Z0-9]{12,20})/i);
       if (!itemMatch) {
         return 'The Flipkart link is incomplete or missing the full Product ID (e.g. /p/itm6ac6485515ae4). Please copy and paste the complete URL from your browser address bar.';
