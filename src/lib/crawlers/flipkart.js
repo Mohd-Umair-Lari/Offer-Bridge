@@ -62,26 +62,14 @@ export class FlipkartCrawler extends BaseCrawler {
           result = parseFlipkart(html, productUrl);
         }
       } catch (e) {
-        result = {
-          url: productUrl,
-          title: '',
-          price: 0,
-          originalPrice: 0,
-          rating: 0,
-          reviewCount: 0,
-          availability: 'in_stock',
-          sellerName: '',
-          image: '',
-          rawOffers: [],
-          bankOffers: [],
-          domain: 'flipkart',
-          asin: null,
-          lowestEver: 0,
-        };
+        throw new Error(e?.message || 'Flipkart product page could not be fetched.');
       }
     }
 
     result.title = cleanExtractedTitle(result.title, productUrl);
+    if (result.title === 'E-Commerce Product' || !result.price || result.price <= 0) {
+      throw new Error('Flipkart product details could not be extracted. The link may be expired, blocked, or not a product page.');
+    }
     result.rawOffers = Array.isArray(result.rawOffers) ? result.rawOffers : [];
     result.bankOffers = parseStructuredBankOffers(result.rawOffers);
 

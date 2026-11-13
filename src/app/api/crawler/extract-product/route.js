@@ -141,10 +141,12 @@ async function getOrScrapeProduct(productUrl, force = false) {
 
   const scraped = await registry.scrape(targetUrl);
 
-  if (!scraped.title || scraped.title.length < 3)
+  if (!scraped.title || scraped.title.length < 3 || scraped.title === 'E-Commerce Product')
     throw new Error('Could not extract a valid product title. The page may have been blocked or the link is invalid.');
 
   const isOutOfStock = scraped.availability === 'out_of_stock' || !scraped.price || scraped.price <= 0;
+  if (isOutOfStock && (!scraped.title || scraped.title === 'E-Commerce Product'))
+    throw new Error('Could not extract the required product fields. The page may be blocked or the product link is invalid.');
   if (!isOutOfStock && (scraped.price < 5 || scraped.price > 99_999_999))
     throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked.');
 

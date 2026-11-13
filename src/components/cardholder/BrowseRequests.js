@@ -37,6 +37,8 @@ function isEligibleForRequest(req, myOffers) {
   if (!requiredBank || requiredBank === 'Any') return true;
   const normRequired = normaliseBank(requiredBank);
   return myOffers.some(o => {
+    if (Number(o.discount || 0) <= 0 && Number(o.cashback || 0) <= 0) return false;
+    if (Number(o.min_spend || 0) > Number(req.amount || 0)) return false;
     if (!o.bank) return false;
     const normMine = normaliseBank(o.bank);
     return normMine.includes(normRequired) || normRequired.includes(normMine);
@@ -48,13 +50,18 @@ function getMatchingOffer(req, myOffers) {
   if (requiredBank && requiredBank !== 'Any') {
     const normRequired = normaliseBank(requiredBank);
     const bankMatch = myOffers.find(o => {
+      if (Number(o.discount || 0) <= 0 && Number(o.cashback || 0) <= 0) return false;
+      if (Number(o.min_spend || 0) > Number(req.amount || 0)) return false;
       if (!o.bank) return false;
       const normMine = normaliseBank(o.bank);
       return normMine.includes(normRequired) || normRequired.includes(normMine);
     });
     if (bankMatch) return bankMatch;
   }
-  return myOffers[0] || null;
+  return myOffers.find(o =>
+    (Number(o.discount || 0) > 0 || Number(o.cashback || 0) > 0) &&
+    Number(o.min_spend || 0) <= Number(req.amount || 0)
+  ) || null;
 }
 
 export default function BrowseRequests({ requests: reqsProp, offers: offersProp, transactions: txsProp = [] }) {
@@ -270,7 +277,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                   <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
                     <div style={{ color: 'var(--text-muted)' }}>Your estimated earning:</div>
                     {(() => {
-                      const discountAmount = req.best_card_info?.discount_amount || Math.round(req.amount * 0.05);
+                      const discountAmount = Number(req.best_card_info?.discount_amount || 0);
                       const earning = Math.round(discountAmount * 0.35);
                       const customerSave = Math.round(discountAmount * 0.50);
                       const platformFee = Math.round(discountAmount * 0.15);
@@ -278,7 +285,7 @@ export default function BrowseRequests({ requests: reqsProp, offers: offersProp,
                         <>
                           <div className="mt-1 flex items-baseline gap-1">
                             <span className="font-bold" style={{ color: '#10b981' }}>₹{earning.toLocaleString('en-IN')}</span>
-                            <span style={{ color: 'var(--text-dim)' }}>from ₹{discountAmount.toLocaleString('en-IN')} card discount</span>
+                            <span style={{ color: 'var(--text-dim)' }}>{discountAmount > 0 ? `from ₹${discountAmount.toLocaleString('en-IN')} validated benefit` : 'Provider must publish validated benefit terms'}</span>
                           </div>
                           <div className="text-[10px] mt-1.5 space-y-0.5" style={{ color: 'var(--text-dim)' }}>
                             <div>💳 Customer saves: ₹{customerSave.toLocaleString('en-IN')}</div>

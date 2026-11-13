@@ -11,7 +11,7 @@ const ScrapedProductSchema = new mongoose.Schema({
   },
   domain: {
     type: String,
-    enum: ['amazon', 'flipkart', 'myntra'],
+    enum: ['amazon', 'flipkart', 'myntra', 'meesho'],
     required: true,
   },
   title: {

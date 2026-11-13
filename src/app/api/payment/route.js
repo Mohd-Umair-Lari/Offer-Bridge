@@ -121,47 +121,32 @@ export async function POST(req) {
     if (existingTx) return NextResponse.json({ error: 'This request already has an active transaction' }, { status: 409 });
 
     const buyerDoc = await User.findById(requestDoc.user_id).lean();
-    const amount = Number(requestDoc.amount);
+    const productAmount = Number(requestDoc.amount);
+    if (!Number.isFinite(productAmount) || productAmount <= 0)
+      return NextResponse.json({ error: 'The request has an invalid product amount' }, { status: 400 });
 
-    let actualDiscountAmount = requestDoc.best_card_info?.discount_amount || 0;
+    let actualDiscountAmount = 0;
     let bestCardForDiscount = requestDoc.best_card_info || null;
 
-    if (!actualDiscountAmount && requestDoc.product_link && amount) {
-      try {
-        const crawlerRes = await fetch(new URL('/api/crawler/extract-product', req.url).toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productUrl: requestDoc.product_link }),
-        });
-
-        if (crawlerRes.ok) {
-          const crawlerData = await crawlerRes.json();
-          if (crawlerData.success && crawlerData.best_card) {
-            actualDiscountAmount = crawlerData.best_card.discount_amount || Math.round(amount * 0.05);
-            bestCardForDiscount = {
-              bank: crawlerData.best_card.bank,
-              card_name: crawlerData.best_card.card_name || crawlerData.best_card.cardName || null,
-              discount_amount: actualDiscountAmount,
-              source: crawlerData.best_card.source || 'estimated',
-            };
-
-            await Request.findByIdAndUpdate(request_id, {
-              best_card_info: bestCardForDiscount,
-            });
-          }
-        }
-      } catch (e) {
-        console.error('[Payment] Extract-product crawler failed:', e);
-      }
+    const offerPercent = Math.max(Number(offerDoc.discount || 0), Number(offerDoc.cashback || 0));
+    const offerCap = Number(offerDoc.discount_cap || 0);
+    const minSpend = Number(offerDoc.min_spend || 0);
+    if (minSpend > productAmount)
+      return NextResponse.json({ error: `This card offer requires a minimum spend of ₹${minSpend.toLocaleString('en-IN')}` }, { status: 400 });
+    if (offerPercent > 0) {
+      const percentageDiscount = Math.round(productAmount * offerPercent / 100);
+      actualDiscountAmount = offerCap > 0 ? Math.min(percentageDiscount, offerCap) : percentageDiscount;
+      bestCardForDiscount = { ...(bestCardForDiscount || {}), discount_amount: actualDiscountAmount, source: 'provider_offer' };
     }
 
-    if (!actualDiscountAmount) {
-      actualDiscountAmount = Math.round(amount * 0.05);
-    }
+    actualDiscountAmount = Math.max(0, Math.min(productAmount, Math.round(actualDiscountAmount)));
+    if (actualDiscountAmount <= 0)
+      return NextResponse.json({ error: 'This offer has no validated consumer discount. The provider must publish eligible discount or cashback terms first.' }, { status: 409 });
 
-    const customerSavings = Math.round(actualDiscountAmount * 0.50);
+    const customerSavings = Math.min(productAmount, Math.round(actualDiscountAmount * 0.50));
     const providerEarning = Math.round(actualDiscountAmount * 0.35);
     const platformCommission = Math.round(actualDiscountAmount * 0.15);
+    const payableAmount = Math.max(1, productAmount - customerSavings);
 
     const tx = await Transaction.create({
       request_id:    requestDoc._id,
@@ -170,7 +155,8 @@ export async function POST(req) {
       provider_id:   user.id,
       buyer_name:    buyerDoc?.fullName  || 'Buyer',
       provider_name: providerDoc?.fullName || 'Provider',
-      amount,
+      amount:        payableAmount,
+      product_amount: productAmount,
       product_title: requestDoc.title,
       product_link:  requestDoc.product_link || '',
       category:      requestDoc.category     || '',
@@ -186,7 +172,7 @@ export async function POST(req) {
       user_id: requestDoc.user_id,
       type:    'payment',
       title:   'Offer Received — Pay Now',
-      message: `${providerDoc?.fullName || 'A provider'} matched "${requestDoc.title}". Pay ₹${amount.toLocaleString('en-IN')} to secure order.`,
+      message: `${providerDoc?.fullName || 'A provider'} matched "${requestDoc.title}". Pay ₹${payableAmount.toLocaleString('en-IN')} after your ₹${customerSavings.toLocaleString('en-IN')} consumer saving to secure order.`,
       tx_id:   tx._id.toString(),
     });
 

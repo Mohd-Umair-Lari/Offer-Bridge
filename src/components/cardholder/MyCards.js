@@ -124,7 +124,7 @@ function CategoryPicker({ selected, onChange }) {
 /* ── Add/Edit card form ───────────────────────────────── */
 const BLANK_CARD = {
   bank: 'HDFC Bank', otherBank: '', cardType: 'Visa', name: '',
-  last4: '', expiry: '', limit: '', isPublic: true, categories: [],
+  last4: '', expiry: '', limit: '', discount: '', cashback: '', discountCap: '', minSpend: '', isPublic: true, categories: [],
 };
 
 function CardForm({ initial = BLANK_CARD, onSave, onCancel, isSaving }) {
@@ -255,6 +255,25 @@ function CardForm({ initial = BLANK_CARD, onSave, onCancel, isSaving }) {
         </div>
       </div>
 
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Discount (%)</label>
+          <input type="number" min="0" max="100" step="0.1" value={card.discount} onChange={set('discount')} placeholder="e.g. 10" className="input-dark text-sm w-full" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Cashback (%)</label>
+          <input type="number" min="0" max="100" step="0.1" value={card.cashback} onChange={set('cashback')} placeholder="e.g. 5" className="input-dark text-sm w-full" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Max benefit (₹)</label>
+          <input type="number" min="0" value={card.discountCap} onChange={set('discountCap')} placeholder="Optional cap" className="input-dark text-sm w-full" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-muted)' }}>Minimum spend (₹)</label>
+        <input type="number" min="0" value={card.minSpend} onChange={set('minSpend')} placeholder="Optional minimum transaction amount" className="input-dark text-sm w-full" />
+      </div>
+
       {/* Categories */}
       <CategoryPicker selected={card.categories} onChange={cats => setCard(p => ({ ...p, categories: cats }))} />
 
@@ -297,6 +316,10 @@ export default function MyCards({ offers, userId, onRefresh }) {
       categories: o.categories?.length ? o.categories : ['Shopping', 'Electronics'],
       status: o.status || 'active',
       limit: o.max_amount || 0,
+      discount: o.discount || 0,
+      cashback: o.cashback || 0,
+      discountCap: o.discount_cap || 0,
+      minSpend: o.min_spend || 0,
       is_public: o.is_public !== false,
       raw: o,
     }));
@@ -355,6 +378,10 @@ export default function MyCards({ offers, userId, onRefresh }) {
         last4:      String(cardData.last4).padStart(4, '0'),
         expiry:     expiryDate,
         max_amount: Number(cardData.limit),
+        discount: Number(cardData.discount || 0),
+        cashback: Number(cardData.cashback || 0),
+        discount_cap: Number(cardData.discountCap || 0),
+        min_spend: Number(cardData.minSpend || 0),
         is_public:  cardData.isPublic,
         categories: cardData.categories,
         status:     'available',
@@ -388,6 +415,10 @@ export default function MyCards({ offers, userId, onRefresh }) {
         last4:      String(cardData.last4).padStart(4, '0'),
         expiry:     expiryDate,
         max_amount: Number(cardData.limit),
+        discount: Number(cardData.discount || 0),
+        cashback: Number(cardData.cashback || 0),
+        discount_cap: Number(cardData.discountCap || 0),
+        min_spend: Number(cardData.minSpend || 0),
         is_public:  cardData.isPublic,
         categories: cardData.categories,
         holder_name: finalBank,

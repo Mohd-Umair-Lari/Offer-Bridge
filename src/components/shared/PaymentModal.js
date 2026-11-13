@@ -51,6 +51,7 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
   if (!tx) return null;
 
   const total       = Number(tx.amount);
+  const productTotal = Number(tx.product_amount || (total + Number(tx.customer_savings || 0)));
   const paise       = Math.round(total * 100);
   const savings     = Number(tx.customer_savings || 0);
   const feeAmt      = Number(tx.platform_commission || Math.round(total * 0.02));
@@ -238,9 +239,10 @@ export default function PaymentModal({ tx: initialTx, onClose, onSuccess }) {
                     <p className="text-[11px] font-semibold" style={{ color: 'var(--text)' }}>Breakdown</p>
                   </div>
                   {[
+                    ['Product price',       `₹${productTotal.toLocaleString('en-IN')}`, 'var(--text-dim)'],
                     ['You Pay',             `₹${total.toLocaleString('en-IN')}`,   'var(--text)'],
                     ['Your Savings (card benefit)', savings > 0 ? `−₹${savings.toLocaleString('en-IN')}` : '—', '#10b981'],
-                    ['Platform Fee (from provider)', `₹${feeAmt.toLocaleString('en-IN')} (2%)`, 'var(--text-dim)'],
+                    ['Platform Fee (from provider)', `₹${feeAmt.toLocaleString('en-IN')} (15% of benefit)`, 'var(--text-dim)'],
                     ['Provider',            tx.provider_name || '—',                'var(--text-dim)'],
                   ].map(([label, value, color]) => (
                     <div key={label} className="flex items-center justify-between px-4 py-2.5"

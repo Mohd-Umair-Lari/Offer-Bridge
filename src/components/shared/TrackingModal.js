@@ -166,8 +166,8 @@ export default function TrackingModal({ tx, onClose, onSuccess }) {
                   <ShieldCheck size={14} style={{ color: 'var(--primary)' }} className="shrink-0 mt-0.5" />
                   <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     Submitting a tracking ID will release <strong style={{ color: 'var(--primary)' }}>
-                      ₹{((tx.amount || 0) - Math.round((tx.amount || 0) * 0.02)).toLocaleString('en-IN')}
-                    </strong> from escrow to you (after 2% platform fee).
+                      {((tx.amount || 0) - (tx.platform_commission || 0)).toLocaleString('en-IN')}
+                    </strong> from escrow to you after the platform share.
                   </p>
                 </div>
 
