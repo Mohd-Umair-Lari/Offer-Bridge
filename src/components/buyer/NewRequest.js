@@ -443,7 +443,7 @@ export default function NewRequest({ onCreated }) {
         rating: product.rating || 0,
         reviewCount: product.reviewCount || 0,
         sellerName: product.sellerName || '',
-        availability: product.availability || 'in_stock',
+        availability: data.fallback ? 'unknown' : (product.availability || 'in_stock'),
         productImage: product.image || '',
         merchant: merchant || '',
         rawOffers: raw_offers || [],
@@ -459,7 +459,7 @@ export default function NewRequest({ onCreated }) {
       }));
 
       setCrawlerFilled(true);
-      setFetchError(null);
+      setFetchError(data.fallback ? data.message : null);
     } catch (err) {
       clearStepTimer();
       setCrawlStep(null);
@@ -726,6 +726,14 @@ export default function NewRequest({ onCreated }) {
                   style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', color: '#eab308' }}>
                   <AlertCircle size={14} className="flex-shrink-0" />
                   <span>Item is currently out of stock / unlisted on {form.merchant || 'merchant'}. You can set your desired price below.</span>
+                </div>
+              )}
+
+              {form.availability === 'unknown' && (
+                <div className="mx-4 mb-2 px-3 py-2 rounded-lg text-xs flex items-center gap-2"
+                  style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)', color: '#eab308' }}>
+                  <AlertCircle size={14} className="flex-shrink-0" />
+                  <span>Provisional details only. The title was inferred from the link; confirm the product name and enter the listed price before submitting.</span>
                 </div>
               )}
 

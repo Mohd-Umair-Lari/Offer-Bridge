@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { getMerchant, validateProductUrl, autoResolveUrl } from '@/lib/crawlers/utils';
+import { getMerchant, validateProductUrl, autoResolveUrl, extractTitleFromSlug } from '@/lib/crawlers/utils';
 import { registry } from '@/lib/crawlers/registry';
 
 export const maxDuration = 300;
@@ -139,7 +139,12 @@ async function getOrScrapeProduct(productUrl, force = false) {
     try { ScrapedProduct = await getModel(); } catch (e) {}
   }
 
-  const scraped = await registry.scrape(targetUrl);
+  let scraped;
+  try {
+    scraped = await registry.scrape(targetUrl);
+  } catch (error) {
+    return buildFallbackResponse(targetUrl, merchant, error);
+  }
 
   if (!scraped.title || scraped.title.length < 3 || scraped.title === 'E-Commerce Product')
     throw new Error('Could not extract a valid product title. The page may have been blocked or the link is invalid.');
@@ -180,6 +185,37 @@ async function getOrScrapeProduct(productUrl, force = false) {
     } catch (e) {}
   }
   return buildResponse({ ...scraped, availability: isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'), bestOffer, updatedAt: new Date() }, merchant, false);
+}
+
+function buildFallbackResponse(url, merchant, error) {
+  const inferredTitle = extractTitleFromSlug(url);
+  const title = inferredTitle || `${merchant[0].toUpperCase()}${merchant.slice(1)} product`;
+  return {
+    success: true,
+    fallback: true,
+    requiresConfirmation: true,
+    cached: false,
+    message: `We could not verify product details from ${merchant}. We inferred the title from the URL only. Please confirm the title and enter the listed price before submitting.`,
+    reason: error?.message || 'Merchant page did not expose verifiable product data.',
+    product: {
+      title,
+      price: 0,
+      originalPrice: 0,
+      currency: 'INR',
+      image: '',
+      rating: 0,
+      reviewCount: 0,
+      availability: 'unknown',
+      sellerName: '',
+      asin: null,
+      lowestEver: 0,
+    },
+    best_card: { bank: '', discount_amount: 0, final_price: 0, card_name: 'No verified card discount' },
+    bank_offers: [],
+    raw_offers: [],
+    merchant,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 function buildResponse(doc, merchant, cached) {
