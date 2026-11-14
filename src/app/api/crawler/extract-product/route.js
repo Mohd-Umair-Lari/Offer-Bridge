@@ -219,36 +219,37 @@ function buildFallbackResponse(url, merchant, error) {
     merchant,
     timestamp: new Date().toISOString(),
   };
+  }
 
   function buildResponse(doc, merchant, cached) {
-    return {
-      success: true,
-      cached,
-      product: {
-        title:         doc.title || '',
-        price:         doc.price || 0,
-        originalPrice: doc.originalPrice || doc.price || 0,
-        currency:      'INR',
-        image:         doc.image || '',
-        rating:        doc.rating || 0,
-        reviewCount:   doc.reviewCount || 0,
-        availability:  doc.availability || 'in_stock',
-        sellerName:    doc.sellerName || '',
-        asin:          doc.asin || null,
-        lowestEver:    doc.lowestEver || 0,
-      },
-      best_card: {
-        bank:            doc.bestOffer?.bestOfferBank           || '',
-        discount_amount: doc.bestOffer?.discountAmount          || 0,
-        final_price:     doc.bestOffer?.finalPriceAfterDiscount || doc.price || 0,
-        card_name:       doc.bestOffer?.offerDescription        || 'No card discount available',
-      },
-      bank_offers: doc.bankOffers || [],
-      raw_offers:  doc.rawOffers || [],
-      merchant:    doc.platform || merchant,
-      timestamp:   doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
-    };
-  }
+      return {
+        success: true,
+        cached,
+        product: {
+          title:         doc.title || '',
+          price:         doc.price || 0,
+          originalPrice: doc.originalPrice || doc.price || 0,
+          currency:      'INR',
+          image:         doc.image || '',
+          rating:        doc.rating || 0,
+          reviewCount:   doc.reviewCount || 0,
+          availability:  doc.availability || 'in_stock',
+          sellerName:    doc.sellerName || '',
+          asin:          doc.asin || null,
+          lowestEver:    doc.lowestEver || 0,
+        },
+        best_card: {
+          bank:            doc.bestOffer?.bestOfferBank           || '',
+          discount_amount: doc.bestOffer?.discountAmount          || 0,
+          final_price:     doc.bestOffer?.finalPriceAfterDiscount || doc.price || 0,
+          card_name:       doc.bestOffer?.offerDescription        || 'No card discount available',
+        },
+        bank_offers: doc.bankOffers || [],
+        raw_offers:  doc.rawOffers || [],
+        merchant:    doc.platform || merchant,
+        timestamp:   doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
+      };
+    }
 
   export async function POST(request) {
     try {
@@ -283,4 +284,3 @@ function buildFallbackResponse(url, merchant, error) {
       return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
     }
   }
-}
