@@ -656,90 +656,136 @@ export async function autoResolveUrl(productUrl) {
   } catch (e) {}
 
   return productUrl;
-}
-
-async function fetchAmazonDirect(url) {
-  const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1]
-             || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
-  const targetUrl = asin ? `https://www.amazon.in/dp/${asin}` : url;
-  const headers = {
-    'User-Agent':      'Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-IN,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Referer':         'https://www.amazon.in/',
-    'sec-fetch-dest':  'document',
-    'sec-fetch-mode':  'navigate',
-    'sec-fetch-site':  'same-origin',
-    'sec-fetch-user':  '?1',
-    'Upgrade-Insecure-Requests': '1',
-  };
-  const res = await fetch(targetUrl, {
-    headers,
-    redirect: 'follow',
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!res.ok) throw new Error(`Amazon direct HTTP ${res.status}`);
-  const html = await res.text();
-  if (!html || html.length < 2000) throw new Error('Amazon direct: response too small');
-  if (isBotWall(html)) throw new Error('Amazon direct: bot wall');
-  if (!html.includes('productTitle') && !html.includes('a-price-whole'))
-    throw new Error('Amazon direct: no product data found');
-  return html;
-}
-
-export async function fetchPage(url, merchant) {
-  const scraperKey = env('SCRAPER_API_KEY');
-  const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : merchant === 'myntra' ? 'Myntra' : 'Meesho';
-
-  // Strategy 1: ScraperAPI (if configured) - best for bypassing bot protection
-  if (scraperKey) {
-    try { return await fetchViaScraperAPI(url); } catch (e) {}
   }
 
-  const throwOn404 = (err) => {
-    if (err.message === 'HTTP_404') {
-      throw new Error('The product URL appears to be invalid or the item no longer exists. Please check the link and try again.');
-    }
-  };
+  // ===== INTERNAL API ENDPOINTS (no external APIs) =====
 
-  // Strategy 2: Jina AI Reader (often bypasses bot walls)
-  try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
+  async function fetchAmazonMobile(url) {
+    const asin = url.match(/\/dp\/([A-Z0-9]{10})/i)?.[1] || url.match(/\/gp\/product\/([A-Z0-9]{10})/i)?.[1];
+    const targetUrl = asin ? `https://www.amazon.in/gp/aw/d/${asin}` : url;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-IN,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Referer': 'https://www.amazon.in/',
+      'sec-fetch-dest': 'document',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-site': 'same-origin',
+      'sec-fetch-user': '?1',
+      'Upgrade-Insecure-Requests': '1',
+    };
+    const res = await fetch(targetUrl, { headers, redirect: 'follow', signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error(`Amazon mobile HTTP ${res.status}`);
+    const html = await res.text();
+    if (!html || html.length < 2000) throw new Error('Amazon mobile: response too small');
+    if (isBotWall(html)) throw new Error('Amazon mobile: bot wall');
+    if (!html.includes('productTitle') && !html.includes('a-price-whole')) throw new Error('Amazon mobile: no product data');
+    return html;
+  }
 
-  // Strategy 3: Mobile/AMP version (less bot protection)
-  const mobileHtml = await fetchMobileVersion(url, merchant);
-  if (mobileHtml) return mobileHtml;
+  async function fetchFlipkartApi(productUrl) {
+    const pidMatch = productUrl.match(/\/p\/(itm[a-zA-Z0-9]{8,40})/i) || productUrl.match(/[?&]pid=([a-zA-Z0-9]{8,40})/i);
+    const pid = pidMatch?.[1];
+    if (!pid) return null;
 
-  // Strategy 4: CorsProxy.io
-  try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
+    const endpoints = [
+      `https://www.flipkart.com/api/3/page/dynamic/product?pid=${pid}`,
+      `https://1.rome.api.flipkart.com/api/4/product/summary?pid=${pid}`,
+      `https://www.flipkart.com/api/3/product/${pid}?screen=dynamic`,
+    ];
 
-  // Strategy 5: Codetabs proxy
-  try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'x-user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36 FKUA/0.0.1/0.0.1/Desktop',
+      'Referer': 'https://www.flipkart.com/',
+      'Origin': 'https://www.flipkart.com',
+      'Accept-Language': 'en-IN,en;q=0.9',
+    };
 
-  // Strategy 6: AllOrigins proxy
-  try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
-
-  // Strategy 7: Direct fetch with rotating browser profiles (with retry)
-  for (const profile of BROWSER_PROFILES) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (const apiUrl of endpoints) {
       try {
-        const html = await tryFetch(url, profile, merchant, 15000);
-        if (!isBotWall(html)) return html;
-        // If bot wall, try next profile
-        break;
-      } catch (e) {
-        if (attempt === 0) await new Promise(r => setTimeout(r, 1000)); // brief delay before retry
-      }
+        const res = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(15000) });
+        if (!res.ok) continue;
+        return await res.json();
+      } catch (e) {}
     }
+    return null;
   }
 
-  // Strategy 8: Amazon direct mobile (for Amazon)
-  if (merchant === 'amazon') {
-    try { return await fetchAmazonDirect(url); } catch (e) {}
+  async function fetchMyntraApi(styleId) {
+    if (!styleId) return null;
+    const endpoints = [
+      `https://www.myntra.com/gateway/v2/product/${styleId}`,
+      `https://www.myntra.com/gateway/v1/product/${styleId}`,
+      `https://www.myntra.com/api/v2/product/${styleId}`,
+    ];
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
+      'Accept': 'application/json',
+      'x-myntra-app': 'myntra',
+      'Accept-Language': 'en-IN,en;q=0.9',
+    };
+    for (const apiUrl of endpoints) {
+      try {
+        const res = await fetch(apiUrl, { headers, signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        return await res.json();
+      } catch (e) {}
+    }
+    return null;
   }
 
-  // Strategy 9: Try textise dot iitty (alternative text extraction)
-  // try { return await fetchViaTextiseDotIitty(url); } catch (e) {}
+  // ===== MAIN FETCH FUNCTION (self-contained, no external APIs) =====
 
-  throw new Error(`${siteName} is blocking automated access from this server. Consider configuring SCRAPER_API_KEY or residential proxies.`);
-}
+  export async function fetchPage(url, merchant) {
+    const siteName = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : merchant === 'myntra' ? 'Myntra' : 'Meesho';
+
+    // Strategy 1: Internal API (highest success rate, no bot protection)
+    if (merchant === 'flipkart') {
+      const apiData = await fetchFlipkartApi(url).catch(() => null);
+      if (apiData) return JSON.stringify(apiData); // Return JSON string for parser
+    }
+    if (merchant === 'myntra') {
+      const styleId = url.match(/\/(\d+)\/buy/i)?.[1] || url.match(/[^\d](\d{6,10})(?:[^\d]|$)/)?.[1];
+      const apiData = await fetchMyntraApi(styleId).catch(() => null);
+      if (apiData) return JSON.stringify(apiData);
+    }
+
+    // Strategy 2: Mobile/AMP version (less bot protection)
+    if (merchant === 'amazon') {
+      try { return await fetchAmazonMobile(url); } catch (e) {}
+    }
+    if (merchant === 'flipkart') {
+      try { return await tryFetch(toMobileFlipkartUrl(url), BROWSER_PROFILES[2], merchant, 15000); } catch (e) {}
+    }
+    if (merchant === 'myntra') {
+      try {
+        const u = new URL(url); u.hostname = 'm.myntra.com';
+        return await tryFetch(u.toString(), BROWSER_PROFILES[2], merchant, 15000);
+      } catch (e) {}
+    }
+
+    // Strategy 3: Direct fetch with rotating browser profiles + retry
+    for (const profile of BROWSER_PROFILES) {
+      try {
+        const html = await withRetry(() => tryFetch(url, profile, merchant, 20000), 2, 1000);
+        if (!isBotWall(html)) return html;
+      } catch (e) {}
+    }
+
+    // Strategy 4: Last resort - try with minimal headers
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': BROWSER_PROFILES[0]['User-Agent'], 'Accept': 'text/html', 'Accept-Language': 'en-IN,en;q=0.9' },
+        signal: AbortSignal.timeout(15000)
+      });
+      if (res.ok) {
+        const html = await res.text();
+        if (html && html.length > 800 && !isBotWall(html)) return html;
+      }
+    } catch (e) {}
+
+    throw new Error(`${siteName} blocked automated access. Try again later or check URL.`);
+  }
