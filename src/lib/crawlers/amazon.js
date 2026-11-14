@@ -213,60 +213,89 @@ export class AmazonCrawler extends BaseCrawler {
   }
 
   parseFromHTML(html, asin, productUrl, lowestEver) {
-    const ld = extractJsonLD(html);
-    const titleMatch = html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
-    const title = titleMatch ? decodeHTML(titleMatch[1].replace(/<[^>]+>/g, '')) : (ld?.name || '');
+      const ld = extractJsonLD(html);
+      const titleMatch = html.match(/<span[^>]+id=["']productTitle["'][^>]*>([\s\S]*?)<\/span>/i);
+      const title = titleMatch ? decodeHTML(titleMatch[1].replace(/<[^>]+>/g, '')) : (ld?.name || '');
 
-    let price = 0;
-    let originalPrice = 0;
+      let price = 0;
+      let originalPrice = 0;
 
-    // Priority-ordered selectors: specific buybox containers first, then broader fallbacks.
-    // The a-price-whole selector is intentionally LAST because it also matches EMI/card-price spans.
-    const primaryPriceSelectors = [
-      // Highest confidence: the "price to pay" container used in modern Amazon India layouts
-      /class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      /class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      /class=["'][^"']*apexPriceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      /class=["'][^"']*corePrice_desktop[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      // Legacy priceblock IDs
-      /id=["']priceblock_dealprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      /id=["']priceblock_ourprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      /id=["']priceblock_saleprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
-      // Buybox block: look for the first a-price-whole INSIDE the corePriceDisplay section only
-      /id=["']corePriceDisplay[^"']*["'][^>]*>[\s\S]{0,600}?class=["']a-price-whole["'][^>]*>([\d,]+)/i,
-      // Very last resort: any a-price-whole span — may catch EMI, so validate later
-      /class=["']a-price-whole["'][^>]*>([\d,]+)/i,
-    ];
-
-    for (const sel of primaryPriceSelectors) {
-      const m = html.match(sel);
-      if (m) {
-        const p = parsePrice(m[1]);
-        // Sanity: price must be >= ₹10 and <= ₹1 crore
-        if (p >= 10 && p <= 10000000) {
-          price = p;
-          break;
+      // NEW: Try JSON-LD offers first (most reliable for structured data)
+      if (ld?.offers) {
+        const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+        if (offerObj?.price) {
+          const p = parsePrice(String(offerObj.price));
+          if (p > 0) price = p;
+        }
+        if (offerObj?.highPrice) {
+          const p = parsePrice(String(offerObj.highPrice));
+          if (p > 0) originalPrice = p;
         }
       }
-    }
 
-    if (!price && ld?.offers) {
-      const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
-      if (offerObj?.price) {
-        const p = parsePrice(String(offerObj.price));
-        if (p > 0) price = p;
+      // NEW: Try meta tags for price
+      if (!price) {
+        const metaPriceMatch = html.match(/<meta[^>]+(?:property|itemprop)=["'](?:price|og:price:amount)["'][^>]+content=["']([^"']+)["']/i);
+        if (metaPriceMatch) {
+          const p = parsePrice(metaPriceMatch[1]);
+          if (p > 0) price = p;
+        }
       }
-    }
+      if (!originalPrice) {
+        const metaMrpMatch = html.match(/<meta[^>]+(?:property|itemprop)=["'](?:og:price:amount|price:original)["'][^>]+content=["']([^"']+)["']/i);
+        if (metaMrpMatch) {
+          const p = parsePrice(metaMrpMatch[1]);
+          if (p > 0) originalPrice = p;
+        }
+      }
 
-    const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
-                     html.match(/M\.?R\.?P\.?\s*:?\s*₹\s*([\d,]+)/i) ||
-                     html.match(/List\s+Price\s*:?\s*₹\s*([\d,]+)/i);
-    if (mrpMatch) {
-      originalPrice = parsePrice(mrpMatch[1]);
-    }
+      // Priority-ordered selectors: specific buybox containers first, then broader fallbacks.
+      // The a-price-whole selector is intentionally LAST because it also matches EMI/card-price spans.
+      const primaryPriceSelectors = [
+        // Highest confidence: the "price to pay" container used in modern Amazon India layouts
+        /class=["'][^"']*reinventPricePriceToPayMargin[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        /class=["'][^"']*priceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        /class=["'][^"']*apexPriceToPay[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        /class=["'][^"']*corePrice_desktop[^"']*["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        // Legacy priceblock IDs
+        /id=["']priceblock_dealprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        /id=["']priceblock_ourprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        /id=["']priceblock_saleprice["'][^>]*>[\s\S]{0,200}?₹\s*([\d,]+)/i,
+        // Buybox block: look for the first a-price-whole INSIDE the corePriceDisplay section only
+        /id=["']corePriceDisplay[^"']*["'][^>]*>[\s\S]{0,600}?class=["']a-price-whole["'][^>]*>([\d,]+)/i,
+        // Very last resort: any a-price-whole span — may catch EMI, so validate later
+        /class=["']a-price-whole["'][^>]*>([\d,]+)/i,
+      ];
 
-    if (originalPrice > 0 && price === 0) price = originalPrice;
-    if (price > 0 && originalPrice === 0) originalPrice = price;
+      for (const sel of primaryPriceSelectors) {
+        const m = html.match(sel);
+        if (m) {
+          const p = parsePrice(m[1]);
+          // Sanity: price must be >= ₹10 and <= ₹1 crore
+          if (p >= 10 && p <= 10000000) {
+            price = p;
+            break;
+          }
+        }
+      }
+
+      if (!price && ld?.offers) {
+        const offerObj = Array.isArray(ld.offers) ? ld.offers[0] : ld.offers;
+        if (offerObj?.price) {
+          const p = parsePrice(String(offerObj.price));
+          if (p > 0) price = p;
+        }
+      }
+
+      const mrpMatch = html.match(/<span[^>]+class=["'][^"']*a-text-price[^"']*["'][^>]*>[\s\S]*?₹\s*([\d,]+)/i) ||
+                       html.match(/M\.?R\.?P\.?\s*:?\s*₹\s*([\d,]+)/i) ||
+                       html.match(/List\s+Price\s*:?\s*₹\s*([\d,]+)/i);
+      if (mrpMatch) {
+        originalPrice = parsePrice(mrpMatch[1]);
+      }
+
+      if (originalPrice > 0 && price === 0) price = originalPrice;
+      if (price > 0 && originalPrice === 0) originalPrice = price;
 
     let rating = 0;
     const ratingMatch = html.match(/([\d.]+)\s*out of 5 stars/i) || html.match(/class=["'][^"']*a-icon-star[^"']*["'][^>]*>([\d.]+)/i);

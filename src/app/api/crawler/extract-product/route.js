@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
-import { getMerchant, validateProductUrl, autoResolveUrl, extractTitleFromSlug } from '@/lib/crawlers/utils';
-import { registry } from '@/lib/crawlers/registry';
+import { NextResponse } from 'next/server'
+import mongoose from 'mongoose'
+import { getMerchant, validateProductUrl, autoResolveUrl, extractTitleFromSlug } from '@/lib/crawlers/utils'
+import { registry } from '@/lib/crawlers/registry'
+import { parseStructuredBankOffers } from '@/lib/crawlers/utils'
+import { evaluateBestOffer } from '@/lib/llmService'
 
 export const maxDuration = 300;
 
@@ -156,36 +158,37 @@ async function getOrScrapeProduct(productUrl, force = false) {
     throw new Error('Could not extract a valid product price. The product may be unavailable or the page was blocked.');
 
   const effectivePrice = scraped.price || 0;
-  const bestOffer = await evaluateOffers(effectivePrice, scraped.rawOffers, scraped.bankOffers);
+    const bankOffers = parseStructuredBankOffers(scraped.rawOffers || []);
+    const bestOffer = await evaluateBestOffer(effectivePrice, scraped.rawOffers || []);
 
-  let doc = { ...scraped, availability: isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'), bestOffer, updatedAt: new Date() };
-  if (ScrapedProduct) {
-    try {
-      doc = await ScrapedProduct.findOneAndUpdate(
-        { url: normalizedUrl },
-        {
-          url:           normalizedUrl,
-          domain:        scraped.platform || merchant,
-          title:         scraped.title,
-          price:         effectivePrice,
-          originalPrice: scraped.originalPrice || effectivePrice,
-          rating:        scraped.rating || 0,
-          reviewCount:   scraped.reviewCount || 0,
-          availability:  isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'),
-          sellerName:    scraped.sellerName || '',
-          asin:          scraped.asin || '',
-          image:         scraped.image || '',
-          rawOffers:     scraped.rawOffers || [],
-          bankOffers:    scraped.bankOffers || [],
-          bestOffer,
-          lastScrapedAt: new Date(),
-        },
-        { new: true, upsert: true },
-      );
-    } catch (e) {}
+    let doc = { ...scraped, availability: isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'), bestOffer, updatedAt: new Date() };
+    if (ScrapedProduct) {
+      try {
+        doc = await ScrapedProduct.findOneAndUpdate(
+          { url: normalizedUrl },
+          {
+            url:           normalizedUrl,
+            domain:        scraped.platform || merchant,
+            title:         scraped.title,
+            price:         effectivePrice,
+            originalPrice: scraped.originalPrice || effectivePrice,
+            rating:        scraped.rating || 0,
+            reviewCount:   scraped.reviewCount || 0,
+            availability:  isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'),
+            sellerName:    scraped.sellerName || '',
+            asin:          scraped.asin || '',
+            image:         scraped.image || '',
+            rawOffers:     scraped.rawOffers || [],
+            bankOffers,
+            bestOffer,
+            lastScrapedAt: new Date(),
+          },
+          { new: true, upsert: true },
+        );
+      } catch (e) {}
+    }
+    return buildResponse({ ...scraped, availability: isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'), bestOffer, updatedAt: new Date() }, merchant, false);
   }
-  return buildResponse({ ...scraped, availability: isOutOfStock ? 'out_of_stock' : (scraped.availability || 'in_stock'), bestOffer, updatedAt: new Date() }, merchant, false);
-}
 
 function buildFallbackResponse(url, merchant, error) {
   const inferredTitle = extractTitleFromSlug(url);
@@ -216,68 +219,68 @@ function buildFallbackResponse(url, merchant, error) {
     merchant,
     timestamp: new Date().toISOString(),
   };
-}
 
-function buildResponse(doc, merchant, cached) {
-  return {
-    success: true,
-    cached,
-    product: {
-      title:         doc.title || '',
-      price:         doc.price || 0,
-      originalPrice: doc.originalPrice || doc.price || 0,
-      currency:      'INR',
-      image:         doc.image || '',
-      rating:        doc.rating || 0,
-      reviewCount:   doc.reviewCount || 0,
-      availability:  doc.availability || 'in_stock',
-      sellerName:    doc.sellerName || '',
-      asin:          doc.asin || null,
-      lowestEver:    doc.lowestEver || 0,
-    },
-    best_card: {
-      bank:            doc.bestOffer?.bestOfferBank           || '',
-      discount_amount: doc.bestOffer?.discountAmount          || 0,
-      final_price:     doc.bestOffer?.finalPriceAfterDiscount || doc.price || 0,
-      card_name:       doc.bestOffer?.offerDescription        || 'No card discount available',
-    },
-    bank_offers: doc.bankOffers || [],
-    raw_offers:  doc.rawOffers || [],
-    merchant:    doc.platform || merchant,
-    timestamp:   doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
-  };
-}
-
-export async function POST(request) {
-  try {
-    const body       = await request.json().catch(() => ({}));
-    const productUrl = (body.productUrl || '').trim();
-    const force      = body.force === true || body.force === 'true';
-    if (!productUrl)
-      return NextResponse.json({ success: false, message: 'productUrl is required in the request body' }, { status: 400 });
-    const result = await getOrScrapeProduct(productUrl, force);
-    return NextResponse.json(result, { status: result.success ? 200 : 400 });
-  } catch (err) {
-    const status = err.message?.includes('out of stock') ? 422
-      : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
-      : 500;
-    return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
+  function buildResponse(doc, merchant, cached) {
+    return {
+      success: true,
+      cached,
+      product: {
+        title:         doc.title || '',
+        price:         doc.price || 0,
+        originalPrice: doc.originalPrice || doc.price || 0,
+        currency:      'INR',
+        image:         doc.image || '',
+        rating:        doc.rating || 0,
+        reviewCount:   doc.reviewCount || 0,
+        availability:  doc.availability || 'in_stock',
+        sellerName:    doc.sellerName || '',
+        asin:          doc.asin || null,
+        lowestEver:    doc.lowestEver || 0,
+      },
+      best_card: {
+        bank:            doc.bestOffer?.bestOfferBank           || '',
+        discount_amount: doc.bestOffer?.discountAmount          || 0,
+        final_price:     doc.bestOffer?.finalPriceAfterDiscount || doc.price || 0,
+        card_name:       doc.bestOffer?.offerDescription        || 'No card discount available',
+      },
+      bank_offers: doc.bankOffers || [],
+      raw_offers:  doc.rawOffers || [],
+      merchant:    doc.platform || merchant,
+      timestamp:   doc.updatedAt ? new Date(doc.updatedAt).toISOString() : new Date().toISOString(),
+    };
   }
-}
 
-export async function GET(request) {
-  try {
-    const searchParams = new URL(request.url).searchParams;
-    const productUrl   = (searchParams.get('url') || '').trim();
-    const force        = searchParams.get('force') === 'true' || searchParams.get('force') === '1';
-    if (!productUrl)
-      return NextResponse.json({ success: false, message: 'url query parameter is required' }, { status: 400 });
-    const result = await getOrScrapeProduct(productUrl, force);
-    return NextResponse.json(result, { status: result.success ? 200 : 400 });
-  } catch (err) {
-    const status = err.message?.includes('out of stock') ? 422
-      : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
-      : 500;
-    return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
+  export async function POST(request) {
+    try {
+      const body       = await request.json().catch(() => ({}));
+      const productUrl = (body.productUrl || '').trim();
+      const force      = body.force === true || body.force === 'true';
+      if (!productUrl)
+        return NextResponse.json({ success: false, message: 'productUrl is required in the request body' }, { status: 400 });
+      const result = await getOrScrapeProduct(productUrl, force);
+      return NextResponse.json(result, { status: result.success ? 200 : 400 });
+    } catch (err) {
+      const status = err.message?.includes('out of stock') ? 422
+        : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
+        : 500;
+      return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
+    }
+  }
+
+  export async function GET(request) {
+    try {
+      const searchParams = new URL(request.url).searchParams;
+      const productUrl   = (searchParams.get('url') || '').trim();
+      const force        = searchParams.get('force') === 'true' || searchParams.get('force') === '1';
+      if (!productUrl)
+        return NextResponse.json({ success: false, message: 'url query parameter is required' }, { status: 400 });
+      const result = await getOrScrapeProduct(productUrl, force);
+      return NextResponse.json(result, { status: result.success ? 200 : 400 });
+    } catch (err) {
+      const status = err.message?.includes('out of stock') ? 422
+        : (err.message?.includes('blocking') || err.message?.includes('blocked') || err.message?.includes('bot')) ? 503
+        : 500;
+      return NextResponse.json({ success: false, message: err.message || 'An unexpected server error occurred.' }, { status });
+    }
   }
 }

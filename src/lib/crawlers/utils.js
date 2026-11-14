@@ -373,6 +373,26 @@ const BROWSER_PROFILES = [
     'sec-fetch-user':     '?1',
     'Upgrade-Insecure-Requests': '1',
   },
+  {
+    // iOS Safari mobile
+    'User-Agent':      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1',
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'sec-fetch-dest':  'document',
+    'sec-fetch-mode':  'navigate',
+    'sec-fetch-site':  'none',
+  },
+  {
+    // Firefox desktop
+    'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0',
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-IN,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'sec-fetch-dest':  'document',
+    'sec-fetch-mode':  'navigate',
+    'sec-fetch-site':  'none',
+  },
 ];
 
 export function toMobileFlipkartUrl(url) {
@@ -439,14 +459,14 @@ async function fetchViaScraperAPI(url) {
   return html;
 }
 
-async function fetchViaJina(url) {
-  const jinaUrl = `https://r.jina.ai/${url}`;
+export async function fetchViaJina(url) {
+  const jinaUrl = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`;
   const jinaKey = env('JINA_API_KEY');
   const headers = {
     Accept:       'text/plain, */*',
     'X-Timeout':  '30',
     'X-No-Cache': 'true',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     ...(jinaKey ? { Authorization: `Bearer ${jinaKey}` } : {}),
   };
   const res = await fetch(jinaUrl, { headers, signal: AbortSignal.timeout(40000) });
@@ -509,6 +529,82 @@ async function fetchViaCodetabs(url) {
   if (!html || html.length < 800) throw new Error('Codetabs empty response');
   if (isBotWall(html)) throw new Error('Codetabs bot wall');
   return html;
+}
+
+// NEW: Fetch via r.jina.ai with textise dot iitty (alternative text extraction)
+async function fetchViaTextiseDotIitty(url) {
+  const proxyUrl = `https://r.jina.ai/http://textise dot iitty?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    signal: AbortSignal.timeout(30000)
+  });
+  if (!res.ok) throw new Error(`Textise HTTP ${res.status}`);
+  const text = await res.text();
+  if (!text || text.length < 500) throw new Error('Textise empty response');
+  return text;
+}
+
+// NEW: Fetch via r.jina.ai with textise dot iitty (alternative text extraction)
+async function fetchViaRentry(url) {
+  try {
+    const proxyUrl = `https://r.jina.ai/http://cc.bingj.com/cache.aspx?d=503-1234-5678&u=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      signal: AbortSignal.timeout(30000)
+    });
+    if (!res.ok) throw new Error(`Bing Cache HTTP ${res.status}`);
+    const text = await res.text();
+    if (!text || text.length < 500) throw new Error('Bing Cache empty response');
+    return text;
+  } catch (e) {
+    throw new Error('Bing Cache unavailable');
+  }
+}
+
+// NEW: Fetch mobile/AMP version which often has less bot protection
+async function fetchMobileVersion(url, merchant) {
+  let mobileUrl = url;
+  
+  if (merchant === 'amazon') {
+    // Amazon mobile
+    mobileUrl = url.replace('www.amazon.', 'www.amazon.').replace('/dp/', '/gp/aw/d/');
+  } else if (merchant === 'flipkart') {
+    // Flipkart mobile
+    try {
+      const u = new URL(url);
+      if (!u.hostname.startsWith('m.')) {
+        u.hostname = 'm.flipkart.com';
+        mobileUrl = u.toString();
+      }
+    } catch {}
+  } else if (merchant === 'myntra') {
+    // Myntra mobile
+    try {
+      const u = new URL(url);
+      u.hostname = 'm.myntra.com';
+      mobileUrl = u.toString();
+    } catch {}
+  }
+  
+  if (mobileUrl === url) return null;
+  
+  for (const profile of BROWSER_PROFILES.slice(2)) { // Use mobile profiles
+    try {
+      const html = await tryFetch(mobileUrl, profile, merchant, 15000);
+      if (!isBotWall(html)) return html;
+    } catch (e) {}
+  }
+  return null;
+}
+
+// NEW: Enhanced residential proxy fetch (if BRIGHT_DATA or similar configured)
+async function fetchViaResidentialProxy(url, merchant) {
+  const proxyUrl = env('RESIDENTIAL_PROXY_URL'); // e.g., http://user:pass@gate.smartproxy.com:10000
+  if (!proxyUrl) throw new Error('No residential proxy configured');
+  
+  // This would need a proxy agent - for now we'll use a simple approach
+  // In production, use: https-proxy-agent or similar
+  throw new Error('Residential proxy not implemented');
 }
 
 export function extractSlugKeywords(urlStr) {
@@ -596,6 +692,7 @@ export async function fetchPage(url, merchant) {
   const scraperKey = env('SCRAPER_API_KEY');
   const siteName   = merchant === 'amazon' ? 'Amazon' : merchant === 'flipkart' ? 'Flipkart' : merchant === 'myntra' ? 'Myntra' : 'Meesho';
 
+  // Strategy 1: ScraperAPI (if configured) - best for bypassing bot protection
   if (scraperKey) {
     try { return await fetchViaScraperAPI(url); } catch (e) {}
   }
@@ -606,35 +703,43 @@ export async function fetchPage(url, merchant) {
     }
   };
 
-  if (merchant === 'flipkart' || merchant === 'myntra') {
-    try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
-    try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
-    try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
-    for (const profile of BROWSER_PROFILES) {
-      try {
-        const html = await tryFetch(url, profile, merchant, 10000);
-        if (!isBotWall(html)) return html;
-      } catch (e) {}
-    }
-    try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
-    throw new Error(`${siteName} is blocking automated access from this server. Try using the Chrome Extension instead.`);
-  }
-
-  if (merchant === 'amazon') {
-    try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
-    try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
-    try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
-    try { return await fetchAmazonDirect(url); } catch (e) {}
-    try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
-    throw new Error(`Amazon is blocking automated access from this server. Try using the Chrome Extension instead.`);
-  }
-
-  for (const profile of BROWSER_PROFILES) {
-    try {
-      const html = await tryFetch(url, profile, merchant, 12000);
-      if (!isBotWall(html)) return html;
-    } catch (e) {}
-  }
+  // Strategy 2: Jina AI Reader (often bypasses bot walls)
   try { return await fetchViaJina(url); } catch (e) { throwOn404(e); }
-  throw new Error(`${siteName} is blocking automated access. Please try again or use the Chrome Extension.`);
+
+  // Strategy 3: Mobile/AMP version (less bot protection)
+  const mobileHtml = await fetchMobileVersion(url, merchant);
+  if (mobileHtml) return mobileHtml;
+
+  // Strategy 4: CorsProxy.io
+  try { return await fetchViaCorsProxyIo(url); } catch (e) { throwOn404(e); }
+
+  // Strategy 5: Codetabs proxy
+  try { return await fetchViaCodetabs(url); } catch (e) { throwOn404(e); }
+
+  // Strategy 6: AllOrigins proxy
+  try { return await fetchViaAllOrigins(url); } catch (e) { throwOn404(e); }
+
+  // Strategy 7: Direct fetch with rotating browser profiles (with retry)
+  for (const profile of BROWSER_PROFILES) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const html = await tryFetch(url, profile, merchant, 15000);
+        if (!isBotWall(html)) return html;
+        // If bot wall, try next profile
+        break;
+      } catch (e) {
+        if (attempt === 0) await new Promise(r => setTimeout(r, 1000)); // brief delay before retry
+      }
+    }
+  }
+
+  // Strategy 8: Amazon direct mobile (for Amazon)
+  if (merchant === 'amazon') {
+    try { return await fetchAmazonDirect(url); } catch (e) {}
+  }
+
+  // Strategy 9: Try textise dot iitty (alternative text extraction)
+  // try { return await fetchViaTextiseDotIitty(url); } catch (e) {}
+
+  throw new Error(`${siteName} is blocking automated access from this server. Consider configuring SCRAPER_API_KEY or residential proxies.`);
 }

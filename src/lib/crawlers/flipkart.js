@@ -222,19 +222,34 @@ function parseFlipkart(html, productUrl) {
 }
 
 async function fetchFlipkartInternalApi(productUrl) {
+  // Extract product ID from URL
+  const pidMatch = productUrl.match(/\/p\/(itm[a-zA-Z0-9]{8,40})/i) || productUrl.match(/[?&]pid=([a-zA-Z0-9]{8,40})/i);
+  const pid = pidMatch ? pidMatch[1] : null;
+  
   const endpoints = [
+    // Original endpoints
     `https://1.rome.api.flipkart.com/api/4/page/fetch?url=${encodeURIComponent(
       productUrl.replace(/^https?:\/\/[^/]+/, '')
     )}`,
     `https://www.flipkart.com${new URL(productUrl).pathname}?_format=json`,
+    
+    // NEW: Additional API endpoints
+    ...(pid ? [
+      `https://www.flipkart.com/api/3/page/dynamic/product?pid=${pid}`,
+      `https://1.rome.api.flipkart.com/api/4/product/summary?pid=${pid}`,
+      `https://www.flipkart.com/api/3/product/${pid}?screen=dynamic`,
+    ] : []),
   ];
+  
   const headers = {
     'User-Agent':   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
     'Accept':       'application/json, text/plain, */*',
     'x-user-agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36 FKUA/0.0.1/0.0.1/Desktop',
     'Referer':      'https://www.flipkart.com/',
     'Origin':       'https://www.flipkart.com',
+    'Accept-Language': 'en-IN,en;q=0.9',
   };
+  
   for (const apiUrl of endpoints) {
     try {
       const res = await fetch(apiUrl, {
@@ -243,12 +258,21 @@ async function fetchFlipkartInternalApi(productUrl) {
       });
       if (!res.ok) continue;
       const json = await res.json();
+      
       let title = '';
       let price = 0;
+      let originalPrice = 0;
       let image = '';
       let rawOffers = [];
+      let rating = 0;
+      let reviewCount = 0;
+      let sellerName = '';
+      let availability = 'in_stock';
+      
       const slugKws = flipkartSlugKeywords(productUrl);
-      const titleCandidates = deepFindAll(json, ['title', 'name', 'productName', 'displayName', 'productTitle', 'shortTitle']);
+      
+      // Try multiple JSON paths for title
+      const titleCandidates = deepFindAll(json, ['title', 'name', 'productName', 'displayName', 'productTitle', 'shortTitle', 'product.title', 'product.name']);
       let bestScore = -1;
       for (const t of titleCandidates) {
         if (typeof t === 'string' && t.length > 3) {
@@ -261,30 +285,75 @@ async function fetchFlipkartInternalApi(productUrl) {
       }
       if (!isUsefulFlipkartTitle(title, slugKws)) title = '';
       
-      const priceCandidates = deepFindAll(json, ['specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice']);
+      // Try multiple JSON paths for price
+      const priceCandidates = deepFindAll(json, [
+        'specialPrice', 'finalPrice', 'sellingPrice', 'finalSellingPrice', 
+        'discountedPrice', 'price', 'mrpPrice', 'basePrice', 'listingPrice',
+        'product.specialPrice', 'product.finalPrice', 'product.sellingPrice',
+        'product.discountedPrice', 'product.price', 'product.mrpPrice',
+        'productBaseInfoV2.price', 'productBaseInfoV2.mrp'
+      ]);
       price = extractBestFlipkartPrice(priceCandidates);
-
-      const img = deepFind(json, ['imageUrl', 'imageURL', 'image', 'primaryImageUrl', 'src']);
+      
+      // MRP
+      const mrpCandidates = deepFindAll(json, ['mrpPrice', 'basePrice', 'listingPrice', 'product.mrpPrice', 'product.basePrice', 'productBaseInfoV2.mrp']);
+      for (const m of mrpCandidates) {
+        const p = parsePrice(String(m));
+        if (p > 0) { originalPrice = p; break; }
+      }
+      if (originalPrice < price) originalPrice = price;
+      
+      // Image
+      const img = deepFind(json, ['imageUrl', 'imageURL', 'image', 'primaryImageUrl', 'src', 'product.imageUrl', 'productBaseInfoV2.imageUrl']);
       if (img && typeof img === 'string' && img.startsWith('http')) image = img;
       
-      const offerTexts = deepFindAll(json, ['title', 'description', 'offerText']);
+      // Rating & Review Count
+      const ratingCandidates = deepFindAll(json, ['rating', 'averageRating', 'product.rating', 'product.averageRating', 'productBaseInfoV2.rating']);
+      for (const r of ratingCandidates) {
+        const parsed = parseFloat(String(r));
+        if (parsed > 0 && parsed <= 5) { rating = parsed; break; }
+      }
+      
+      const reviewCandidates = deepFindAll(json, ['reviewCount', 'ratingCount', 'totalReviews', 'product.reviewCount', 'product.ratingCount']);
+      for (const r of reviewCandidates) {
+        const parsed = parsePrice(String(r));
+        if (parsed > 0) { reviewCount = parsed; break; }
+      }
+      
+      // Seller
+      const sellerCandidates = deepFindAll(json, ['sellerName', 'seller.name', 'product.sellerName']);
+      for (const s of sellerCandidates) {
+        if (typeof s === 'string' && s.length > 1) { sellerName = s; break; }
+      }
+      
+      // Availability
+      const stockCandidates = deepFindAll(json, ['stockStatus', 'availability', 'product.stockStatus', 'product.availability']);
+      for (const s of stockCandidates) {
+        if (typeof s === 'string' && /out.?of.?stock|unavailable|sold.?out/i.test(s)) {
+          availability = 'out_of_stock';
+          break;
+        }
+      }
+      
+      // Offers from JSON
+      const offerTexts = deepFindAll(json, ['title', 'description', 'offerText', 'offers', 'product.offers']);
       for (const text of offerTexts) {
         if (text && typeof text === 'string' && text.length > 10) rawOffers.push(text);
       }
       const jsonStr = JSON.stringify(json);
-      const extraOffers = extractBankOffers(jsonStr.replace(/\\n/g, ' ').replace(/\\"/g, '"'));
+      const extraOffers = extractBankOffers(jsonStr.replace(/\\\\n/g, ' ').replace(/\\\\\"/g, '"'));
       rawOffers = [...new Set([...rawOffers, ...extraOffers])];
-
+      
       if (price > 0 && isUsefulFlipkartTitle(title, slugKws)) {
         return {
           url: productUrl,
           title: decodeHTML(title),
           price,
-          originalPrice: price,
-          rating: 0,
-          reviewCount: 0,
-          availability: 'in_stock',
-          sellerName: '',
+          originalPrice,
+          rating,
+          reviewCount,
+          availability,
+          sellerName,
           image,
           rawOffers,
           bankOffers: parseStructuredBankOffers(rawOffers),

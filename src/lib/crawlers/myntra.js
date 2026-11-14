@@ -45,48 +45,106 @@ async function fetchMyntraInternalApi(styleId, productUrl) {
   const endpoints = [
     `https://www.myntra.com/gateway/v2/product/${styleId}`,
     `https://www.myntra.com/gateway/v1/product/${styleId}`,
+    // NEW: Additional endpoints
+    `https://www.myntra.com/gateway/v2/product/${styleId}?fields=all`,
+    `https://www.myntra.com/api/v2/product/${styleId}`,
   ];
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36',
+    'Accept': 'application/json',
+    'x-myntra-app': 'myntra',
+    'Accept-Language': 'en-IN,en;q=0.9',
+  };
   for (const apiUrl of endpoints) {
     try {
       const res = await fetch(apiUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-          'x-myntra-app': 'myntra',
-        },
+        headers,
         signal: AbortSignal.timeout(10000),
       });
       if (res.ok) {
         const json = await res.json();
-        const style = json?.style || json;
-        const title = style?.name || style?.title || '';
+        const style = json?.style || json?.data?.style || json;
+        const title = style?.name || style?.title || style?.brand?.name + ' ' + style?.name || '';
         let price = 0;
-        const p1 = style?.price?.discounted || style?.price?.mrp || 0;
-        if (p1 > 0) price = p1;
-        if (price === 0) {
-          const v = deepFind(json, ['discounted', 'mrp', 'price', 'sellingPrice']);
-          if (v) price = parsePrice(String(v));
+        let originalPrice = 0;
+        
+        // Try multiple price paths
+        const pricePaths = [
+          style?.price?.discounted,
+          style?.price?.mrp,
+          style?.discounted,
+          style?.mrp,
+          style?.price?.sellingPrice,
+          json?.price?.discounted,
+          json?.price?.mrp,
+        ];
+        for (const p of pricePaths) {
+          if (p && p > 0) { price = parsePrice(String(p)); break; }
         }
+        
+        const mrpPaths = [
+          style?.price?.mrp,
+          style?.mrp,
+          style?.price?.mrpPrice,
+          json?.price?.mrp,
+        ];
+        for (const p of mrpPaths) {
+          if (p && p > 0) { originalPrice = parsePrice(String(p)); break; }
+        }
+        if (originalPrice < price) originalPrice = price;
+        
         let image = '';
         if (style?.media?.albums?.[0]?.images?.[0]?.src) {
           image = style.media.albums[0].images[0].src;
+        } else if (style?.images?.[0]?.src) {
+          image = style.images[0].src;
         }
         if (!image) {
-          image = deepFind(json, ['imageURL', 'src', 'secureUrl']);
+          image = deepFind(json, ['imageURL', 'src', 'secureUrl', 'style.imageURL']);
         }
+        
+        // Rating
+        let rating = parseFloat(style?.ratings?.average) || 
+                    parseFloat(style?.rating) ||
+                    parseFloat(json?.rating) || 0;
+        let reviewCount = style?.ratings?.count || 
+                         style?.reviewCount ||
+                         json?.reviewCount || 0;
+        
+        // Availability
+        const availability = style?.flags?.outOfStock || style?.outOfStock ? 'out_of_stock' : 'in_stock';
+        
+        // Seller
+        const sellerName = style?.seller?.name || style?.brand?.name || '';
+        
+        // Offers from API
+        let rawOffers = [];
+        if (style?.offers) {
+          for (const offer of style.offers) {
+            if (offer?.description) rawOffers.push(offer.description);
+            if (offer?.title) rawOffers.push(offer.title);
+          }
+        }
+        if (json?.offers) {
+          for (const offer of json.offers) {
+            if (offer?.description) rawOffers.push(offer.description);
+            if (offer?.title) rawOffers.push(offer.title);
+          }
+        }
+        
         if (price > 10 && title.length > 3) {
           return {
             url: productUrl,
             title: decodeHTML(title),
             price,
-            originalPrice: style?.price?.mrp || price,
-            rating: parseFloat(style?.ratings?.average) || 0,
-            reviewCount: style?.ratings?.count || 0,
-            availability: 'in_stock',
-            sellerName: style?.seller?.name || '',
+            originalPrice,
+            rating,
+            reviewCount,
+            availability,
+            sellerName,
             image,
-            rawOffers: [],
-            bankOffers: [],
+            rawOffers,
+            bankOffers: parseStructuredBankOffers(rawOffers),
             domain: 'myntra',
             asin: null,
             lowestEver: 0,
